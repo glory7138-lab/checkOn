@@ -11,7 +11,7 @@ services:
     environment:
       - PORT=3033
       - NODE_ENV=production
-      - DB_HOST=jbchcw.com
+      - DB_HOST=172.17.0.1
       - DB_PORT=3307
       - DB_USER=changwon
       - DB_PASSWORD=Changwon0691!
