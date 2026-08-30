@@ -917,6 +917,52 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     font-size: 0.8rem;
   }
 
+  /* Matrix Navigation Buttons & Tabs on Mobile */
+  .matrix-nav-btn.visible {
+    opacity: 0.92;
+    pointer-events: auto;
+  }
+  
+  .matrix-nav-btn {
+    width: 38px;
+    height: 68px;
+    font-size: 1.25rem;
+    border-radius: 34px;
+    box-shadow: 0 6px 18px rgba(20, 40, 160, 0.35);
+  }
+
+  .matrix-nav-btn.btn-prev {
+    left: 180px;
+  }
+
+  .matrix-nav-btn.btn-next {
+    right: 165px;
+  }
+
+  .data-table th.sticky-col-rate, 
+  .data-table td.sticky-col-rate {
+    width: 165px;
+    min-width: 165px;
+  }
+
+  .data-table th.sticky-col-info, 
+  .data-table td.sticky-col-info {
+    min-width: 105px;
+  }
+
+  .matrix-tab-group {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .matrix-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0.4rem 0.4rem;
+    font-size: 0.78rem;
+  }
+
   /* Modal on mobile */
   .modal-content {
     margin: 1rem;
@@ -936,6 +982,12 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   }
   .stat-card {
     padding: 0.75rem 0.85rem;
+  }
+
+  .matrix-nav-btn {
+    width: 34px;
+    height: 60px;
+    font-size: 1.1rem;
   }
 }
 
