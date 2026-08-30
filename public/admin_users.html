@@ -300,7 +300,17 @@
             let searchTimeout = null;
             searchCandidateInput.addEventListener('input', () => {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(searchCandidates, 250);
+                searchTimeout = setTimeout(searchCandidates, 200);
+            });
+            searchCandidateInput.addEventListener('compositionend', () => {
+                clearTimeout(searchTimeout);
+                searchCandidates();
+            });
+            searchCandidateInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimeout);
+                    searchCandidates();
+                }
             });
             areaFilterCandidate.addEventListener('change', searchCandidates);
         }

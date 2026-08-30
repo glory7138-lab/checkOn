@@ -1128,6 +1128,199 @@ app.get('/api/dashboard/stats', async (req, res) => {
         console.error("Dashboard stats error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
+// ==========================================
+// 관리자 설정 & 권한 부여 / 해제 API Routes
+// ==========================================
+
+// 1. 등록된 총괄 관리자 목록 조회
+app.get('/api/admin/users', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        const rows = await conn.query(`
+            SELECT DISTINCT 
+                u.CODE_NO,
+                COALESCE(u.NAME, a.NAME, p.name) AS name,
+                COALESCE(u.PHONE, p.phone) AS phone,
+                COALESCE(u.AREA_CODE, '11') AS area_code,
+                COALESCE(
+                    pa.POSITION,
+                    CASE 
+                        WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                        WHEN d.NAME IS NOT NULL THEN '집사'
+                        ELSE NULL 
+                    END,
+                    u.POSITION,
+                    '관리자'
+                ) AS position
+            FROM CWTB_ADMIN a
+            LEFT JOIN WEB_ADMIN_PHONES p ON a.NAME = p.name
+            LEFT JOIN CWTB_USER u ON (a.NAME = u.NAME OR p.name = u.NAME) AND u.YEAR = ? AND u.DEL_YN = 'N'
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
+            ORDER BY name ASC
+        `, [activeYear, activeYear, activeYear]);
+
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error("GET /api/admin/users error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 2. 관리자 후보 성도 검색 (기존 관리자 제외)
+app.get('/api/admin/candidates', async (req, res) => {
+    const { query, areaCode } = req.query;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        let sql = `
+            SELECT 
+                u.CODE_NO,
+                u.NAME,
+                u.PHONE,
+                u.AREA_CODE,
+                COALESCE(
+                    pa.POSITION,
+                    CASE 
+                        WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                        WHEN d.NAME IS NOT NULL THEN '집사'
+                        ELSE NULL 
+                    END,
+                    u.POSITION,
+                    '성도'
+                ) AS POSITION
+            FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
+            LEFT JOIN CWTB_ADMIN a ON u.NAME = a.NAME
+            LEFT JOIN WEB_ADMIN_PHONES wp ON REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = REPLACE(REPLACE(wp.phone, '-', ''), ' ', '')
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? 
+              AND u.DEL_YN = 'N' 
+              AND u.IS_HIDDEN = 'N'
+              AND r.member_code IS NULL
+              AND a.NAME IS NULL
+              AND wp.phone IS NULL
+        `;
+        const params = [activeYear, activeYear, activeYear];
+
+        if (areaCode) {
+            sql += ` AND u.AREA_CODE = ?`;
+            params.push(areaCode);
+        }
+
+        if (query && query.trim()) {
+            const cleanQ = query.trim();
+            const numQ = cleanQ.replace(/[^0-9]/g, '');
+            if (numQ.length >= 2) {
+                sql += ` AND (u.NAME LIKE ? OR REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') LIKE ?)`;
+                params.push(`%${cleanQ}%`, `%${numQ}%`);
+            } else {
+                sql += ` AND u.NAME LIKE ?`;
+                params.push(`%${cleanQ}%`);
+            }
+        }
+
+        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC LIMIT 100`;
+
+        const rows = await conn.query(sql, params);
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error("GET /api/admin/candidates error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 3. 성도 관리자 지정
+app.post('/api/admin/assign', async (req, res) => {
+    const { name, phone } = req.body;
+    if (!name) {
+        return res.status(400).json({ success: false, error: '성도 이름을 입력해주세요.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        // CWTB_ADMIN에 등록
+        const existing = await conn.query('SELECT * FROM CWTB_ADMIN WHERE NAME = ?', [name]);
+        if (!existing || existing.length === 0) {
+            const maxSeqRows = await conn.query('SELECT COALESCE(MAX(SEQ), 0) + 1 AS nextSeq FROM CWTB_ADMIN');
+            const nextSeq = maxSeqRows[0]?.nextSeq || 1;
+            await conn.query('INSERT INTO CWTB_ADMIN (SEQ, NAME) VALUES (?, ?)', [nextSeq, name]);
+        }
+
+        // WEB_ADMIN_PHONES에 전화번호 등록
+        if (phone) {
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone) {
+                await conn.query(`
+                    INSERT INTO WEB_ADMIN_PHONES (phone, name) 
+                    VALUES (?, ?) 
+                    ON DUPLICATE KEY UPDATE name = ?
+                `, [cleanPhone, name, name]);
+            }
+        }
+
+        await conn.commit();
+        res.json({ success: true, message: `${name} 성도님이 관리자로 지정되었습니다.` });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("POST /api/admin/assign error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 4. 성도 관리자 권한 해제
+app.delete('/api/admin/revoke/:name', async (req, res) => {
+    const { name } = req.params;
+    if (!name) {
+        return res.status(400).json({ success: false, error: '성도 이름을 지정해주세요.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        await conn.query('DELETE FROM CWTB_ADMIN WHERE NAME = ?', [name]);
+        await conn.query('DELETE FROM WEB_ADMIN_PHONES WHERE name = ?', [name]);
+
+        await conn.commit();
+        res.json({ success: true, message: `${name} 님의 관리자 권한이 해제되었습니다.` });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("DELETE /api/admin/revoke error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
         if (conn) conn.release();
     }
 });
