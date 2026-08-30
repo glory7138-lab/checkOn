@@ -40,39 +40,32 @@ async function getActiveYear(conn) {
 // Helper: 주소록(CWTB_USER)에 정식 등록된 새참자를 faithon_newcomer에서 자동 삭제/정리
 async function syncNewcomersWithAddressBook(conn, activeYear) {
     try {
-        const newcomers = await conn.query(`SELECT id, name, phone, COALESCE(area_code, temp_area) as area_code FROM faithon_newcomer`);
+        const newcomers = await conn.query(`SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code FROM faithon_newcomer`);
         if (!newcomers || newcomers.length === 0) return;
 
         for (const nc of newcomers) {
             const cleanPhone = (nc.phone || '').replace(/[^0-9]/g, '');
             let matchedCode = null;
 
-            if (cleanPhone.length >= 10) {
+            // 주소록에 '동일 성명' 및 '동일 구역'으로 정식 등록되었을 때만 정확 매칭
+            if (nc.name && nc.area_code) {
                 const res = await conn.query(`
-                    SELECT CODE_NO FROM CWTB_USER 
-                    WHERE YEAR = ? 
-                      AND DEL_YN = 'N' 
-                      AND REPLACE(REPLACE(PHONE, '-', ''), ' ', '') = ?
-                    LIMIT 1
-                `, [activeYear, cleanPhone]);
-                if (res && res.length > 0) matchedCode = res[0].CODE_NO;
-            }
-
-            if (!matchedCode && nc.name && nc.area_code) {
-                const res = await conn.query(`
-                    SELECT CODE_NO FROM CWTB_USER 
+                    SELECT CODE_NO, NAME, PHONE, AREA_CODE FROM CWTB_USER 
                     WHERE YEAR = ? 
                       AND DEL_YN = 'N' 
                       AND NAME = ? 
                       AND AREA_CODE = ?
                     LIMIT 1
                 `, [activeYear, nc.name.trim(), nc.area_code.trim()]);
-                if (res && res.length > 0) matchedCode = res[0].CODE_NO;
+                
+                if (res && res.length > 0) {
+                    matchedCode = res[0].CODE_NO;
+                }
             }
 
             if (matchedCode) {
                 console.log(`[Auto-Sync] 새참자 '${nc.name}'(${nc.area_code}구역)이 주소록(코드: ${matchedCode})에 정식 등록되어 새참자 테이블에서 자동 정리합니다.`);
-                // 과거 새참자 출석 기록을 정식 코드_NO로 이관
+                // 과거 새참자 출석 기록을 정식 CODE_NO로 이관
                 await conn.query(`
                     UPDATE faithon_attendance 
                     SET member_code = ? 
