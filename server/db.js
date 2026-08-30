@@ -53,9 +53,15 @@ async function initializeTables() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 
-        // 혹시 기존 테이블에 area_code 컬럼이 없으면 추가
+        // 혹시 기존 테이블에 신규 컬럼이 없으면 자동 추가
         try {
-            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN area_code VARCHAR(100) NOT NULL AFTER phone`);
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN area_code VARCHAR(100) NULL AFTER phone`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN memo VARCHAR(255) NULL AFTER area_code`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN created_by VARCHAR(100) NULL AFTER memo`);
         } catch (e) {}
         try {
             await conn.query(`ALTER TABLE faithon_newcomer ADD UNIQUE KEY unique_newcomer (name, area_code)`);
