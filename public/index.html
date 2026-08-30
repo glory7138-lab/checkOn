@@ -56,52 +56,74 @@
             <div class="page-header">
                 <div>
                     <h1 class="page-title">출석 통계 대시보드</h1>
-                    <p class="page-subtitle">창원교회 전체 및 구역별 출석 현황을 한눈에 파악하세요.</p>
+                    <p class="page-subtitle" id="pageSubTitle">구역 출석 현황 및 추세를 한눈에 파악하세요.</p>
                 </div>
-                <div class="header-actions">
-                    <button class="btn btn-outline">
-                        <i class="fa-solid fa-calendar-days"></i> 기간 설정
-                    </button>
-                    <button class="btn btn-primary">
-                        <i class="fa-solid fa-filter"></i> 구역 설정
-                    </button>
+                <div class="header-actions" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                    <!-- Period / Month Selector -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <select class="form-input" id="periodType" style="padding: 0.45rem 0.85rem; font-size: 0.9rem; min-width: 140px;" onchange="handlePeriodChange()">
+                            <option value="recent4">최근 4주 (기본)</option>
+                            <option value="2026-08">2026년 8월</option>
+                            <option value="2026-07">2026년 7월</option>
+                            <option value="2026-06">2026년 6월</option>
+                            <option value="custom">직접 기간 설정 (From~To)</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Range Inputs (Hidden by default) -->
+                    <div id="customDateRange" style="display: none; align-items: center; gap: 0.4rem;">
+                        <input type="date" class="form-input" id="startDate" style="padding: 0.4rem; font-size: 0.85rem;">
+                        <span style="color: var(--text-secondary);">~</span>
+                        <input type="date" class="form-input" id="endDate" style="padding: 0.4rem; font-size: 0.85rem;">
+                        <button class="btn btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="loadDashboardData()">
+                            조회
+                        </button>
+                    </div>
+
+                    <!-- Area Selector -->
+                    <div id="areaContainer" style="min-width: 130px;">
+                        <select class="form-input" id="areaFilter" style="padding: 0.45rem 0.85rem; font-size: 0.9rem;" onchange="loadDashboardData()">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
                 </div>
             </div>
 
             <!-- Stats Overview -->
-            <div class="stats-grid">
+            <div class="stats-grid" id="statsGrid">
                 <div class="card stat-card">
                     <span class="stat-title">금주 주일 출석</span>
-                    <span class="stat-value">1,248</span>
-                    <span class="stat-desc"><i class="fa-solid fa-arrow-trend-up"></i> 지난주 대비 +5.2%</span>
+                    <span class="stat-value" id="valSundayAttend">-</span>
+                    <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
                 <div class="card stat-card">
                     <span class="stat-title">금주 수요 출석</span>
-                    <span class="stat-value">856</span>
-                    <span class="stat-desc"><i class="fa-solid fa-arrow-trend-up"></i> 지난주 대비 +2.1%</span>
+                    <span class="stat-value" id="valWednesdayAttend">-</span>
+                    <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
                 <div class="card stat-card">
-                    <span class="stat-title">새참자 (이번 달)</span>
-                    <span class="stat-value">12</span>
-                    <span class="stat-desc badge badge-success" style="width:fit-content; margin-top:5px;">안정화 진행중</span>
+                    <span class="stat-title">새참자</span>
+                    <span class="stat-value" id="valNewcomerCount">-</span>
+                    <span class="stat-desc badge badge-success" style="width:fit-content; margin-top:5px;">구역 연동</span>
                 </div>
-                <div class="card stat-card">
+                <!-- 예비명단 카드는 관리자(Admin)에게만 노출 -->
+                <div class="card stat-card" id="cardReserveStat" style="display: none;">
                     <span class="stat-title">예비명단 누적</span>
-                    <span class="stat-value">45</span>
-                    <span class="stat-desc" style="color:var(--text-secondary)">지속 관리 필요</span>
+                    <span class="stat-value" id="valReserveCount">-</span>
+                    <span class="stat-desc" style="color:var(--text-secondary)">관리자 전용</span>
                 </div>
             </div>
 
             <!-- Charts Section -->
             <div class="charts-grid">
                 <div class="card chart-container">
-                    <h3>주간 출석 트렌드 (최근 4주)</h3>
+                    <h3 id="trendChartTitle">주간 출석 트렌드</h3>
                     <div class="chart-wrapper">
                         <canvas id="trendChart"></canvas>
                     </div>
                 </div>
                 <div class="card chart-container">
-                    <h3>출석 비율</h3>
+                    <h3>최근 주일 출석 비율</h3>
                     <div class="chart-wrapper">
                         <canvas id="ratioChart"></canvas>
                     </div>
@@ -110,21 +132,292 @@
         </main>
     </div>
 
-    <!-- Chart Logic & Auth -->
+    <!-- Chart Logic & Live Data Fetching -->
     <script>
-        // Auth check
         const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
         if (!currentUser) {
             window.location.href = '/login.html';
-        } else {
-            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
-            const navReserve = document.getElementById('navReserve');
+        }
+
+        const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+        const userArea = currentUser.scope_code || currentUser.area_code || '11';
+
+        // Elements
+        const userNameDisplay = document.getElementById('userNameDisplay');
+        const userRoleDisplay = document.getElementById('userRoleDisplay');
+        const pageSubTitle = document.getElementById('pageSubTitle');
+        const areaFilter = document.getElementById('areaFilter');
+        const navReserve = document.getElementById('navReserve');
+        const cardReserveStat = document.getElementById('cardReserveStat');
+        const periodType = document.getElementById('periodType');
+        const customDateRange = document.getElementById('customDateRange');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+
+        // Stat value elements
+        const valSundayAttend = document.getElementById('valSundayAttend');
+        const diffSundayDesc = document.getElementById('diffSundayDesc');
+        const valWednesdayAttend = document.getElementById('valWednesdayAttend');
+        const diffWednesdayDesc = document.getElementById('diffWednesdayDesc');
+        const valNewcomerCount = document.getElementById('valNewcomerCount');
+        const valReserveCount = document.getElementById('valReserveCount');
+        const trendChartTitle = document.getElementById('trendChartTitle');
+
+        let trendChartInstance = null;
+        let ratioChartInstance = null;
+
+        async function initPage() {
+            // 1. Sidebar & Profile
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
             }
+            if (cardReserveStat) {
+                cardReserveStat.style.display = isAdmin ? 'flex' : 'none';
+            }
 
-            document.getElementById('userNameDisplay').textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-            document.getElementById('userRoleDisplay').textContent = isAdmin ? '총괄 관리자' : `${currentUser.scope_code || currentUser.area_code || ''}구역 담당`;
+            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
+            
+            if (isAdmin) {
+                userRoleDisplay.textContent = '총괄 관리자 권한';
+                pageSubTitle.textContent = '창원교회 전체 및 구역별 실시간 출석 현황과 트렌드를 확인하세요.';
+                await loadAllAreas();
+            } else {
+                userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
+                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 실시간 출석 현황과 트렌드를 확인하세요.`;
+                areaFilter.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
+                areaFilter.disabled = true;
+            }
+
+            // Set default date range inputs
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            endDateInput.value = `${yyyy}-${mm}-${dd}`;
+
+            const monthAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+            const mY = monthAgo.getFullYear();
+            const mM = String(monthAgo.getMonth() + 1).padStart(2, '0');
+            const mD = String(monthAgo.getDate()).padStart(2, '0');
+            startDateInput.value = `${mY}-${mM}-${mD}`;
+
+            initCharts();
+            await loadDashboardData();
+        }
+
+        async function loadAllAreas() {
+            try {
+                const res = await fetch('/api/areas');
+                const json = await res.json();
+                if (json.success && json.data) {
+                    areaFilter.innerHTML = '<option value="">전체 구역</option>';
+                    json.data.forEach(area => {
+                        const opt = document.createElement('option');
+                        opt.value = area;
+                        opt.textContent = `${area}구역`;
+                        areaFilter.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function handlePeriodChange() {
+            const p = periodType.value;
+            if (p === 'custom') {
+                customDateRange.style.display = 'flex';
+            } else {
+                customDateRange.style.display = 'none';
+                loadDashboardData();
+            }
+        }
+
+        async function loadDashboardData() {
+            const area = isAdmin ? areaFilter.value : userArea;
+            const p = periodType.value;
+
+            let url = `/api/dashboard/stats?`;
+            if (area) url += `areaCode=${encodeURIComponent(area)}&`;
+
+            if (p === 'recent4') {
+                trendChartTitle.textContent = `주간 출석 트렌드 (최근 4주)`;
+            } else if (p === 'custom') {
+                const s = startDateInput.value;
+                const e = endDateInput.value;
+                if (!s || !e) {
+                    alert('시작일과 종료일을 모두 선택해주세요.');
+                    return;
+                }
+                url += `startDate=${encodeURIComponent(s)}&endDate=${encodeURIComponent(e)}&`;
+                trendChartTitle.textContent = `출석 트렌드 (${s} ~ ${e})`;
+            } else {
+                url += `month=${encodeURIComponent(p)}&`;
+                trendChartTitle.textContent = `출석 트렌드 (${p})`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                const data = json.data;
+                const m = data.metrics;
+
+                // Update Metric cards with real data
+                valSundayAttend.textContent = `${m.latest_sunday_attend}명`;
+                const sDiff = parseFloat(m.sunday_diff || 0);
+                if (sDiff >= 0) {
+                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 이전 대비 +${sDiff}%`;
+                } else {
+                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 이전 대비 ${sDiff}%`;
+                }
+
+                valWednesdayAttend.textContent = `${m.latest_wednesday_attend}명`;
+                const wDiff = parseFloat(m.wednesday_diff || 0);
+                if (wDiff >= 0) {
+                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 이전 대비 +${wDiff}%`;
+                } else {
+                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 이전 대비 ${wDiff}%`;
+                }
+
+                valNewcomerCount.textContent = `${m.newcomer_count}명`;
+                valReserveCount.textContent = `${m.reserve_count}명`;
+
+                // Update Trend Chart
+                updateTrendChart(data.trend);
+
+                // Update Ratio Chart
+                updateRatioChart(m);
+
+            } catch (err) {
+                console.error("Dashboard data load error:", err);
+            }
+        }
+
+        function initCharts() {
+            Chart.defaults.color = '#6c757d';
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
+            // 1. Trend Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '주일말씀 출석',
+                            data: [],
+                            borderColor: '#1428A0',
+                            backgroundColor: 'rgba(20, 40, 160, 0.08)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#1428A0',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.3,
+                            spanGaps: true
+                        },
+                        {
+                            label: '수요말씀 출석',
+                            data: [],
+                            borderColor: '#4a6cf7',
+                            backgroundColor: 'rgba(74, 108, 247, 0.08)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#4a6cf7',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.3,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            padding: 10,
+                            cornerRadius: 6
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e9ecef' },
+                            border: { display: false },
+                            ticks: { precision: 0 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+
+            // 2. Ratio Chart
+            const ratioCtx = document.getElementById('ratioChart').getContext('2d');
+            ratioChartInstance = new Chart(ratioCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['출석', '미출석', '예비명단'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#1428A0', '#dee2e6', '#e07a00'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, padding: 16, font: { size: 12 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTrendChart(trend) {
+            if (!trendChartInstance) return;
+            trendChartInstance.data.labels = trend.labels || [];
+            trendChartInstance.data.datasets[0].data = trend.sundays || [];
+            trendChartInstance.data.datasets[1].data = trend.wednesdays || [];
+            trendChartInstance.update();
+        }
+
+        function updateRatioChart(m) {
+            if (!ratioChartInstance) return;
+            const attended = m.attended_count || 0;
+            const unattended = m.unattended_count || 0;
+            const reserve = isAdmin ? (m.reserve_count || 0) : 0;
+
+            if (isAdmin) {
+                ratioChartInstance.data.labels = ['출석', '미출석', '예비명단'];
+                ratioChartInstance.data.datasets[0].data = [attended, unattended, reserve];
+                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#dee2e6', '#e07a00'];
+            } else {
+                ratioChartInstance.data.labels = ['출석', '미출석'];
+                ratioChartInstance.data.datasets[0].data = [attended, unattended];
+                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#dee2e6'];
+            }
+            ratioChartInstance.update();
         }
 
         function logout() {
@@ -134,112 +427,7 @@
             }
         }
 
-        // Chart configuration with clean corporate theme styling
-        Chart.defaults.color = '#6c757d';
-        Chart.defaults.font.family = "'Inter', sans-serif";
-        
-        // Trend Chart (Line)
-        const trendCtx = document.getElementById('trendChart').getContext('2d');
-        
-        // Gradient for line
-        const gradientBlue = trendCtx.createLinearGradient(0, 0, 0, 300);
-        gradientBlue.addColorStop(0, 'rgba(20, 40, 160, 0.15)');
-        gradientBlue.addColorStop(1, 'rgba(20, 40, 160, 0.0)');
-
-        const gradientNavy = trendCtx.createLinearGradient(0, 0, 0, 300);
-        gradientNavy.addColorStop(0, 'rgba(74, 108, 247, 0.15)');
-        gradientNavy.addColorStop(1, 'rgba(74, 108, 247, 0.0)');
-
-        new Chart(trendCtx, {
-            type: 'line',
-            data: {
-                labels: ['8월 2일', '8월 9일', '8월 16일', '8월 23일'],
-                datasets: [
-                    {
-                        label: '주일말씀 출석',
-                        data: [1200, 1220, 1180, 1248],
-                        borderColor: '#1428A0',
-                        backgroundColor: gradientBlue,
-                        borderWidth: 2.5,
-                        pointBackgroundColor: '#ffffff',
-                        pointBorderColor: '#1428A0',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        fill: true,
-                        tension: 0.35
-                    },
-                    {
-                        label: '수요말씀 출석',
-                        data: [810, 830, 840, 856],
-                        borderColor: '#4a6cf7',
-                        backgroundColor: gradientNavy,
-                        borderWidth: 2.5,
-                        pointBackgroundColor: '#ffffff',
-                        pointBorderColor: '#4a6cf7',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        fill: true,
-                        tension: 0.35
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } }
-                    },
-                    tooltip: {
-                        backgroundColor: '#1e293b',
-                        titleColor: '#fff',
-                        bodyColor: '#e2e8f0',
-                        padding: 10,
-                        cornerRadius: 6
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        grid: { color: '#e9ecef' },
-                        border: { display: false }
-                    },
-                    x: {
-                        grid: { display: false },
-                        border: { display: false }
-                    }
-                }
-            }
-        });
-
-        // Ratio Chart (Doughnut)
-        const ratioCtx = document.getElementById('ratioChart').getContext('2d');
-        new Chart(ratioCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['출석', '예비명단', '미출석'],
-                datasets: [{
-                    data: [75, 5, 20],
-                    backgroundColor: ['#1428A0', '#e07a00', '#dee2e6'],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '72%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { usePointStyle: true, padding: 16, font: { size: 12 } }
-                    }
-                }
-            }
-        });
+        document.addEventListener('DOMContentLoaded', initPage);
     </script>
 </body>
 </html>

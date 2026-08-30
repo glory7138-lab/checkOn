@@ -599,6 +599,191 @@ app.post('/api/attendance', async (req, res) => {
     }
 });
 
+// ==========================================
+// 대시보드 통계 전용 API Route (최근 4주 / 월별 / 기간별 실데이터 집계)
+// ==========================================
+app.get('/api/dashboard/stats', async (req, res) => {
+    const { areaCode, month, startDate, endDate } = req.query;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. 활성 성도 수 및 새참자 수 집계
+        let memQuery = `
+            SELECT COUNT(*) as cnt 
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+        `;
+        const memParams = [activeYear];
+        if (areaCode) {
+            memQuery += ` AND u.AREA_CODE = ?`;
+            memParams.push(areaCode);
+        }
+        const memRows = await conn.query(memQuery, memParams);
+        const regularMemberCount = Number(memRows[0]?.cnt || 0);
+
+        // 새참자 수
+        let ncQuery = `SELECT COUNT(*) as cnt FROM faithon_newcomer`;
+        const ncParams = [];
+        if (areaCode) {
+            ncQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
+            ncParams.push(areaCode, areaCode);
+        }
+        const ncRows = await conn.query(ncQuery, ncParams);
+        const newcomerCount = Number(ncRows[0]?.cnt || 0);
+
+        // 예비명단 수
+        let resQuery = `SELECT COUNT(*) as cnt FROM faithon_reserve`;
+        const resParams = [];
+        if (areaCode) {
+            resQuery += ` WHERE original_area = ?`;
+            resParams.push(areaCode);
+        }
+        const resRows = await conn.query(resQuery, resParams);
+        const reserveCount = Number(resRows[0]?.cnt || 0);
+
+        // 2. 조회 기간(Date Range) 설정
+        let fromDateStr = startDate;
+        let toDateStr = endDate;
+
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        if (month) {
+            // YYYY-MM
+            const [mY, mM] = month.split('-');
+            fromDateStr = `${mY}-${mM.padStart(2, '0')}-01`;
+            const lastDay = new Date(parseInt(mY), parseInt(mM), 0).getDate();
+            toDateStr = `${mY}-${mM.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            if (toDateStr > todayStr && month === `${yyyy}-${mm}`) {
+                toDateStr = todayStr;
+            }
+        } else if (!fromDateStr || !toDateStr) {
+            // 기본값: 오늘 기준 최근 4주(약 28일)
+            const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+            const fY = fourWeeksAgo.getFullYear();
+            const fM = String(fourWeeksAgo.getMonth() + 1).padStart(2, '0');
+            const fD = String(fourWeeksAgo.getDate()).padStart(2, '0');
+            fromDateStr = `${fY}-${fM}-${fD}`;
+            toDateStr = todayStr;
+        }
+
+        // 3. 해당 기간 내 주일/수요 출석 집계
+        let attQuery = `
+            SELECT a.service_date, a.service_type, COUNT(DISTINCT a.member_code) as attend_cnt
+            FROM faithon_attendance a
+            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+            LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+            WHERE a.service_date >= ? AND a.service_date <= ?
+              AND a.is_attended = TRUE
+              AND (
+                  ? IS NULL 
+                  OR u.AREA_CODE = ? 
+                  OR nc.area_code = ? 
+                  OR nc.temp_area = ?
+              )
+            GROUP BY a.service_date, a.service_type
+            ORDER BY a.service_date ASC
+        `;
+        const attParams = [fromDateStr, toDateStr, areaCode || null, areaCode, areaCode, areaCode];
+        const attRows = await conn.query(attQuery, attParams);
+
+        // 4. 주간 트렌드 라벨 생성 (기간 내 모든 주일 및 수요일 날짜 목록)
+        const dStart = new Date(fromDateStr);
+        const dEnd = new Date(toDateStr);
+        const allDates = [];
+        const sundayMap = {};
+        const wednesdayMap = {};
+
+        attRows.forEach(r => {
+            const d = typeof r.service_date === 'string' ? r.service_date.split('T')[0] : r.service_date.toISOString().split('T')[0];
+            const cnt = Number(r.attend_cnt || 0);
+            if (r.service_type === 'sunday') sundayMap[d] = cnt;
+            if (r.service_type === 'wednesday') wednesdayMap[d] = cnt;
+        });
+
+        // 날짜 순회
+        const curr = new Date(dStart);
+        while (curr <= dEnd && curr <= now) {
+            const day = curr.getDay();
+            const y = curr.getFullYear();
+            const m = String(curr.getMonth() + 1).padStart(2, '0');
+            const dt = String(curr.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${dt}`;
+
+            if (day === 0 || day === 3) {
+                allDates.push({
+                    date: dateStr,
+                    dayName: day === 0 ? '주일' : '수요',
+                    label: `${curr.getMonth() + 1}월 ${curr.getDate()}일(${day === 0 ? '주일' : '수요'})`,
+                    sundayAttend: sundayMap[dateStr] || 0,
+                    wednesdayAttend: wednesdayMap[dateStr] || 0
+                });
+            }
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        // 5. 금주(가장 최근) 주일 및 수요 출석
+        const sundaysOnly = allDates.filter(d => d.dayName === '주일');
+        const wednesdaysOnly = allDates.filter(d => d.dayName === '수요');
+
+        const latestSundayObj = sundaysOnly.length > 0 ? sundaysOnly[sundaysOnly.length - 1] : null;
+        const prevSundayObj = sundaysOnly.length > 1 ? sundaysOnly[sundaysOnly.length - 2] : null;
+
+        const latestWednesdayObj = wednesdaysOnly.length > 0 ? wednesdaysOnly[wednesdaysOnly.length - 1] : null;
+        const prevWednesdayObj = wednesdaysOnly.length > 1 ? wednesdaysOnly[wednesdaysOnly.length - 2] : null;
+
+        const latestSundayCount = latestSundayObj ? latestSundayObj.sundayAttend : 0;
+        const prevSundayCount = prevSundayObj ? prevSundayObj.sundayAttend : 0;
+        const sundayDiff = prevSundayCount > 0 ? (((latestSundayCount - prevSundayCount) / prevSundayCount) * 100).toFixed(1) : 0;
+
+        const latestWednesdayCount = latestWednesdayObj ? latestWednesdayObj.wednesdayAttend : 0;
+        const prevWednesdayCount = prevWednesdayObj ? prevWednesdayObj.wednesdayAttend : 0;
+        const wednesdayDiff = prevWednesdayCount > 0 ? (((latestWednesdayCount - prevWednesdayCount) / prevWednesdayCount) * 100).toFixed(1) : 0;
+
+        // 출석 비율 계산
+        const totalEligible = regularMemberCount + newcomerCount;
+        const attendedCount = latestSundayCount;
+        const unattendedCount = Math.max(0, totalEligible - attendedCount);
+
+        res.json({
+            success: true,
+            data: {
+                metrics: {
+                    latest_sunday_attend: latestSundayCount,
+                    sunday_diff: sundayDiff,
+                    latest_wednesday_attend: latestWednesdayCount,
+                    wednesday_diff: wednesdayDiff,
+                    newcomer_count: newcomerCount,
+                    reserve_count: reserveCount,
+                    total_members: totalEligible,
+                    attended_count: attendedCount,
+                    unattended_count: unattendedCount
+                },
+                trend: {
+                    labels: allDates.map(d => d.label),
+                    sundays: allDates.map(d => (d.dayName === '주일' ? d.sundayAttend : null)),
+                    wednesdays: allDates.map(d => (d.dayName === '수요' ? d.wednesdayAttend : null))
+                },
+                range: {
+                    from: fromDateStr,
+                    to: toDateStr
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Dashboard stats error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`[FaithOn] Server running at http://localhost:${PORT}`);
 });
