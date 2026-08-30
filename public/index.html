@@ -10,7 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (xlsx) for Excel Export -->
+    <!-- ExcelJS for Rich Excel Export with Charts/Images -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <!-- SheetJS fallback -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -743,9 +745,113 @@
         }
 
         // ==========================================
-        // 엑셀 다운로드 (SheetJS 활용 - 교회 실제 양식 100% 일치: 구역별 출석 집계표 + 주일 새참자 성명 매트릭스)
+        // 헬퍼: 엑셀 삽입용 차트 이미지 생성 (캔버스 렌더링)
         // ==========================================
-        function downloadMatrixExcel() {
+        function createChartImageBase64(titleText, labels, dataPoints, strokeColor, maxVal) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 900;
+            canvas.height = 280;
+            const ctx = canvas.getContext('2d');
+
+            // 배경 채우기 (흰색)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 타이틀
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 18px "Malgun Gothic", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(titleText, canvas.width / 2, 30);
+
+            if (!dataPoints || dataPoints.length === 0) return canvas.toDataURL('image/png');
+
+            const paddingLeft = 60;
+            const paddingRight = 40;
+            const paddingTop = 60;
+            const paddingBottom = 45;
+            const plotWidth = canvas.width - paddingLeft - paddingRight;
+            const plotHeight = canvas.height - paddingTop - paddingBottom;
+
+            const rawMax = Math.max(...dataPoints, 5);
+            const rawMin = Math.min(...dataPoints, 0);
+            const yMax = maxVal ? Math.max(maxVal, rawMax + 5) : Math.ceil(rawMax * 1.15);
+            const yMin = Math.max(0, Math.floor(rawMin * 0.85));
+
+            // Y축 그리드 & 라벨
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+
+            const ySteps = 4;
+            for (let i = 0; i <= ySteps; i++) {
+                const yVal = Math.round(yMin + ((yMax - yMin) / ySteps) * i);
+                const yPos = paddingTop + plotHeight - (i / ySteps) * plotHeight;
+
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, yPos);
+                ctx.lineTo(canvas.width - paddingRight, yPos);
+                ctx.stroke();
+
+                ctx.fillText(String(yVal), paddingLeft - 8, yPos + 4);
+            }
+
+            // X축 포인트 좌표 계산
+            const points = [];
+            const count = dataPoints.length;
+            const stepX = count > 1 ? plotWidth / (count - 1) : plotWidth / 2;
+
+            for (let i = 0; i < count; i++) {
+                const x = count > 1 ? paddingLeft + i * stepX : paddingLeft + plotWidth / 2;
+                const val = dataPoints[i];
+                const yNorm = (val - yMin) / (yMax - yMin || 1);
+                const y = paddingTop + plotHeight - yNorm * plotHeight;
+                points.push({ x, y, val, label: labels[i] || '' });
+            }
+
+            // 꺾은선 그리기
+            ctx.strokeStyle = strokeColor || '#2563eb';
+            ctx.lineWidth = 3.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            points.forEach((pt, idx) => {
+                if (idx === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.stroke();
+
+            // 포인트 원 & 데이터 수치 라벨
+            points.forEach((pt) => {
+                // 외부 원
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = strokeColor || '#2563eb';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 데이터 수치 라벨 (포인트 위)
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 13px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(String(pt.val), pt.x, pt.y - 10);
+
+                // X축 날짜 라벨
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(pt.label.replace('2026년 ', ''), pt.x, canvas.height - 15);
+            });
+
+            return canvas.toDataURL('image/png');
+        }
+
+        // ==========================================
+        // 엑셀 다운로드 (ExcelJS 활용 - 꺾은선 그래프 이미지 임베딩 + 구역 집계표 + 새참자 매트릭스)
+        // ==========================================
+        async function downloadMatrixExcel() {
             if (!cachedMembersMatrix || cachedMembersMatrix.length === 0) {
                 alert('다운로드할 출석 데이터가 없습니다.');
                 return;
@@ -783,31 +889,16 @@
                 return a.localeCompare(b);
             });
 
-            const sheetData = [];
-
-            // =========================================================================
-            // [SECTION 1] 주일 성도 참석 현황
-            // =========================================================================
-            sheetData.push(['주일 성도 참석 현황']);
-            sheetData.push([]); // 빈 줄
-
-            // 1-1. 헤더 1행: 구분 | 날짜 | 날짜1 | 날짜2 ... | 한달 평균
-            const headerRow1 = ['구분', '날짜'];
-            sundaySessions.forEach(s => headerRow1.push(s.label.replace('2026년 ', '')));
-            headerRow1.push('한달 평균');
-            sheetData.push(headerRow1);
-
-            // 1-2. 성인 총 출석 인원 행 (합계 행)
-            const adultTotalRow = ['성인', regularList.length]; // 총 재적
+            // 1. 주일 성도 주차별 출석 수치 계산
+            const adultTotalRow = ['성인', regularList.length];
             let allWeeksAdultSum = 0;
             const weekAdultTotals = [];
 
-            sundaySessions.forEach((s, sIdx) => {
+            sundaySessions.forEach((s) => {
                 let weekCount = 0;
                 sortedAreas.forEach(area => {
                     const areaMembers = regularList.filter(m => (m.area || '').trim() === area);
-                    const attCount = areaMembers.filter(m => m.history && m.history[s.date]).length;
-                    weekCount += attCount;
+                    weekCount += areaMembers.filter(m => m.history && m.history[s.date]).length;
                 });
                 adultTotalRow.push(weekCount);
                 weekAdultTotals.push(weekCount);
@@ -815,11 +906,76 @@
             });
             const adultAvg = sundaySessions.length > 0 ? Math.round(allWeeksAdultSum / sundaySessions.length) : 0;
             adultTotalRow.push(adultAvg);
-            sheetData.push(adultTotalRow);
 
-            // 1-3. 출석률(%) 요약 행
-            const rateRow = ['구역', '재적'];
+            // 2. 주일 새참자 주차별 출석 수치 계산
+            const weekNcTotals = new Array(sundaySessions.length).fill(0);
+            newcomerList.forEach(nc => {
+                sundaySessions.forEach((s, sIdx) => {
+                    if (nc.history && nc.history[s.date]) weekNcTotals[sIdx]++;
+                });
+            });
+
+            // 3. 차트 이미지 2개 생성 (Base64)
+            const sessionLabels = sundaySessions.map(s => s.label.replace('2026년 ', ''));
+            const memberChartBase64 = createChartImageBase64('주일 성도 참석 현황', sessionLabels, weekAdultTotals, '#3b82f6');
+            const newcomerChartBase64 = createChartImageBase64('주일 새참자 참석 현황', sessionLabels, weekNcTotals, '#0284c7');
+
+            // ExcelJS Workbook 생성
+            const workbook = new ExcelJS.Workbook();
+            const sheetTitle = `26년${sDate.substring(5, 7)}~${eDate.substring(5, 7)}월_주일출석`;
+            const worksheet = workbook.addWorksheet(sheetTitle, {
+                views: [{ showGridLines: true }]
+            });
+
+            // 컬럼 너비 설정
+            const totalCols = sundaySessions.length + 3;
+            worksheet.columns = [
+                { width: 14 },
+                { width: 12 },
+                ...sundaySessions.map(() => ({ width: 15 })),
+                { width: 14 }
+            ];
+
+            // ---------------------------------------------------------
+            // [SECTION 1] 주일 성도 꺾은선 차트 삽입 (행 1 ~ 14)
+            // ---------------------------------------------------------
+            const imageId1 = workbook.addImage({
+                base64: memberChartBase64,
+                extension: 'png',
+            });
+
+            worksheet.addImage(imageId1, {
+                tl: { col: 0, row: 0 },
+                ext: { width: 780, height: 260 }
+            });
+
+            // 차트 아래 위치 확보를 위해 빈 행 추가
+            for (let i = 1; i <= 14; i++) {
+                worksheet.addRow([]);
+            }
+
+            // 1-1. 주일 성도 테이블 헤더 (행 15)
+            const headerRow1 = ['구분', '날짜', ...sessionLabels, '한달 평균'];
+            const r1 = worksheet.addRow(headerRow1);
+            r1.font = { bold: true };
+            r1.alignment = { horizontal: 'center', vertical: 'middle' };
+            r1.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            // 1-2. 성인 총 출석 행 (행 16)
+            const r2 = worksheet.addRow(adultTotalRow);
+            r2.font = { bold: true, color: { argb: 'FF1E293B' } };
+            r2.alignment = { horizontal: 'center', vertical: 'middle' };
+            r2.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // 연노랑 강조
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            // 1-3. 출석률(%) 요약 행 (행 17)
             const totalRegMembers = regularList.length;
+            const rateRow = ['구역', '재적'];
             sundaySessions.forEach((s, sIdx) => {
                 const count = weekAdultTotals[sIdx];
                 const r = totalRegMembers > 0 ? Math.round((count / totalRegMembers) * 100) : 0;
@@ -829,14 +985,18 @@
                 ? Math.round((allWeeksAdultSum / (totalRegMembers * sundaySessions.length)) * 100)
                 : 0;
             rateRow.push(`${totalOverallRate}%`);
-            sheetData.push(rateRow);
+            const r3 = worksheet.addRow(rateRow);
+            r3.alignment = { horizontal: 'center', vertical: 'middle' };
+            r3.font = { bold: true };
+            r3.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
 
-            // 1-4. 각 구역별 행 (11, 12, 21, 22, 31, 32 ...)
+            // 1-4. 각 구역별 행 (11, 12, 21, 22...)
             sortedAreas.forEach(area => {
                 const areaMembers = regularList.filter(m => (m.area || '').trim() === area);
-                const areaRegisteredCount = areaMembers.length;
-                const row = [area, areaRegisteredCount];
-
+                const row = [area, areaMembers.length];
                 let areaAttSum = 0;
                 sundaySessions.forEach(s => {
                     const attCount = areaMembers.filter(m => m.history && m.history[s.date]).length;
@@ -845,80 +1005,109 @@
                 });
                 const areaAvg = sundaySessions.length > 0 ? Math.round(areaAttSum / sundaySessions.length) : 0;
                 row.push(areaAvg);
-                sheetData.push(row);
+                const areaRow = worksheet.addRow(row);
+                areaRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                areaRow.eachCell(cell => {
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                });
             });
 
-            // 1-5. 교회학교 (유초등부, 중고등부) 안내 행
-            sheetData.push(['교회학교', '유초', ...sundaySessions.map(() => '-'), '-']);
-            sheetData.push(['', '중고', ...sundaySessions.map(() => '-'), '-']);
+            // 1-5. 교회학교 안내 행
+            const schRow1 = worksheet.addRow(['교회학교', '유초', ...sundaySessions.map(() => '-'), '-']);
+            schRow1.alignment = { horizontal: 'center', vertical: 'middle' };
+            schRow1.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
+
+            const schRow2 = worksheet.addRow(['', '중고', ...sundaySessions.map(() => '-'), '-']);
+            schRow2.alignment = { horizontal: 'center', vertical: 'middle' };
+            schRow2.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
 
             // 1-6. 최하단 합계 행
-            const finalAdultSumRow = ['합계', regularList.length];
-            sundaySessions.forEach((s, sIdx) => {
-                finalAdultSumRow.push(weekAdultTotals[sIdx]);
+            const finalAdultSumRow = ['합계', regularList.length, ...weekAdultTotals, adultAvg];
+            const rSum = worksheet.addRow(finalAdultSumRow);
+            rSum.font = { bold: true };
+            rSum.alignment = { horizontal: 'center', vertical: 'middle' };
+            rSum.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE047' } }; // 진한 노랑 강조
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
-            finalAdultSumRow.push(adultAvg);
-            sheetData.push(finalAdultSumRow);
-            sheetData.push(['※ 유초등부, 중고등부는 별도 파악하여 입력']);
-            sheetData.push([]); // 빈 줄
-            sheetData.push([]); // 빈 줄
 
-            // =========================================================================
-            // [SECTION 2] 주일 새참자 참석 현황
-            // =========================================================================
-            sheetData.push(['주일 새참자 참석 현황']);
-            sheetData.push([]); // 빈 줄
+            const note1 = worksheet.addRow(['※ 유초등부, 중고등부는 별도 파악하여 입력']);
+            note1.font = { size: 9, color: { argb: 'FF64748B' } };
 
-            // 2-1. 새참자 헤더: 명단 | 인도자 | 구역 | 날짜1 | 날짜2 ...
-            const ncHeaderRow = ['명단', '인도자', '구역'];
-            sundaySessions.forEach(s => ncHeaderRow.push(s.label.replace('2026년 ', '')));
-            sheetData.push(ncHeaderRow);
+            worksheet.addRow([]); // 빈 줄
+            worksheet.addRow([]); // 빈 줄
 
-            // 2-2. 새참자별 데이터 행 (해당 일자에 출석했으면 새참자 이름 출력)
-            const weekNcTotals = new Array(sundaySessions.length).fill(0);
+            // ---------------------------------------------------------
+            // [SECTION 2] 주일 새참자 꺾은선 차트 삽입
+            // ---------------------------------------------------------
+            const currentLastRow = worksheet.lastRow.number;
+            const imageId2 = workbook.addImage({
+                base64: newcomerChartBase64,
+                extension: 'png',
+            });
 
+            worksheet.addImage(imageId2, {
+                tl: { col: 0, row: currentLastRow },
+                ext: { width: 780, height: 260 }
+            });
+
+            for (let i = 1; i <= 14; i++) {
+                worksheet.addRow([]);
+            }
+
+            // 2-1. 새참자 헤더
+            const ncHeaderRow = ['명단', '인도자', '구역', ...sessionLabels];
+            const rNcH = worksheet.addRow(ncHeaderRow);
+            rNcH.font = { bold: true };
+            rNcH.alignment = { horizontal: 'center', vertical: 'middle' };
+            rNcH.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } }; // 스카이블루 헤더
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            // 2-2. 새참자별 데이터 행 (출석 시 이름 표기)
             if (newcomerList.length === 0) {
-                sheetData.push(['등록된 새참자가 없습니다.', '-', '-', ...sundaySessions.map(() => '')]);
+                const emptyRow = worksheet.addRow(['등록된 새참자가 없습니다.', '-', '-', ...sundaySessions.map(() => '')]);
+                emptyRow.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
             } else {
                 newcomerList.forEach(nc => {
                     const row = [nc.name, nc.guide_name || '-', `${nc.area || '-'}구역`];
-
-                    sundaySessions.forEach((s, sIdx) => {
+                    sundaySessions.forEach((s) => {
                         const attended = nc.history && nc.history[s.date];
-                        if (attended) {
-                            row.push(nc.name); // 이미지 양식과 동일하게 출석한 날짜에 이름 기재
-                            weekNcTotals[sIdx]++;
-                        } else {
-                            row.push(''); // 미출석은 빈 칸
-                        }
+                        row.push(attended ? nc.name : '');
                     });
-                    sheetData.push(row);
+                    const rNc = worksheet.addRow(row);
+                    rNc.alignment = { horizontal: 'center', vertical: 'middle' };
+                    rNc.eachCell(c => {
+                        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                    });
                 });
             }
 
             // 2-3. 새참자 최하단 '계' 합계 행
-            const ncTotalRow = ['계', '', ''];
-            sundaySessions.forEach((s, sIdx) => {
-                ncTotalRow.push(weekNcTotals[sIdx]);
+            const ncTotalRow = ['계', '', '', ...weekNcTotals];
+            const rNcTot = worksheet.addRow(ncTotalRow);
+            rNcTot.font = { bold: true };
+            rNcTot.alignment = { horizontal: 'center', vertical: 'middle' };
+            rNcTot.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBAE6FD' } };
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
-            sheetData.push(ncTotalRow);
-            sheetData.push(['※ 새참자: 주소록에 등록되지 않은 분으로 주일에 성경강연회(인터넷) 말씀 또는 주일 말씀을 듣기위해 방문하신 분']);
 
-            // 3. 워크시트 및 워크북 생성
-            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            const note2 = worksheet.addRow(['※ 새참자: 주소록에 등록되지 않은 분으로 주일에 성경강연회(인터넷) 말씀 또는 주일 말씀을 듣기위해 방문하신 분']);
+            note2.font = { size: 9, color: { argb: 'FF64748B' } };
 
-            // 열 너비 자동 설정
-            const colWidths = [{ wch: 12 }, { wch: 12 }, { wch: 10 }];
-            sundaySessions.forEach(() => colWidths.push({ wch: 15 }));
-            colWidths.push({ wch: 12 });
-            ws['!cols'] = colWidths;
-
-            const wb = XLSX.utils.book_new();
-            const sheetTitle = `26년${sDate.substring(5, 7)}~${eDate.substring(5, 7)}월_주일출석`;
-            XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
-
-            const fileName = `창원교회_주일성도_새참자_참석현황_${currentAreaText}_${sDate}_${eDate}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            // 파일 다운로드 트리거
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `창원교회_주일성도_새참자_참석현황_${currentAreaText}_${sDate}_${eDate}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
         }
 
         function logout() {
