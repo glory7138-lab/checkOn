@@ -127,7 +127,7 @@
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>대시보드</span>
                 </a>
-                <a href="/attend.html" class="nav-item">
+                <a href="/attend.html" class="nav-item" id="navAttend" style="display: none;">
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
@@ -244,13 +244,17 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>대시보드</span>
             </a>
-            <a href="/attend.html" class="mobile-nav-item">
+            <a href="/attend.html" class="mobile-nav-item" id="mobNavAttend" style="display: none;">
                 <i class="fa-solid fa-clipboard-user"></i>
                 <span>출석체크</span>
             </a>
             <a href="/newcomer.html" class="mobile-nav-item">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>새참자</span>
+            </a>
+            <a href="/reserve.html" class="mobile-nav-item" id="mobNavReserve" style="display: none;">
+                <i class="fa-solid fa-users-slash"></i>
+                <span>예비명단</span>
             </a>
             <a href="/admin_users.html" class="mobile-nav-item active">
                 <i class="fa-solid fa-user-shield"></i>
@@ -291,6 +295,12 @@
 
             if (navReserve) navReserve.style.display = isAdmin ? 'flex' : 'none';
             if (navAdminUsers) navAdminUsers.style.display = isAdmin ? 'flex' : 'none';
+            const navAttend = document.getElementById('navAttend');
+            if (navAttend) navAttend.style.display = isAdmin ? 'none' : 'flex';
+            const mobNavAttend = document.getElementById('mobNavAttend');
+            if (mobNavAttend) mobNavAttend.style.display = isAdmin ? 'none' : 'flex';
+            const mobNavReserve = document.getElementById('mobNavReserve');
+            if (mobNavReserve) mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
 
             await loadAreas();
             await loadAdmins();

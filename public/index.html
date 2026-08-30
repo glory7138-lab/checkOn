@@ -44,7 +44,7 @@
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>대시보드</span>
                 </a>
-                <a href="/attend.html" class="nav-item">
+                <a href="/attend.html" class="nav-item" id="navAttend">
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
@@ -99,6 +99,16 @@
                         </select>
                     </div>
                 </div>
+            </div>
+
+            <!-- Category Selector (대시보드 메뉴 아래 성도 참석현황 / 새참자 참석현황 탭) -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+                <button class="matrix-tab active" id="catTabMember" onclick="switchCategoryTab('member')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
+                    <i class="fa-solid fa-users"></i> 성도 참석현황
+                </button>
+                <button class="matrix-tab" id="catTabNewcomer" onclick="switchCategoryTab('newcomer')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
+                    <i class="fa-solid fa-user-plus"></i> 새참자 참석현황
+                </button>
             </div>
 
             <!-- Stats Overview -->
@@ -171,11 +181,11 @@
             <div class="card" style="margin-bottom: 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
                     <div>
-                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="matrixSectionTitle">
                             <i class="fa-solid fa-users" style="color: var(--accent-color); margin-right: 6px;"></i>
                             구역 성도별 출석 현황 & 출석률
                         </h3>
-                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.</p>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;" id="matrixSectionDesc">선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.</p>
                     </div>
 
                     <!-- Service Tabs, Excel & Search -->
@@ -201,7 +211,7 @@
 
                         <div style="width: 170px; position: relative;">
                             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                            <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="성도 이름 검색...">
+                            <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="이름 검색...">
                         </div>
                     </div>
                 </div>
@@ -242,13 +252,17 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>대시보드</span>
             </a>
-            <a href="/attend.html" class="mobile-nav-item">
+            <a href="/attend.html" class="mobile-nav-item" id="mobNavAttend">
                 <i class="fa-solid fa-clipboard-user"></i>
                 <span>출석체크</span>
             </a>
             <a href="/newcomer.html" class="mobile-nav-item">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>새참자</span>
+            </a>
+            <a href="/reserve.html" class="mobile-nav-item" id="mobNavReserve" style="display: none;">
+                <i class="fa-solid fa-users-slash"></i>
+                <span>예비명단</span>
             </a>
             <a href="/admin_users.html" class="mobile-nav-item" id="mobNavAdminUsers" style="display: none;">
                 <i class="fa-solid fa-user-shield"></i>
@@ -295,10 +309,18 @@
         let ratioChartInstance = null;
         let cachedMembersMatrix = [];
         let cachedSessions = [];
+        let cachedTrend = null;
+        let currentCategoryTab = 'member'; // 'member' | 'newcomer'
         let currentMatrixTab = 'sunday'; // 'sunday' | 'wednesday' | 'all'
 
         async function initPage() {
             // 1. Sidebar & Mobile Nav
+            const navAttend = document.getElementById('navAttend');
+            if (navAttend) navAttend.style.display = isAdmin ? 'none' : 'flex';
+
+            const mobNavAttend = document.getElementById('mobNavAttend');
+            if (mobNavAttend) mobNavAttend.style.display = isAdmin ? 'none' : 'flex';
+
             const mobNavReserve = document.getElementById('mobNavReserve');
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
@@ -330,7 +352,6 @@
                 areaFilter.disabled = true;
             }
 
-            // Set default date range: 오늘 기준 일요일 4번과 수요일 4번이 모두 온전히 포함되는 시작일~종료일 자동 계산
             const range = calculateRecent4WeeksRange();
             startDateInput.value = range.startDate;
             endDateInput.value = range.endDate;
@@ -343,7 +364,6 @@
             await loadDashboardData();
         }
 
-        // 오늘 기준 일요일 4회, 수요일 4회가 모두 포함되는 날짜 범위 계산
         function calculateRecent4WeeksRange() {
             const now = new Date();
             const yyyy = now.getFullYear();
@@ -351,34 +371,27 @@
             const dd = String(now.getDate()).padStart(2, '0');
             const endDateStr = `${yyyy}-${mm}-${dd}`;
 
-            // 최근 4번째 일요일 탐색
             const sundays = [];
             let currS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             while (sundays.length < 4) {
-                if (currS.getDay() === 0) {
-                    sundays.push(new Date(currS));
-                }
+                if (currS.getDay() === 0) sundays.push(new Date(currS));
                 currS.setDate(currS.getDate() - 1);
             }
             const fourthSunday = sundays[3];
 
-            // 최근 4번째 수요일 탐색
             const wednesdays = [];
             let currW = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             while (wednesdays.length < 4) {
-                if (currW.getDay() === 3) {
-                    wednesdays.push(new Date(currW));
-                }
+                if (currW.getDay() === 3) wednesdays.push(new Date(currW));
                 currW.setDate(currW.getDate() - 1);
             }
             const fourthWednesday = wednesdays[3];
 
-            // 4번째 일요일과 4번째 수요일 중 더 빠른 날짜를 시작일로 지정하여 4회씩 모두 포함
-            const startObj = fourthSunday < fourthWednesday ? fourthSunday : fourthWednesday;
-            const sY = startObj.getFullYear();
-            const sM = String(startObj.getMonth() + 1).padStart(2, '0');
-            const sD = String(startObj.getDate()).padStart(2, '0');
-            const startDateStr = `${sY}-${sM}-${sD}`;
+            const earlierDate = fourthSunday < fourthWednesday ? fourthSunday : fourthWednesday;
+            const startY = earlierDate.getFullYear();
+            const startM = String(earlierDate.getMonth() + 1).padStart(2, '0');
+            const startD = String(earlierDate.getDate()).padStart(2, '0');
+            const startDateStr = `${startY}-${startM}-${startD}`;
 
             return { startDate: startDateStr, endDate: endDateStr };
         }
@@ -414,7 +427,6 @@
             let url = `/api/dashboard/stats?`;
             if (area) url += `areaCode=${encodeURIComponent(area)}&`;
             url += `startDate=${encodeURIComponent(s)}&endDate=${encodeURIComponent(e)}&`;
-            trendChartTitle.textContent = `출석 트렌드 (${s} ~ ${e})`;
 
             try {
                 const res = await fetch(url);
@@ -423,8 +435,8 @@
 
                 const data = json.data;
                 const m = data.metrics;
+                cachedTrend = data.trend;
 
-                // Update Metric cards with real data
                 valSundayAttend.textContent = `${m.latest_sunday_attend}명`;
                 const sDiff = parseFloat(m.sunday_diff || 0);
                 if (sDiff >= 0) {
@@ -444,13 +456,9 @@
                 valNewcomerCount.textContent = `${m.newcomer_count}명`;
                 valReserveCount.textContent = `${m.reserve_count}명`;
 
-                // Update Trend Chart
-                updateTrendChart(data.trend);
-
-                // Update Ratio Chart (기존 성도 vs 새참자)
+                updateChartsWithCategory();
                 updateRatioChart(m);
 
-                // Update Member Attendance Matrix
                 if (data.member_matrix) {
                     cachedSessions = data.member_matrix.sessions || [];
                     cachedMembersMatrix = data.member_matrix.members || [];
@@ -466,119 +474,79 @@
             Chart.defaults.color = '#6c757d';
             Chart.defaults.font.family = "'Inter', sans-serif";
 
-            // 1. Trend Chart
             const trendCtx = document.getElementById('trendChart').getContext('2d');
             trendChartInstance = new Chart(trendCtx, {
                 type: 'line',
                 data: {
                     labels: [],
                     datasets: [
-                        {
-                            label: '주일말씀 출석',
-                            data: [],
-                            borderColor: '#1428A0',
-                            backgroundColor: 'rgba(20, 40, 160, 0.08)',
-                            borderWidth: 2.5,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#1428A0',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.3,
-                            spanGaps: true
-                        },
-                        {
-                            label: '수요말씀 출석',
-                            data: [],
-                            borderColor: '#4a6cf7',
-                            backgroundColor: 'rgba(74, 108, 247, 0.08)',
-                            borderWidth: 2.5,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#4a6cf7',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: true,
-                            tension: 0.3,
-                            spanGaps: true
-                        }
+                        { label: '주일말씀 출석', data: [], borderColor: '#1428A0', backgroundColor: 'rgba(20, 40, 160, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#1428A0', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3, spanGaps: true },
+                        { label: '수요말씀 출석', data: [], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#06b6d4', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3, spanGaps: true }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } }
-                        },
-                        tooltip: {
-                            backgroundColor: '#1e293b',
-                            padding: 10,
-                            cornerRadius: 6
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#e9ecef' },
-                            border: { display: false },
-                            ticks: { precision: 0 }
-                        },
-                        x: {
-                            grid: { display: false },
-                            border: { display: false }
-                        }
-                    }
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } }, tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 6 } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#e9ecef' }, border: { display: false }, ticks: { precision: 0 } }, x: { grid: { display: false }, border: { display: false } } }
                 }
             });
 
-            // 2. Ratio Chart (Doughnut with Distinct Newcomer & Regular Colors)
             const ratioCtx = document.getElementById('ratioChart').getContext('2d');
             ratioChartInstance = new Chart(ratioCtx, {
                 type: 'doughnut',
-                data: {
-                    labels: ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'],
-                    datasets: [{
-                        data: [0, 0, 0, 0],
-                        backgroundColor: [
-                            '#1428A0', // 삼성 CI 블루 (기존 성도)
-                            '#06b6d4', // 시안/스카이블루 (새참자)
-                            '#e2e8f0', // 라이트 그레이 (미출석)
-                            '#f59e0b'  // 앰버 (예비명단)
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { usePointStyle: true, padding: 14, font: { size: 12 } }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const val = context.raw || 0;
-                                    return ` ${context.label}: ${val}명`;
-                                }
-                            }
-                        }
-                    }
-                }
+                data: { labels: ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'], datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 12 } } } } }
             });
         }
 
-        function updateTrendChart(trend) {
-            if (!trendChartInstance) return;
-            trendChartInstance.data.labels = trend.labels || [];
-            trendChartInstance.data.datasets[0].data = trend.sundays || [];
-            trendChartInstance.data.datasets[1].data = trend.wednesdays || [];
+        function switchCategoryTab(cat) {
+            currentCategoryTab = cat;
+            document.getElementById('catTabMember').classList.toggle('active', cat === 'member');
+            document.getElementById('catTabNewcomer').classList.toggle('active', cat === 'newcomer');
+
+            const titleEl = document.getElementById('matrixSectionTitle');
+            const descEl = document.getElementById('matrixSectionDesc');
+
+            if (cat === 'newcomer') {
+                if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-plus" style="color: #0891b2; margin-right: 6px;"></i> 새참자 참석 현황 & 일자별 명단`;
+                if (descEl) descEl.textContent = `선택된 기간 동안 주일 및 수요말씀에 참석한 새참자 이름과 인도자 명단을 확인하세요.`;
+            } else {
+                if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-users" style="color: var(--accent-color); margin-right: 6px;"></i> 구역 성도별 출석 현황 & 출석률`;
+                if (descEl) descEl.textContent = `선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.`;
+            }
+
+            updateChartsWithCategory();
+            renderMemberMatrix();
+        }
+
+        function updateChartsWithCategory() {
+            if (!trendChartInstance || !cachedTrend) return;
+            const s = startDateInput.value || '';
+            const e = endDateInput.value || '';
+
+            if (currentCategoryTab === 'newcomer') {
+                trendChartTitle.textContent = `새참자 주간 출석 트렌드 (${s} ~ ${e})`;
+                trendChartInstance.data.labels = cachedTrend.labels || [];
+                trendChartInstance.data.datasets[0].label = '새참자 주일말씀 참석';
+                trendChartInstance.data.datasets[0].borderColor = '#0891b2';
+                trendChartInstance.data.datasets[0].pointBorderColor = '#0891b2';
+                trendChartInstance.data.datasets[0].data = cachedTrend.sundays_newcomer || [];
+                trendChartInstance.data.datasets[1].label = '새참자 수요말씀 참석';
+                trendChartInstance.data.datasets[1].borderColor = '#38bdf8';
+                trendChartInstance.data.datasets[1].pointBorderColor = '#38bdf8';
+                trendChartInstance.data.datasets[1].data = cachedTrend.wednesdays_newcomer || [];
+            } else {
+                trendChartTitle.textContent = `성도 주간 출석 트렌드 (${s} ~ ${e})`;
+                trendChartInstance.data.labels = cachedTrend.labels || [];
+                trendChartInstance.data.datasets[0].label = '주일말씀 출석';
+                trendChartInstance.data.datasets[0].borderColor = '#1428A0';
+                trendChartInstance.data.datasets[0].pointBorderColor = '#1428A0';
+                trendChartInstance.data.datasets[0].data = cachedTrend.sundays || [];
+                trendChartInstance.data.datasets[1].label = '수요말씀 출석';
+                trendChartInstance.data.datasets[1].borderColor = '#06b6d4';
+                trendChartInstance.data.datasets[1].pointBorderColor = '#06b6d4';
+                trendChartInstance.data.datasets[1].data = cachedTrend.wednesdays || [];
+            }
             trendChartInstance.update();
         }
 
@@ -596,7 +564,6 @@
             const ncRate = total > 0 ? ((ncAttended / total) * 100).toFixed(1) : '0.0';
             const unRate = total > 0 ? ((unattended / total) * 100).toFixed(1) : '0.0';
 
-            // 1. Update summary bar
             const summaryTotal = document.getElementById('summaryTotalMembers');
             const summaryReg = document.getElementById('summaryRegularAttend');
             const summaryNc = document.getElementById('summaryNewcomerAttend');
@@ -614,30 +581,19 @@
                 dateBadge.textContent = lastSession ? lastSession.label.replace('2026년 ', '') : '금주 주일';
             }
 
-            // 2. Update Doughnut Chart
             if (isAdmin) {
                 const resRate = total > 0 ? ((reserve / total) * 100).toFixed(1) : '0.0';
-                ratioChartInstance.data.labels = [
-                    `기존 성도: ${regAttended}명 (${regRate}%)`,
-                    `새참자: ${ncAttended}명 (${ncRate}%)`,
-                    `미출석: ${unattended}명 (${unRate}%)`,
-                    `예비명단: ${reserve}명 (${resRate}%)`
-                ];
+                ratioChartInstance.data.labels = [`기존 성도: ${regAttended}명 (${regRate}%)`, `새참자: ${ncAttended}명 (${ncRate}%)`, `미출석: ${unattended}명 (${unRate}%)`, `예비명단: ${reserve}명 (${resRate}%)`];
                 ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended, reserve];
                 ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'];
             } else {
-                ratioChartInstance.data.labels = [
-                    `기존 성도: ${regAttended}명 (${regRate}%)`,
-                    `새참자: ${ncAttended}명 (${ncRate}%)`,
-                    `미출석: ${unattended}명 (${unRate}%)`
-                ];
+                ratioChartInstance.data.labels = [`기존 성도: ${regAttended}명 (${regRate}%)`, `새참자: ${ncAttended}명 (${ncRate}%)`, `미출석: ${unattended}명 (${unRate}%)`];
                 ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended];
                 ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0'];
             }
             ratioChartInstance.update();
         }
 
-        // 탭 전환 (주일말씀 / 수요말씀 / 전체)
         function switchMatrixTab(tab) {
             currentMatrixTab = tab;
             document.getElementById('tabSunday').classList.toggle('active', tab === 'sunday');
@@ -651,26 +607,22 @@
 
             const isAllAreas = !areaFilter.value;
             const infoLeft = isAllAreas ? '113px' : '45px';
-
-            // 선택된 탭에 따라 날짜 세션 필터링
             const activeSessions = cachedSessions.filter(s => {
                 if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
                 if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
-                return true; // 'all'
+                return true;
             });
 
-            // 1. Build Header with sticky and dynamic session dates
             let headerHtml = `<th class="sticky-col-seq">순번</th>`;
-            if (isAllAreas) {
-                headerHtml += `<th class="sticky-col-area">구역</th>`;
-            }
-            headerHtml += `<th class="sticky-col-info" style="left: ${infoLeft};">성도 정보 & 직분</th>`;
+            if (isAllAreas) headerHtml += `<th class="sticky-col-area">구역</th>`;
+            const infoTitle = currentCategoryTab === 'newcomer' ? '새참자 & 인도자' : '성도 정보 & 직분';
+            headerHtml += `<th class="sticky-col-info" style="left: ${infoLeft};">${infoTitle}</th>`;
             matrixHeaderRow.innerHTML = headerHtml;
 
             activeSessions.forEach(s => {
                 const th = document.createElement('th');
                 th.style.textAlign = 'center';
-                th.style.minWidth = '78px';
+                th.style.minWidth = '85px';
                 th.style.padding = '0.85rem 0.5rem';
                 th.textContent = s.label.replace('2026년 ', '');
                 matrixHeaderRow.appendChild(th);
@@ -683,19 +635,15 @@
             barTh.textContent = tabLabelText;
             matrixHeaderRow.appendChild(barTh);
 
-            // 2. Build Body
+            let targetList = currentCategoryTab === 'newcomer' ? cachedMembersMatrix.filter(m => !!m.is_newcomer) : cachedMembersMatrix.filter(m => !m.is_newcomer);
             const query = (memberSearchInput ? memberSearchInput.value : '').trim().toLowerCase();
-            const filtered = cachedMembersMatrix.filter(m => 
-                (m.name && m.name.toLowerCase().includes(query)) ||
-                (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
-                (m.position && m.position.toLowerCase().includes(query)) ||
-                (m.area && m.area.includes(query))
-            );
+            const filtered = targetList.filter(m => (m.name && m.name.toLowerCase().includes(query)) || (m.guide_name && m.guide_name.toLowerCase().includes(query)) || (m.position && m.position.toLowerCase().includes(query)) || (m.area && m.area.includes(query)));
 
             memberMatrixBody.innerHTML = '';
             if (filtered.length === 0) {
                 const totalCols = (isAllAreas ? 4 : 3) + activeSessions.length;
-                memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
+                const emptyMsg = currentCategoryTab === 'newcomer' ? '해당 기간/구역에 등록된 새참자가 없습니다.' : '조회된 성도가 없습니다.';
+                memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">${emptyMsg}</td></tr>`;
                 updateDateScrollButtons();
                 return;
             }
@@ -717,15 +665,11 @@
                     badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">집사</span>`;
                 } else if (pos && pos !== '성도') {
                     badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">${pos}</span>`;
-                } else {
-                    badgeHtml = ''; // '성도'는 뱃지 미표시
                 }
 
-                // Odd vs Even Area Styling
                 const areaNum = parseInt(m.area, 10);
                 const isEvenArea = !isNaN(areaNum) && (areaNum % 2 === 0);
 
-                // Session date stamp cells & count
                 let sessionCells = '';
                 let attendCnt = 0;
 
@@ -735,108 +679,49 @@
                         attendCnt++;
                         let stampColor = '#1428A0';
                         let stampBg = 'rgba(20, 40, 160, 0.1)';
+                        if (isNewcomer) { stampColor = '#0891b2'; stampBg = 'rgba(6, 182, 212, 0.12)'; } 
+                        else if (isEvenArea) { stampColor = '#0d9488'; stampBg = 'rgba(13, 148, 136, 0.12)'; }
 
                         if (isNewcomer) {
-                            stampColor = '#0891b2';
-                            stampBg = 'rgba(6, 182, 212, 0.12)';
-                        } else if (isEvenArea) {
-                            // 짝수 구역: 에메랄드 틸 색상
-                            stampColor = '#0d9488';
-                            stampBg = 'rgba(13, 148, 136, 0.12)';
+                            sessionCells += `<td style="text-align: center; vertical-align: middle;"><div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; background: ${stampBg}; border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 6px; padding: 0.25rem 0.45rem;"><span style="font-weight: 700; font-size: 0.82rem; color: #0e7490;">${m.name}</span><span style="font-size: 0.7rem; color: var(--text-secondary);">(${m.guide_name || '인도자미상'})</span></div></td>`;
+                        } else {
+                            sessionCells += `<td style="text-align: center; vertical-align: middle;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.8rem;" title="${s.date} 출석"><i class="fa-solid fa-check"></i></span></td>`;
                         }
-
-                        sessionCells += `
-                            <td style="text-align: center; vertical-align: middle;">
-                                <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.8rem;" title="${s.date} 출석">
-                                    <i class="fa-solid fa-check"></i>
-                                </span>
-                            </td>
-                        `;
                     } else {
-                        sessionCells += `
-                            <td style="text-align: center; vertical-align: middle;">
-                                <span style="color: #cbd5e1; font-weight: bold; font-size: 1.1rem;">-</span>
-                            </td>
-                        `;
+                        sessionCells += `<td style="text-align: center; vertical-align: middle;"><span style="color: #cbd5e1; font-weight: bold; font-size: 1.1rem;">-</span></td>`;
                     }
                 });
 
-                // Horizontal Attendance Progress Bar calculated based on active tab sessions
                 const totalSessions = activeSessions.length;
                 const rate = totalSessions > 0 ? Math.round((attendCnt / totalSessions) * 100) : 0;
-
                 let barColor = 'linear-gradient(90deg, #1428A0 0%, #3b82f6 100%)';
-                if (isNewcomer) {
-                    barColor = 'linear-gradient(90deg, #0891b2 0%, #06b6d4 100%)';
-                } else if (rate === 0) {
-                    barColor = '#cbd5e1';
-                } else if (rate < 50) {
-                    barColor = 'linear-gradient(90deg, #e11d48 0%, #f43f5e 100%)';
-                } else if (isEvenArea) {
-                    // 짝수 구역: 틸 그라데이션
-                    barColor = 'linear-gradient(90deg, #0d9488 0%, #2dd4bf 100%)';
-                }
+                if (isNewcomer) barColor = 'linear-gradient(90deg, #0891b2 0%, #06b6d4 100%)';
+                else if (rate === 0) barColor = '#cbd5e1';
+                else if (rate < 50) barColor = 'linear-gradient(90deg, #e11d48 0%, #f43f5e 100%)';
+                else if (isEvenArea) barColor = 'linear-gradient(90deg, #0d9488 0%, #2dd4bf 100%)';
 
-                const barHtml = `
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                        <div style="flex: 1; height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; position: relative;">
-                            <div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div>
-                        </div>
-                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 70px; text-align: right;">
-                            ${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${attendCnt}/${totalSessions})</span>
-                        </span>
-                    </div>
-                `;
+                const barHtml = `<div style="display: flex; align-items: center; gap: 10px; width: 100%;"><div style="flex: 1; height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; position: relative;"><div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div></div><span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 70px; text-align: right;">${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${attendCnt}/${totalSessions})</span></span></div>`;
 
-                // 구역 뱃지 (홀수 구역: 블루, 짝수 구역: 틸/에메랄드 그린)
                 let areaBadgeStyle = 'background: rgba(20, 40, 160, 0.08); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.2);';
-                if (isEvenArea) {
-                    areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
-                }
+                if (isEvenArea) areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
 
-                const seqTd = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>`;
-                const areaTd = isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : '';
-                const infoTd = `
-                    <td class="sticky-col-info" style="left: ${infoLeft};">
-                        <div style="display: flex; align-items: center; flex-wrap: wrap;">
-                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
-                                ${m.name}
-                            </span>
-                            ${badgeHtml}
-                            ${isNewcomer ? `<span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 6px;">(인도: ${m.guide_name || '-'})</span>` : ''}
-                        </div>
-                    </td>
-                `;
-                const rateTd = `<td class="sticky-col-rate">${barHtml}</td>`;
-
-                tr.innerHTML = `${seqTd}${areaTd}${infoTd}${sessionCells}${rateTd}`;
+                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: wrap;"><span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.78rem; color: var(--text-secondary); margin-left: 6px;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
                 memberMatrixBody.appendChild(tr);
             });
-
-            // Update Left/Right Navigation buttons
             updateDateScrollButtons();
         }
 
-        // ==========================================
-        // 날짜 영역 좌우 스크롤 & 마우스 이동 내비게이션
-        // ==========================================
         const tableContainerEl = document.getElementById('matrixTableContainer');
         const btnScrollLeft = document.getElementById('btnDateScrollLeft');
         const btnScrollRight = document.getElementById('btnDateScrollRight');
 
-        function scrollDateColumns(delta) {
-            if (tableContainerEl) {
-                tableContainerEl.scrollBy({ left: delta, behavior: 'smooth' });
-            }
-        }
+        function scrollDateColumns(delta) { if (tableContainerEl) tableContainerEl.scrollBy({ left: delta, behavior: 'smooth' }); }
 
         function updateDateScrollButtons() {
             if (!tableContainerEl || !btnScrollLeft || !btnScrollRight) return;
             const scrollLeft = tableContainerEl.scrollLeft;
             const maxScroll = tableContainerEl.scrollWidth - tableContainerEl.clientWidth;
-
             if (maxScroll > 15) {
-                // Scrollable
                 btnScrollLeft.classList.toggle('visible', scrollLeft > 10);
                 btnScrollRight.classList.toggle('visible', scrollLeft < maxScroll - 10);
             } else {
@@ -847,71 +732,42 @@
 
         if (tableContainerEl) {
             tableContainerEl.addEventListener('scroll', updateDateScrollButtons, { passive: true });
-            
-            // Mouse pointer positioning & auto track
             tableContainerEl.addEventListener('mousemove', (e) => {
                 const rect = tableContainerEl.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const totalWidth = rect.width;
                 const maxScroll = tableContainerEl.scrollWidth - tableContainerEl.clientWidth;
-
                 if (maxScroll <= 15) return;
-
-                // Position buttons near the middle date area dynamically
-                if (btnScrollLeft) {
-                    btnScrollLeft.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
-                }
-                if (btnScrollRight) {
-                    btnScrollRight.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
-                }
+                if (btnScrollLeft) btnScrollLeft.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
+                if (btnScrollRight) btnScrollRight.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
             });
-
             window.addEventListener('resize', updateDateScrollButtons);
         }
 
-        // ==========================================
-        // 엑셀 다운로드 (SheetJS 활용)
-        // ==========================================
         function downloadMatrixExcel() {
             if (!cachedMembersMatrix || cachedMembersMatrix.length === 0) {
-                alert('다운로드할 성도 출석 데이터가 없습니다.');
+                alert('다운로드할 출석 데이터가 없습니다.');
                 return;
             }
-
             const isAllAreas = !areaFilter.value;
             const currentAreaText = isAllAreas ? '전체구역' : `${areaFilter.value}구역`;
+            const catName = currentCategoryTab === 'newcomer' ? '새참자' : '성도';
             const tabName = currentMatrixTab === 'sunday' ? '주일말씀' : (currentMatrixTab === 'wednesday' ? '수요말씀' : '전체집회');
             const sDate = startDateInput.value || '';
             const eDate = endDateInput.value || '';
-
-            // 현재 선택된 탭의 날짜 세션 목록
             const activeSessions = cachedSessions.filter(s => {
                 if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
                 if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
                 return true;
             });
-
             const query = (memberSearchInput ? memberSearchInput.value : '').trim().toLowerCase();
-            const filtered = cachedMembersMatrix.filter(m => 
-                (m.name && m.name.toLowerCase().includes(query)) ||
-                (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
-                (m.position && m.position.toLowerCase().includes(query)) ||
-                (m.area && m.area.includes(query))
-            );
+            let targetList = currentCategoryTab === 'newcomer' ? cachedMembersMatrix.filter(m => !!m.is_newcomer) : cachedMembersMatrix.filter(m => !m.is_newcomer);
+            const filtered = targetList.filter(m => (m.name && m.name.toLowerCase().includes(query)) || (m.guide_name && m.guide_name.toLowerCase().includes(query)) || (m.position && m.position.toLowerCase().includes(query)) || (m.area && m.area.includes(query)));
 
-            // 1. 헤더 생성
             const headers = ['순번'];
             if (isAllAreas) headers.push('구역');
-            headers.push('성도명', '직분', '구분', '인도자');
+            headers.push(currentCategoryTab === 'newcomer' ? '새참자명' : '성도명', '직분', '구분', '인도자');
+            activeSessions.forEach(s => headers.push(s.label.replace('2026년 ', '')));
+            headers.push('출석횟수', '총집회수', currentMatrixTab === 'sunday' ? '주일출석률' : (currentMatrixTab === 'wednesday' ? '수요출석률' : '전체출석률'));
 
-            activeSessions.forEach(s => {
-                headers.push(s.label.replace('2026년 ', ''));
-            });
-
-            const tabRateHeader = currentMatrixTab === 'sunday' ? '주일출석률' : (currentMatrixTab === 'wednesday' ? '수요출석률' : '전체출석률');
-            headers.push('출석횟수', '총집회수', tabRateHeader);
-
-            // 2. 데이터 행 생성
             const rows = [];
             filtered.forEach((m, idx) => {
                 let attendCnt = 0;
@@ -926,7 +782,11 @@
                     const attended = m.history && m.history[s.date];
                     if (attended) {
                         attendCnt++;
-                        row.push('O');
+                        if (currentCategoryTab === 'newcomer') {
+                            row.push(`${m.name}(${m.guide_name || '인도자미상'})`);
+                        } else {
+                            row.push('O');
+                        }
                     } else {
                         row.push('-');
                     }

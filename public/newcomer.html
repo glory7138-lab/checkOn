@@ -219,7 +219,7 @@
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>대시보드</span>
                 </a>
-                <a href="/attend.html" class="nav-item">
+                <a href="/attend.html" class="nav-item" id="navAttend">
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
@@ -313,13 +313,17 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>대시보드</span>
             </a>
-            <a href="/attend.html" class="mobile-nav-item">
+            <a href="/attend.html" class="mobile-nav-item" id="mobNavAttend">
                 <i class="fa-solid fa-clipboard-user"></i>
                 <span>출석체크</span>
             </a>
             <a href="/newcomer.html" class="mobile-nav-item active">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>새참자</span>
+            </a>
+            <a href="/reserve.html" class="mobile-nav-item" id="mobNavReserve" style="display: none;">
+                <i class="fa-solid fa-users-slash"></i>
+                <span>예비명단</span>
             </a>
             <a href="/admin_users.html" class="mobile-nav-item" id="mobNavAdminUsers" style="display: none;">
                 <i class="fa-solid fa-user-shield"></i>
@@ -391,6 +395,11 @@
 
         async function initPage() {
             // 1. Sidebar & Mobile nav setup
+            const navAttend = document.getElementById('navAttend');
+            const mobNavAttend = document.getElementById('mobNavAttend');
+            if (navAttend) navAttend.style.display = isAdmin ? 'none' : 'flex';
+            if (mobNavAttend) mobNavAttend.style.display = isAdmin ? 'none' : 'flex';
+
             const mobNavReserve = document.getElementById('mobNavReserve');
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
@@ -522,11 +531,19 @@
                         ${regDate}
                     </td>
                     <td style="text-align: center;">
-                        <div style="display: flex; gap: 6px; justify-content: center;">
-                            <button class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="openEditModal(${nc.id})">
+                        <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                            <button class="btn btn-outline" style="padding: 0.32rem 0.6rem; font-size: 0.8rem;" onclick="openEditModal(${nc.id})" title="정보 수정">
                                 <i class="fa-solid fa-pen"></i> 수정
                             </button>
-                            <button class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: rgba(220, 53, 69, 0.3); color: var(--danger-color);" onclick="deleteNewcomer(${nc.id}, '${nc.name}')">
+                            ${isAdmin ? `
+                            <button class="btn btn-outline" style="padding: 0.32rem 0.6rem; font-size: 0.8rem; color: var(--accent-color); border-color: rgba(20, 40, 160, 0.3);" onclick="promptMoveNewcomerArea(${nc.id}, '${nc.name}', '${nc.area_code}')" title="다른 구역으로 이동">
+                                <i class="fa-solid fa-arrows-split-up-and-left"></i> 구역이동
+                            </button>
+                            <button class="btn btn-outline" style="padding: 0.32rem 0.6rem; font-size: 0.8rem; color: var(--warning-color); border-color: rgba(224, 122, 0, 0.3);" onclick="moveNewcomerToReserve(${nc.id}, '${nc.name}', '${nc.area_code}')" title="예비명단으로 이동">
+                                <i class="fa-solid fa-user-clock"></i> 예비명단
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-outline" style="padding: 0.32rem 0.6rem; font-size: 0.8rem; border-color: rgba(220, 53, 69, 0.3); color: var(--danger-color);" onclick="deleteNewcomer(${nc.id}, '${nc.name}')" title="삭제">
                                 <i class="fa-solid fa-trash"></i> 삭제
                             </button>
                         </div>
@@ -630,6 +647,71 @@
                 errorDiv.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
+            }
+        }
+
+        async function promptMoveNewcomerArea(id, name, currentArea) {
+            const nc = newcomersList.find(n => n.id === id);
+            if (!nc) return;
+            const newArea = prompt(`'${name}' 새참자의 이동할 구역 번호를 입력하세요:\n(현재: ${currentArea}구역, 예: 11, 12, 21, 31 등)`, currentArea);
+            if (!newArea || newArea.trim() === '' || newArea.trim() === currentArea) return;
+
+            const cleanArea = newArea.replace(/[^0-9]/g, '');
+            if (!cleanArea) {
+                alert('올바른 구역 번호를 입력해주세요.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/newcomers/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nc.name,
+                        guide_name: nc.guide_name,
+                        phone: nc.phone,
+                        area_code: cleanArea,
+                        memo: nc.memo
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert(`'${name}' 새참자가 ${cleanArea}구역으로 이동되었습니다.`);
+                    await fetchNewcomers();
+                } else {
+                    alert(json.error || '구역 이동 중 오류가 발생했습니다.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('구역 이동 처리 중 서버 오류가 발생했습니다.');
+            }
+        }
+
+        async function moveNewcomerToReserve(id, name, areaCode) {
+            if (!confirm(`'${name}' 새참자를 예비명단으로 이동하시겠습니까?\n(이동 시 구역 출석체크 목록에서 제외되며, 예비명단 관리에서 언제든 구역으로 복귀시킬 수 있습니다.)`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/reserve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        member_code: `NC_${id}`,
+                        original_area: areaCode,
+                        reason: '관리자 새참자 예비명단 이동'
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert(`'${name}' 새참자가 예비명단으로 이동되었습니다.`);
+                    await fetchNewcomers();
+                } else {
+                    alert(json.error || '예비명단 이동 중 오류가 발생했습니다.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('예비명단 이동 처리 중 서버 오류가 발생했습니다.');
             }
         }
 

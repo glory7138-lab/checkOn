@@ -476,7 +476,7 @@ app.delete('/api/newcomers/:id', async (req, res) => {
 // 예비명단(Reserve) 전용 API Routes
 // ==========================================
 
-// 예비명단 조회
+// 예비명단 조회 (정규 성도 및 새참자 모두 지원)
 app.get('/api/reserve', async (req, res) => {
     let conn;
     try {
@@ -485,9 +485,13 @@ app.get('/api/reserve', async (req, res) => {
 
         const rows = await conn.query(`
             SELECT r.id, r.member_code, r.original_area, r.reason, r.added_at,
-                   u.NAME as name, u.PHONE as phone, u.POSITION as position
+                   COALESCE(u.NAME, nc.name) as name, 
+                   COALESCE(u.PHONE, nc.phone) as phone, 
+                   COALESCE(u.POSITION, '새참자') as position,
+                   CASE WHEN r.member_code LIKE 'NC_%' THEN 1 ELSE 0 END as is_newcomer
             FROM faithon_reserve r
             LEFT JOIN CWTB_USER u ON r.member_code = u.CODE_NO AND u.YEAR = ?
+            LEFT JOIN faithon_newcomer nc ON r.member_code = CONCAT('NC_', nc.id)
             ORDER BY r.added_at DESC
         `, [activeYear]);
 
@@ -875,11 +879,13 @@ app.get('/api/dashboard/stats', async (req, res) => {
             toDateStr = todayStr;
         }
 
-        // 3. 해당 기간 내 주일/수요 출석 집계 (DATE_FORMAT으로 타임존 오차 방지)
+        // 3. 해당 기간 내 주일/수요 출석 집계 (정규 성도 및 새참자 구분 집계)
         let attQuery = `
             SELECT DATE_FORMAT(a.service_date, '%Y-%m-%d') as service_date, 
                    a.service_type, 
-                   COUNT(DISTINCT a.member_code) as attend_cnt
+                   COUNT(DISTINCT a.member_code) as total_attend_cnt,
+                   SUM(CASE WHEN a.member_code NOT LIKE 'NC_%' THEN 1 ELSE 0 END) as regular_attend_cnt,
+                   SUM(CASE WHEN a.member_code LIKE 'NC_%' THEN 1 ELSE 0 END) as newcomer_attend_cnt
             FROM faithon_attendance a
             LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
             LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
@@ -901,12 +907,26 @@ app.get('/api/dashboard/stats', async (req, res) => {
         // 4. 주간 트렌드 날짜 생성
         const sundayMap = {};
         const wednesdayMap = {};
+        const sundayRegMap = {};
+        const sundayNcMap = {};
+        const wednesdayRegMap = {};
+        const wednesdayNcMap = {};
 
         attRows.forEach(r => {
             const d = r.service_date;
-            const cnt = Number(r.attend_cnt || 0);
-            if (r.service_type === 'sunday') sundayMap[d] = cnt;
-            if (r.service_type === 'wednesday') wednesdayMap[d] = cnt;
+            const cnt = Number(r.total_attend_cnt || 0);
+            const regCnt = Number(r.regular_attend_cnt || 0);
+            const ncCnt = Number(r.newcomer_attend_cnt || 0);
+            if (r.service_type === 'sunday') {
+                sundayMap[d] = cnt;
+                sundayRegMap[d] = regCnt;
+                sundayNcMap[d] = ncCnt;
+            }
+            if (r.service_type === 'wednesday') {
+                wednesdayMap[d] = cnt;
+                wednesdayRegMap[d] = regCnt;
+                wednesdayNcMap[d] = ncCnt;
+            }
         });
 
         // 날짜 순회
@@ -928,7 +948,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     dayName: day === 0 ? '주일' : '수요',
                     label: `${curr.getMonth() + 1}월 ${curr.getDate()}일(${day === 0 ? '주일' : '수요'})`,
                     sundayAttend: day === 0 ? (sundayMap[dateStr] || 0) : null,
-                    wednesdayAttend: day === 3 ? (wednesdayMap[dateStr] || 0) : null
+                    sundayRegular: day === 0 ? (sundayRegMap[dateStr] || 0) : null,
+                    sundayNewcomer: day === 0 ? (sundayNcMap[dateStr] || 0) : null,
+                    wednesdayAttend: day === 3 ? (wednesdayMap[dateStr] || 0) : null,
+                    wednesdayRegular: day === 3 ? (wednesdayRegMap[dateStr] || 0) : null,
+                    wednesdayNewcomer: day === 3 ? (wednesdayNcMap[dateStr] || 0) : null
                 });
             }
             curr.setDate(curr.getDate() + 1);
@@ -1131,7 +1155,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 trend: {
                     labels: allDates.map(d => d.label),
                     sundays: allDates.map(d => d.sundayAttend),
-                    wednesdays: allDates.map(d => d.wednesdayAttend)
+                    wednesdays: allDates.map(d => d.wednesdayAttend),
+                    sundays_regular: allDates.map(d => d.sundayRegular),
+                    sundays_newcomer: allDates.map(d => d.sundayNewcomer),
+                    wednesdays_regular: allDates.map(d => d.wednesdayRegular),
+                    wednesdays_newcomer: allDates.map(d => d.wednesdayNewcomer)
                 },
                 member_matrix: {
                     sessions: allDates.map(d => ({
