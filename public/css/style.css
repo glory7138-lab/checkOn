@@ -390,22 +390,24 @@ button {
 
 .matrix-nav-btn {
   position: absolute;
-  top: 45px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 1.5px solid var(--accent-color);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 76px;
+  border-radius: 38px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid var(--accent-color);
   color: var(--accent-color);
-  box-shadow: 0 4px 12px rgba(20, 40, 160, 0.25);
+  box-shadow: 0 8px 24px rgba(20, 40, 160, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 25;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   opacity: 0;
   pointer-events: none;
+  font-size: 1.5rem;
 }
 
 .matrix-scroll-wrapper:hover .matrix-nav-btn.visible {
@@ -416,12 +418,12 @@ button {
 .matrix-nav-btn:hover {
   background: var(--accent-color);
   color: #ffffff;
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(20, 40, 160, 0.35);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 10px 30px rgba(20, 40, 160, 0.45);
 }
 
 .matrix-nav-btn.btn-prev {
-  left: 235px;
+  left: 240px;
 }
 
 .matrix-nav-btn.btn-next {
