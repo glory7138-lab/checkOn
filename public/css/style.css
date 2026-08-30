@@ -490,6 +490,44 @@ button {
   background: #f8fafc;
 }
 
+/* Matrix Service Tabs (주일 / 수요 / 전체) */
+.matrix-tab-group {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  gap: 4px;
+}
+
+.matrix-tab {
+  border: none;
+  background: transparent;
+  padding: 0.45rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.matrix-tab:hover {
+  color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.matrix-tab.active {
+  background: var(--accent-color);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(20, 40, 160, 0.25);
+  font-weight: 700;
+}
+
 .data-table th {
   background: #f8fafc;
   padding: 0.85rem 1rem;

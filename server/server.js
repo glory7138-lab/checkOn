@@ -1044,36 +1044,37 @@ app.get('/api/dashboard/stats', async (req, res) => {
             areaNcs.forEach(m => allRoster.push({ ...m, code: `NC_${m.id}` }));
         });
 
-        // 해당 기간 내 모든 주일 출석 레코드 가져오기
-        const sundayDates = sundaysOnly.map(s => s.date);
+        // 해당 기간 내 모든 주일 및 수요 출석 레코드 가져오기
         let individualAttMap = {};
+        const indQuery = `
+            SELECT a.member_code, DATE_FORMAT(a.service_date, '%Y-%m-%d') as s_date, a.service_type
+            FROM faithon_attendance a
+            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') >= ? 
+              AND DATE_FORMAT(a.service_date, '%Y-%m-%d') <= ?
+              AND a.is_attended = TRUE
+        `;
+        const indRows = await conn.query(indQuery, [fromDateStr, toDateStr]);
+        indRows.forEach(r => {
+            const key = `${r.member_code}_${r.s_date}`;
+            individualAttMap[key] = true;
+        });
 
-        if (sundayDates.length > 0) {
-            const indQuery = `
-                SELECT a.member_code, DATE_FORMAT(a.service_date, '%Y-%m-%d') as s_date
-                FROM faithon_attendance a
-                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') >= ? 
-                  AND DATE_FORMAT(a.service_date, '%Y-%m-%d') <= ?
-                  AND a.service_type = 'sunday'
-                  AND a.is_attended = TRUE
-            `;
-            const indRows = await conn.query(indQuery, [fromDateStr, toDateStr]);
-            indRows.forEach(r => {
-                const key = `${r.member_code}_${r.s_date}`;
-                individualAttMap[key] = true;
-            });
-        }
-
-        const totalSundaySessions = sundayDates.length;
         const memberAttendanceList = allRoster.map(m => {
             const history = {};
-            let attendCnt = 0;
-            sundayDates.forEach(d => {
-                const attended = !!individualAttMap[`${m.code}_${d}`];
-                history[d] = attended;
-                if (attended) attendCnt++;
+            let sundayAttendCnt = 0;
+            let wednesdayAttendCnt = 0;
+            let totalAttendCnt = 0;
+
+            allDates.forEach(d => {
+                const attended = !!individualAttMap[`${m.code}_${d.date}`];
+                history[d.date] = attended;
+                if (attended) {
+                    totalAttendCnt++;
+                    if (d.dayName === '주일') sundayAttendCnt++;
+                    if (d.dayName === '수요') wednesdayAttendCnt++;
+                }
             });
-            const rate = totalSundaySessions > 0 ? Math.round((attendCnt / totalSundaySessions) * 100) : 0;
+
             return {
                 code: m.code,
                 name: m.NAME,
@@ -1082,9 +1083,9 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 is_newcomer: !!m.is_newcomer,
                 guide_name: m.guide_name,
                 history,
-                attend_count: attendCnt,
-                total_sessions: totalSundaySessions,
-                rate
+                sunday_attend_count: sundayAttendCnt,
+                wednesday_attend_count: wednesdayAttendCnt,
+                total_attend_count: totalAttendCnt
             };
         });
 
@@ -1109,7 +1110,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     wednesdays: allDates.map(d => d.wednesdayAttend)
                 },
                 member_matrix: {
-                    sessions: sundaysOnly.map(s => ({ date: s.date, label: s.label })),
+                    sessions: allDates.map(d => ({
+                        date: d.date,
+                        label: d.label,
+                        dayName: d.dayName,
+                        service_type: d.dayName === '주일' ? 'sunday' : 'wednesday'
+                    })),
                     members: memberAttendanceList
                 },
                 range: {

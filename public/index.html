@@ -175,9 +175,26 @@
                         </h3>
                         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.</p>
                     </div>
-                    <div style="width: 220px; position: relative;">
-                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                        <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="성도 이름 검색...">
+
+                    <!-- Service Tabs & Search -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <!-- Tab Pills: 주일 / 수요 / 전체 -->
+                        <div class="matrix-tab-group">
+                            <button class="matrix-tab active" id="tabSunday" onclick="switchMatrixTab('sunday')">
+                                <i class="fa-solid fa-church"></i> 주일말씀
+                            </button>
+                            <button class="matrix-tab" id="tabWednesday" onclick="switchMatrixTab('wednesday')">
+                                <i class="fa-solid fa-book-bible"></i> 수요말씀
+                            </button>
+                            <button class="matrix-tab" id="tabAll" onclick="switchMatrixTab('all')">
+                                <i class="fa-solid fa-calendar-check"></i> 전체
+                            </button>
+                        </div>
+
+                        <div style="width: 180px; position: relative;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                            <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="성도 이름 검색...">
+                        </div>
                     </div>
                 </div>
 
@@ -270,6 +287,7 @@
         let ratioChartInstance = null;
         let cachedMembersMatrix = [];
         let cachedSessions = [];
+        let currentMatrixTab = 'sunday'; // 'sunday' | 'wednesday' | 'all'
 
         async function initPage() {
             // 1. Sidebar & Mobile Nav
@@ -582,8 +600,9 @@
             if (summaryNc) summaryNc.innerHTML = `${ncAttended}명 <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">(${ncRate}%)</span>`;
             if (centerRate) centerRate.textContent = `${totalRate}%`;
 
-            if (dateBadge && cachedSessions.length > 0) {
-                const lastSession = cachedSessions[cachedSessions.length - 1];
+            const sundaysOnly = cachedSessions.filter(s => s.service_type === 'sunday');
+            if (dateBadge && sundaysOnly.length > 0) {
+                const lastSession = sundaysOnly[sundaysOnly.length - 1];
                 dateBadge.textContent = lastSession ? lastSession.label.replace('2026년 ', '') : '금주 주일';
             }
 
@@ -610,11 +629,27 @@
             ratioChartInstance.update();
         }
 
+        // 탭 전환 (주일말씀 / 수요말씀 / 전체)
+        function switchMatrixTab(tab) {
+            currentMatrixTab = tab;
+            document.getElementById('tabSunday').classList.toggle('active', tab === 'sunday');
+            document.getElementById('tabWednesday').classList.toggle('active', tab === 'wednesday');
+            document.getElementById('tabAll').classList.toggle('active', tab === 'all');
+            renderMemberMatrix();
+        }
+
         function renderMemberMatrix() {
             if (!matrixHeaderRow || !memberMatrixBody) return;
 
             const isAllAreas = !areaFilter.value;
             const infoLeft = isAllAreas ? '113px' : '45px';
+
+            // 선택된 탭에 따라 날짜 세션 필터링
+            const activeSessions = cachedSessions.filter(s => {
+                if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
+                if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
+                return true; // 'all'
+            });
 
             // 1. Build Header with sticky and dynamic session dates
             let headerHtml = `<th class="sticky-col-seq">순번</th>`;
@@ -624,7 +659,7 @@
             headerHtml += `<th class="sticky-col-info" style="left: ${infoLeft};">성도 정보 & 직분</th>`;
             matrixHeaderRow.innerHTML = headerHtml;
 
-            cachedSessions.forEach(s => {
+            activeSessions.forEach(s => {
                 const th = document.createElement('th');
                 th.style.textAlign = 'center';
                 th.style.minWidth = '78px';
@@ -633,10 +668,11 @@
                 matrixHeaderRow.appendChild(th);
             });
 
+            const tabLabelText = currentMatrixTab === 'sunday' ? '주일 누적 출석률' : (currentMatrixTab === 'wednesday' ? '수요 누적 출석률' : '전체 누적 출석률');
             const barTh = document.createElement('th');
             barTh.className = 'sticky-col-rate';
             barTh.style.textAlign = 'center';
-            barTh.textContent = '누적 출석률 (가로 막대 바)';
+            barTh.textContent = tabLabelText;
             matrixHeaderRow.appendChild(barTh);
 
             // 2. Build Body
@@ -650,7 +686,7 @@
 
             memberMatrixBody.innerHTML = '';
             if (filtered.length === 0) {
-                const totalCols = (isAllAreas ? 4 : 3) + cachedSessions.length;
+                const totalCols = (isAllAreas ? 4 : 3) + activeSessions.length;
                 memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
                 updateDateScrollButtons();
                 return;
@@ -681,11 +717,14 @@
                 const areaNum = parseInt(m.area, 10);
                 const isEvenArea = !isNaN(areaNum) && (areaNum % 2 === 0);
 
-                // Session date stamp cells
+                // Session date stamp cells & count
                 let sessionCells = '';
-                cachedSessions.forEach(s => {
+                let attendCnt = 0;
+
+                activeSessions.forEach(s => {
                     const attended = m.history && m.history[s.date];
                     if (attended) {
+                        attendCnt++;
                         let stampColor = '#1428A0';
                         let stampBg = 'rgba(20, 40, 160, 0.1)';
 
@@ -714,8 +753,10 @@
                     }
                 });
 
-                // Horizontal Attendance Progress Bar
-                const rate = m.rate || 0;
+                // Horizontal Attendance Progress Bar calculated based on active tab sessions
+                const totalSessions = activeSessions.length;
+                const rate = totalSessions > 0 ? Math.round((attendCnt / totalSessions) * 100) : 0;
+
                 let barColor = 'linear-gradient(90deg, #1428A0 0%, #3b82f6 100%)';
                 if (isNewcomer) {
                     barColor = 'linear-gradient(90deg, #0891b2 0%, #06b6d4 100%)';
@@ -734,7 +775,7 @@
                             <div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div>
                         </div>
                         <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 70px; text-align: right;">
-                            ${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${m.attend_count}/${m.total_sessions})</span>
+                            ${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${attendCnt}/${totalSessions})</span>
                         </span>
                     </div>
                 `;
