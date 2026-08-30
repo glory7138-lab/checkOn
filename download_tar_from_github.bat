@@ -11,7 +11,7 @@ echo.
 
 set REPO_URL=https://github.com/glory7138-lab/checkOn.git
 set BRANCH=main
-set TAR_NAME=checkon_latest.tar
+set TAR_NAME=gospel_app.tar
 
 echo [1/3] Fetching latest source from origin/%BRANCH%...
 git fetch origin %BRANCH%
