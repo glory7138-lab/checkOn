@@ -264,10 +264,9 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th style="width: 50px;">순번</th>
-                                <th>성도 정보</th>
-                                <th style="width: 100px;">직분</th>
-                                <th style="text-align: center; width: 90px;">출석 체크</th>
+                                <th style="width: 50px; text-align: center;">순번</th>
+                                <th>성도 정보 & 직분</th>
+                                <th style="text-align: center; width: 140px;">출석 체크</th>
                             </tr>
                         </thead>
                         <tbody id="memberList">
@@ -437,7 +436,7 @@
 
             if (!areaCode || !date) return;
 
-            memberListEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 명단을 불러오는 중...</td></tr>';
+            memberListEl.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 명단을 불러오는 중...</td></tr>';
 
             try {
                 // 1. Fetch Members in Area (includes newcomers)
@@ -460,7 +459,7 @@
                 renderMembers();
             } catch (err) {
                 console.error("Data load error:", err);
-                memberListEl.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</td></tr>`;
+                memberListEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</td></tr>`;
             }
         }
 
@@ -468,7 +467,7 @@
             memberListEl.innerHTML = '';
             
             if (membersData.length === 0) {
-                memberListEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-secondary);">해당 구역에 등록된 성도가 없습니다.</td></tr>';
+                memberListEl.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-secondary);">해당 구역에 등록된 성도가 없습니다.</td></tr>';
                 return;
             }
             
@@ -480,34 +479,37 @@
                 
                 let badgeHtml = '';
                 if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); font-weight: 600;">새참자</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">새참자</span>`;
                 } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success">${member.POSITION}</span>`;
+                    badgeHtml = `<span class="badge badge-success" style="padding: 0.2rem 0.5rem;">${member.POSITION}</span>`;
                 } else {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);">${member.POSITION || '성도'}</span>`;
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.2rem 0.5rem;">${member.POSITION || '성도'}</span>`;
                 }
 
                 const initial = (member.NAME || '성').charAt(0);
-                const avatarBg = isNewcomer ? 'background: rgba(20, 40, 160, 0.15); color: var(--accent-color);' : '';
+                const avatarBg = isNewcomer ? 'background: rgba(6, 182, 212, 0.15); color: #0891b2;' : '';
                 
                 tr.innerHTML = `
-                    <td style="color: var(--text-secondary);">${index + 1}</td>
+                    <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${index + 1}</td>
                     <td>
-                        <div class="user-info">
+                        <div class="user-info" style="gap: 0.75rem;">
                             <div class="avatar" style="${avatarBg}">${initial}</div>
-                            <span style="font-weight: 500; font-size: 1rem;">
-                                ${member.NAME}
-                                ${isNewcomer ? `<span style="font-size:0.75rem; color:var(--text-secondary); margin-left:4px;">(인도: ${member.guide_name || '-'})</span>` : ''}
-                            </span>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary);">
+                                    ${member.NAME}
+                                </span>
+                                ${badgeHtml}
+                                ${isNewcomer ? `<span style="font-size:0.8rem; color:var(--text-secondary); margin-left: 2px;">(인도: ${member.guide_name || '-'})</span>` : ''}
+                            </div>
                         </div>
                     </td>
-                    <td>
-                        ${badgeHtml}
-                    </td>
                     <td style="text-align: center;">
-                        <label class="check-container" style="display: inline-block;">
+                        <label class="attend-btn-container">
                             <input type="checkbox" ${member.checked ? 'checked' : ''} onchange="toggleCheck('${member.CODE_NO}', this.checked)">
-                            <span class="checkmark"></span>
+                            <div class="attend-btn-pill">
+                                <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
+                                <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
+                            </div>
                         </label>
                     </td>
                 `;
