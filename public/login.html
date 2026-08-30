@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 | FaithOn</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .login-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        
+        .login-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .login-form {
+            text-align: left;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-with-icon i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .input-with-icon input {
+            width: 100%;
+            padding: 0.85rem 1rem 0.85rem 2.5rem;
+            border-radius: 8px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: var(--transition-fast);
+        }
+        
+        .input-with-icon input:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        
+        .btn-block {
+            width: 100%;
+            padding: 0.85rem;
+            font-size: 1.05rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="card login-container">
+        <img src="/images/logo.jpg" alt="FaithOn Logo" class="brand-img">
+        <h1 class="login-title">FaithOn</h1>
+        <p class="login-subtitle">창원교회 출석체크 관리 시스템</p>
+        
+        <form class="login-form" id="loginForm">
+            <div class="form-group">
+                <label class="form-label">휴대폰 번호</label>
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <input type="tel" id="phoneInput" placeholder="010-0000-0000" autofocus required>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    * 구역임원 또는 관리자로 등록된 휴대폰 번호를 입력하세요.
+                </p>
+            </div>
+            
+            <div id="errorMsg" style="display: none; color: var(--danger-color); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(220, 53, 69, 0.1); border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.2);"></div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
+                로그인 및 권한 확인
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const phoneInput = document.getElementById('phoneInput');
+        const errorMsg = document.getElementById('errorMsg');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // 이미 로그인되어 있으면 바로 이동
+        if (localStorage.getItem('faithon_user')) {
+            window.location.href = '/attend.html';
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 확인 중...';
+
+            const phone = phoneInput.value.trim();
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+
+                const data = await res.json();
+
+                if (data.success && data.user) {
+                    // 사용자 정보 저장
+                    localStorage.setItem('faithon_user', JSON.stringify(data.user));
+                    // 출석체크 페이지로 이동
+                    window.location.href = '/attend.html';
+                } else {
+                    errorMsg.textContent = data.error || '로그인에 실패했습니다.';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                errorMsg.textContent = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+                errorMsg.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '로그인 및 권한 확인';
+            }
+        });
+    </script>
+</body>
+</html>

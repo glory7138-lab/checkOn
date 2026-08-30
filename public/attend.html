@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>출석체크 | FaithOn</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .select-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .select-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .form-select, .form-input {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-family: inherit;
+            outline: none;
+            transition: var(--transition-fast);
+        }
+        
+        .form-select:focus, .form-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        
+        /* Table Styles */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .data-table th {
+            text-align: left;
+            padding: 1rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .data-table td {
+            padding: 1rem;
+            background: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            transition: var(--transition-fast);
+        }
+        
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .data-table tr:hover td {
+            background: var(--surface-hover);
+        }
+        
+        /* Custom Checkbox */
+        .check-container {
+            display: block;
+            position: relative;
+            padding-left: 35px;
+            margin-bottom: 0;
+            cursor: pointer;
+            font-size: 22px;
+            user-select: none;
+            height: 25px;
+        }
+
+        .check-container input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .checkmark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 24px;
+            width: 24px;
+            background-color: #fff;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition-fast);
+        }
+
+        .check-container:hover input ~ .checkmark {
+            border-color: var(--accent-color);
+        }
+
+        .check-container input:checked ~ .checkmark {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .checkmark:after {
+            content: "";
+            position: absolute;
+            display: none;
+        }
+
+        .check-container input:checked ~ .checkmark:after {
+            display: block;
+        }
+
+        .check-container .checkmark:after {
+            left: 7px;
+            top: 3px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 1rem;
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-church"></i>
+                </div>
+                <div class="brand-text">FaithOn</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>대시보드</span>
+                </a>
+                <a href="/attend.html" class="nav-item active">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span>출석체크</span>
+                </a>
+                <a href="/reserve.html" class="nav-item" id="navReserve">
+                    <i class="fa-solid fa-users-slash"></i>
+                    <span>예비명단 관리</span>
+                </a>
+                <a href="/newcomer.html" class="nav-item" id="navNewcomer">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>새참자 관리</span>
+                </a>
+            </nav>
+
+            <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <div id="userProfile" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                    <div style="font-weight: 600; color: var(--text-primary);" id="userNameDisplay">접속자 정보</div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;" id="userRoleDisplay">구역 확인 중...</div>
+                </div>
+                <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; padding: 0.4rem;" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> 로그아웃
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">출석 체크</h1>
+                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하고 저장하세요.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="saveBtn" onclick="saveAttendance()">
+                        <i class="fa-solid fa-floppy-disk"></i> 출석 저장
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="filter-bar">
+                    <div class="select-group">
+                        <label class="select-label">출석유형</label>
+                        <select class="form-select" id="sessionType">
+                            <option value="sunday">주일말씀</option>
+                            <option value="wednesday">수요말씀</option>
+                        </select>
+                    </div>
+                    <div class="select-group">
+                        <label class="select-label">출석일자 (최근 4주)</label>
+                        <select class="form-select" id="attendDate">
+                            <!-- JS Will Render 4 Valid Dates -->
+                        </select>
+                    </div>
+                    <div class="select-group">
+                        <label class="select-label" id="areaSelectLabel">구역 선택</label>
+                        <select class="form-select" id="areaCode">
+                            <!-- JS Will Populate Based on Role -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">순번</th>
+                                <th>성도 정보</th>
+                                <th style="width: 120px;">직분</th>
+                                <th style="text-align: center; width: 100px;">출석 체크</th>
+                            </tr>
+                        </thead>
+                        <tbody id="memberList">
+                            <!-- JS Will Render Here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 0. Auth check
+        const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
+        if (!currentUser) {
+            window.location.href = '/login.html';
+        }
+
+        // DOM Elements
+        const memberListEl = document.getElementById('memberList');
+        const sessionTypeEl = document.getElementById('sessionType');
+        const attendDateEl = document.getElementById('attendDate');
+        const areaCodeEl = document.getElementById('areaCode');
+        const userNameDisplay = document.getElementById('userNameDisplay');
+        const userRoleDisplay = document.getElementById('userRoleDisplay');
+        const pageSubTitle = document.getElementById('pageSubTitle');
+        const areaSelectLabel = document.getElementById('areaSelectLabel');
+
+        let membersData = [];
+
+        // Calculate the last 4 valid dates up to today (excludes all future dates)
+        function getRecentServiceDates(serviceType) {
+            const targetDay = serviceType === 'sunday' ? 0 : 3;
+            const dates = [];
+            const now = new Date();
+            let curr = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            while (dates.length < 4) {
+                if (curr.getDay() === targetDay) {
+                    const yyyy = curr.getFullYear();
+                    const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                    const dd = String(curr.getDate()).padStart(2, '0');
+                    const iso = `${yyyy}-${mm}-${dd}`;
+                    
+                    const month = curr.getMonth() + 1;
+                    const day = curr.getDate();
+                    const dayName = serviceType === 'sunday' ? '주일' : '수요';
+                    const label = `${yyyy}년 ${month}월 ${day}일 (${dayName})`;
+                    
+                    dates.push({ value: iso, label });
+                }
+                curr.setDate(curr.getDate() - 1);
+            }
+            return dates;
+        }
+
+        // Update the date dropdown based on selected 출석유형
+        function updateDateOptions() {
+            const type = sessionTypeEl.value;
+            const dates = getRecentServiceDates(type);
+            const currentSelected = attendDateEl.value;
+
+            attendDateEl.innerHTML = '';
+            dates.forEach((d, idx) => {
+                const opt = document.createElement('option');
+                opt.value = d.value;
+                opt.textContent = d.label;
+                if (idx === 0) opt.selected = true;
+                attendDateEl.appendChild(opt);
+            });
+        }
+
+        // Initialize User Info & Area Options based on Role
+        async function initPage() {
+            if (!currentUser) return;
+
+            // Display user info in sidebar
+            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
+            
+            if (currentUser.role === 'admin' || currentUser.scope_type === 'all') {
+                userRoleDisplay.textContent = '총괄 관리자 권한 (전체 구역)';
+                pageSubTitle.innerHTML = '전체 구역 성도들의 출석 현황을 관리자 권한으로 확인 및 수정합니다.';
+                await loadAllAreas();
+            } else {
+                const userArea = currentUser.scope_code || currentUser.area_code || '11';
+                userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
+                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도들의 출석을 확인하고 저장하세요.`;
+                areaSelectLabel.innerHTML = `담당 구역 <span class="badge badge-success" style="font-size:0.75rem;">권한 고정</span>`;
+                
+                // Only populate their assigned area and lock
+                areaCodeEl.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
+                areaCodeEl.disabled = true;
+            }
+
+            // Populate recent 4 dates
+            updateDateOptions();
+
+            // Event Listeners
+            sessionTypeEl.addEventListener('change', () => {
+                updateDateOptions();
+                fetchMembersAndAttendance();
+            });
+            attendDateEl.addEventListener('change', fetchMembersAndAttendance);
+            areaCodeEl.addEventListener('change', fetchMembersAndAttendance);
+
+            // Fetch initial data
+            await fetchMembersAndAttendance();
+        }
+
+        // Load all available areas from DB for Admins
+        async function loadAllAreas() {
+            try {
+                const res = await fetch('/api/areas');
+                const json = await res.json();
+                if (json.success && json.data) {
+                    areaCodeEl.innerHTML = '';
+                    json.data.forEach(area => {
+                        const opt = document.createElement('option');
+                        opt.value = area;
+                        opt.textContent = `${area}구역`;
+                        areaCodeEl.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error("Areas load error:", err);
+            }
+        }
+
+        async function fetchMembersAndAttendance() {
+            const areaCode = areaCodeEl.value;
+            const date = attendDateEl.value;
+            const type = sessionTypeEl.value;
+
+            if (!areaCode || !date) return;
+
+            memberListEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 명단을 불러오는 중...</td></tr>';
+
+            try {
+                // 1. Fetch Members in Area
+                const membersRes = await fetch(`/api/members?areaCode=${encodeURIComponent(areaCode)}`);
+                const membersJson = await membersRes.json();
+                if (!membersJson.success) throw new Error(membersJson.error);
+                
+                // 2. Fetch Attendance for specific date and type
+                const attendRes = await fetch(`/api/attendance?areaCode=${encodeURIComponent(areaCode)}&date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`);
+                const attendJson = await attendRes.json();
+                if (!attendJson.success) throw new Error(attendJson.error);
+                
+                const attendedCodes = attendJson.data || [];
+                
+                membersData = (membersJson.data || []).map(m => ({
+                    ...m,
+                    checked: attendedCodes.includes(m.CODE_NO)
+                }));
+                
+                renderMembers();
+            } catch (err) {
+                console.error("Data load error:", err);
+                memberListEl.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</td></tr>`;
+            }
+        }
+
+        function renderMembers() {
+            memberListEl.innerHTML = '';
+            
+            if (membersData.length === 0) {
+                memberListEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-secondary);">해당 구역에 등록된 성도가 없습니다.</td></tr>';
+                return;
+            }
+            
+            membersData.forEach((member, index) => {
+                const tr = document.createElement('tr');
+                const pos = (member.POSITION || '').trim();
+                const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장');
+                const positionBadgeClass = isLeader ? 'badge-success' : '';
+                const positionStyle = (!isLeader && pos === '성도') ? 'background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);' : '';
+                const initial = (member.NAME || '성').charAt(0);
+                
+                tr.innerHTML = `
+                    <td style="color: var(--text-secondary);">${index + 1}</td>
+                    <td>
+                        <div class="user-info">
+                            <div class="avatar">${initial}</div>
+                            <span style="font-weight: 500; font-size: 1rem;">${member.NAME}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${positionBadgeClass}" style="${positionStyle}">
+                            ${member.POSITION || '성도'}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <label class="check-container" style="display: inline-block;">
+                            <input type="checkbox" ${member.checked ? 'checked' : ''} onchange="toggleCheck('${member.CODE_NO}', this.checked)">
+                            <span class="checkmark"></span>
+                        </label>
+                    </td>
+                `;
+                memberListEl.appendChild(tr);
+            });
+        }
+
+        function toggleCheck(codeNo, isChecked) {
+            const member = membersData.find(m => m.CODE_NO === codeNo);
+            if (member) member.checked = isChecked;
+        }
+
+        async function saveAttendance() {
+            const date = attendDateEl.value;
+            const type = sessionTypeEl.value;
+            const saveBtn = document.getElementById('saveBtn');
+
+            if (!date || !type) {
+                alert('출석일자와 출석유형을 선택해주세요.');
+                return;
+            }
+            
+            const payload = {
+                date,
+                type,
+                members: membersData.map(m => ({
+                    member_code: m.CODE_NO,
+                    is_attended: !!m.checked
+                }))
+            };
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
+
+            try {
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                
+                if (json.success) {
+                    alert('출석이 성공적으로 저장되었습니다.');
+                } else {
+                    throw new Error(json.error);
+                }
+            } catch (err) {
+                console.error("Save error:", err);
+                alert("출석 저장 중 오류가 발생했습니다: " + err.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 출석 저장';
+            }
+        }
+
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('faithon_user');
+                window.location.href = '/login.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

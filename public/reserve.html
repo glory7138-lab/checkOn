@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예비명단 관리 | FaithOn</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+        
+        @media (max-width: 1024px) {
+            .split-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 2.5rem;
+            border-radius: 8px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: var(--transition-fast);
+        }
+        
+        .search-input:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--surface-color);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border-color);
+            transition: var(--transition-fast);
+        }
+        
+        .list-item:hover {
+            border-color: var(--accent-color);
+            background: var(--surface-hover);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 1rem;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-church"></i>
+                </div>
+                <div class="brand-text">FaithOn</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>대시보드</span>
+                </a>
+                <a href="/attend.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span>출석체크</span>
+                </a>
+                <a href="/reserve.html" class="nav-item active">
+                    <i class="fa-solid fa-users-slash"></i>
+                    <span>예비명단 관리</span>
+                </a>
+                <a href="/newcomer.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>새참자 관리</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">예비명단 관리</h1>
+                    <p class="page-subtitle">출석 집계에서 제외할 성도를 예비명단으로 이동시킵니다.</p>
+                </div>
+            </div>
+
+            <div class="split-layout">
+                <!-- Left: Normal Members -->
+                <div class="card">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-users text-primary"></i> 일반 성도 검색
+                    </h3>
+                    
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" class="search-input" placeholder="이름 또는 구역으로 검색...">
+                    </div>
+                    
+                    <div class="list-container" id="normalList">
+                        <!-- Items -->
+                        <div class="list-item">
+                            <div class="user-info">
+                                <div class="avatar">김</div>
+                                <div>
+                                    <div style="font-weight: 500;">김영철 <span class="badge" style="background: rgba(255,255,255,0.1); margin-left: 5px;">성도</span></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">11구역</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                                예비명단으로 이동 <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                        <div class="list-item">
+                            <div class="user-info">
+                                <div class="avatar">이</div>
+                                <div>
+                                    <div style="font-weight: 500;">이수민 <span class="badge" style="background: rgba(255,255,255,0.1); margin-left: 5px;">성도</span></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">12구역</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                                예비명단으로 이동 <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Reserve Members -->
+                <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--warning-color);">
+                        <i class="fa-solid fa-user-clock"></i> 예비명단
+                    </h3>
+                    
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" class="search-input" placeholder="예비명단 검색...">
+                    </div>
+                    
+                    <div class="list-container" id="reserveList">
+                        <div class="list-item" style="background: rgba(245, 158, 11, 0.05);">
+                            <div class="user-info">
+                                <div class="avatar" style="background: rgba(245, 158, 11, 0.2); color: var(--warning-color);">박</div>
+                                <div>
+                                    <div style="font-weight: 500;">박준형 <span class="badge" style="background: rgba(255,255,255,0.1); margin-left: 5px;">성도</span></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">원래 소속: 21구역</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: rgba(255,255,255,0.2); color: white;">
+                                <i class="fa-solid fa-arrow-left"></i> 구역으로 복귀
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
