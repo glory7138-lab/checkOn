@@ -655,7 +655,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const todayStr = `${yyyy}-${mm}-${dd}`;
 
         if (month) {
-            // YYYY-MM
             const [mY, mM] = month.split('-');
             fromDateStr = `${mY}-${mM.padStart(2, '0')}-01`;
             const lastDay = new Date(parseInt(mY), parseInt(mM), 0).getDate();
@@ -664,7 +663,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 toDateStr = todayStr;
             }
         } else if (!fromDateStr || !toDateStr) {
-            // 기본값: 오늘 기준 최근 4주(약 28일)
+            // 기본값: 오늘 기준 최근 4주(28일)
             const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
             const fY = fourWeeksAgo.getFullYear();
             const fM = String(fourWeeksAgo.getMonth() + 1).padStart(2, '0');
@@ -673,13 +672,16 @@ app.get('/api/dashboard/stats', async (req, res) => {
             toDateStr = todayStr;
         }
 
-        // 3. 해당 기간 내 주일/수요 출석 집계
+        // 3. 해당 기간 내 주일/수요 출석 집계 (DATE_FORMAT으로 타임존 오차 방지)
         let attQuery = `
-            SELECT a.service_date, a.service_type, COUNT(DISTINCT a.member_code) as attend_cnt
+            SELECT DATE_FORMAT(a.service_date, '%Y-%m-%d') as service_date, 
+                   a.service_type, 
+                   COUNT(DISTINCT a.member_code) as attend_cnt
             FROM faithon_attendance a
-            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
             LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
-            WHERE a.service_date >= ? AND a.service_date <= ?
+            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') >= ? 
+              AND DATE_FORMAT(a.service_date, '%Y-%m-%d') <= ?
               AND a.is_attended = TRUE
               AND (
                   ? IS NULL 
@@ -687,28 +689,29 @@ app.get('/api/dashboard/stats', async (req, res) => {
                   OR nc.area_code = ? 
                   OR nc.temp_area = ?
               )
-            GROUP BY a.service_date, a.service_type
-            ORDER BY a.service_date ASC
+            GROUP BY DATE_FORMAT(a.service_date, '%Y-%m-%d'), a.service_type
+            ORDER BY service_date ASC
         `;
-        const attParams = [fromDateStr, toDateStr, areaCode || null, areaCode, areaCode, areaCode];
+        const attParams = [activeYear, fromDateStr, toDateStr, areaCode || null, areaCode, areaCode, areaCode];
         const attRows = await conn.query(attQuery, attParams);
 
-        // 4. 주간 트렌드 라벨 생성 (기간 내 모든 주일 및 수요일 날짜 목록)
-        const dStart = new Date(fromDateStr);
-        const dEnd = new Date(toDateStr);
-        const allDates = [];
+        // 4. 주간 트렌드 날짜 생성
         const sundayMap = {};
         const wednesdayMap = {};
 
         attRows.forEach(r => {
-            const d = typeof r.service_date === 'string' ? r.service_date.split('T')[0] : r.service_date.toISOString().split('T')[0];
+            const d = r.service_date;
             const cnt = Number(r.attend_cnt || 0);
             if (r.service_type === 'sunday') sundayMap[d] = cnt;
             if (r.service_type === 'wednesday') wednesdayMap[d] = cnt;
         });
 
         // 날짜 순회
+        const dStart = new Date(fromDateStr);
+        const dEnd = new Date(toDateStr);
+        const allDates = [];
         const curr = new Date(dStart);
+
         while (curr <= dEnd && curr <= now) {
             const day = curr.getDay();
             const y = curr.getFullYear();
@@ -721,8 +724,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     date: dateStr,
                     dayName: day === 0 ? '주일' : '수요',
                     label: `${curr.getMonth() + 1}월 ${curr.getDate()}일(${day === 0 ? '주일' : '수요'})`,
-                    sundayAttend: sundayMap[dateStr] || 0,
-                    wednesdayAttend: wednesdayMap[dateStr] || 0
+                    sundayAttend: day === 0 ? (sundayMap[dateStr] || 0) : null,
+                    wednesdayAttend: day === 3 ? (wednesdayMap[dateStr] || 0) : null
                 });
             }
             curr.setDate(curr.getDate() + 1);
@@ -738,12 +741,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const latestWednesdayObj = wednesdaysOnly.length > 0 ? wednesdaysOnly[wednesdaysOnly.length - 1] : null;
         const prevWednesdayObj = wednesdaysOnly.length > 1 ? wednesdaysOnly[wednesdaysOnly.length - 2] : null;
 
-        const latestSundayCount = latestSundayObj ? latestSundayObj.sundayAttend : 0;
-        const prevSundayCount = prevSundayObj ? prevSundayObj.sundayAttend : 0;
+        const latestSundayCount = latestSundayObj ? Number(latestSundayObj.sundayAttend || 0) : 0;
+        const prevSundayCount = prevSundayObj ? Number(prevSundayObj.sundayAttend || 0) : 0;
         const sundayDiff = prevSundayCount > 0 ? (((latestSundayCount - prevSundayCount) / prevSundayCount) * 100).toFixed(1) : 0;
 
-        const latestWednesdayCount = latestWednesdayObj ? latestWednesdayObj.wednesdayAttend : 0;
-        const prevWednesdayCount = prevWednesdayObj ? prevWednesdayObj.wednesdayAttend : 0;
+        const latestWednesdayCount = latestWednesdayObj ? Number(latestWednesdayObj.wednesdayAttend || 0) : 0;
+        const prevWednesdayCount = prevWednesdayObj ? Number(prevWednesdayObj.wednesdayAttend || 0) : 0;
         const wednesdayDiff = prevWednesdayCount > 0 ? (((latestWednesdayCount - prevWednesdayCount) / prevWednesdayCount) * 100).toFixed(1) : 0;
 
         // 출석 비율 계산
@@ -767,8 +770,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 },
                 trend: {
                     labels: allDates.map(d => d.label),
-                    sundays: allDates.map(d => (d.dayName === '주일' ? d.sundayAttend : null)),
-                    wednesdays: allDates.map(d => (d.dayName === '수요' ? d.wednesdayAttend : null))
+                    sundays: allDates.map(d => d.sundayAttend),
+                    wednesdays: allDates.map(d => d.wednesdayAttend)
                 },
                 range: {
                     from: fromDateStr,
