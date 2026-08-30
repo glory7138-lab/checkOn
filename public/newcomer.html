@@ -255,7 +255,7 @@
                 <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;">
                     <div style="flex: 1; min-width: 220px; position: relative;">
                         <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                        <input type="text" class="form-input" id="searchInput" style="padding-left: 2.5rem;" placeholder="이름으로 새참자 검색...">
+                        <input type="text" class="form-input" id="searchInput" style="padding-left: 2.5rem;" placeholder="이름 또는 인도자로 검색...">
                     </div>
                     <div style="width: 180px;" id="areaFilterContainer">
                         <select class="form-input" id="areaFilter">
@@ -264,8 +264,23 @@
                     </div>
                 </div>
 
-                <div class="newcomer-grid" id="newcomerGrid">
-                    <!-- Cards will render here -->
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">순번</th>
+                                <th>새참자 정보</th>
+                                <th>인도자</th>
+                                <th style="width: 100px;">배정 구역</th>
+                                <th style="text-align: center; width: 90px;">누적 출석</th>
+                                <th style="width: 120px;">등록일자</th>
+                                <th style="text-align: center; width: 140px;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="newcomerList">
+                            <!-- Rows will render here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
@@ -322,7 +337,7 @@
         const userArea = currentUser.scope_code || currentUser.area_code || '11';
 
         // Elements
-        const newcomerGrid = document.getElementById('newcomerGrid');
+        const newcomerList = document.getElementById('newcomerList');
         const searchInput = document.getElementById('searchInput');
         const areaFilter = document.getElementById('areaFilter');
         const modalArea = document.getElementById('modalArea');
@@ -383,7 +398,7 @@
 
         async function fetchNewcomers() {
             const area = isAdmin ? areaFilter.value : userArea;
-            newcomerGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 2rem; color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 새참자 명단을 불러오는 중...</div>';
+            newcomerList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 새참자 명단을 불러오는 중...</td></tr>';
 
             try {
                 const url = area ? `/api/newcomers?areaCode=${encodeURIComponent(area)}` : '/api/newcomers';
@@ -398,7 +413,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                newcomerGrid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</div>`;
+                newcomerList.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</td></tr>`;
             }
         }
 
@@ -406,54 +421,63 @@
             const query = searchInput.value.trim().toLowerCase();
             const filtered = newcomersList.filter(nc => 
                 (nc.name && nc.name.toLowerCase().includes(query)) ||
+                (nc.guide_name && nc.guide_name.toLowerCase().includes(query)) ||
                 (nc.phone && nc.phone.includes(query)) ||
                 (nc.memo && nc.memo.toLowerCase().includes(query))
             );
 
-            newcomerGrid.innerHTML = '';
+            newcomerList.innerHTML = '';
             if (filtered.length === 0) {
-                newcomerGrid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 3rem; color:var(--text-secondary);">등록된 새참자가 없습니다.</div>';
+                newcomerList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 3rem; color:var(--text-secondary);">등록된 새참자가 없습니다.</td></tr>';
                 return;
             }
 
-            filtered.forEach(nc => {
-                const card = document.createElement('div');
-                card.className = 'newcomer-card';
+            filtered.forEach((nc, idx) => {
+                const tr = document.createElement('tr');
                 const regDate = nc.registered_at ? nc.registered_at.split('T')[0] : '';
                 const initial = (nc.name || '새').charAt(0);
 
-                card.innerHTML = `
-                    <div class="nc-header">
-                        <div class="nc-name">
-                            ${nc.name} <span class="badge" style="background: rgba(20, 40, 160, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); font-size: 0.75rem;">새참자</span>
+                tr.innerHTML = `
+                    <td style="color: var(--text-secondary); text-align: center;">${idx + 1}</td>
+                    <td>
+                        <div class="user-info">
+                            <div class="avatar" style="background: rgba(20, 40, 160, 0.12); color: var(--accent-color);">${initial}</div>
+                            <div>
+                                <span style="font-weight: 600; font-size: 1rem;">${nc.name}</span>
+                                <span class="badge" style="background: rgba(20, 40, 160, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); font-size: 0.75rem; margin-left: 4px;">새참자</span>
+                                ${nc.phone ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;"><i class="fa-solid fa-phone" style="font-size: 0.75rem;"></i> ${nc.phone}</div>` : ''}
+                            </div>
                         </div>
-                        <div class="nc-date">${regDate} 등록</div>
-                    </div>
-                    <div class="nc-info">
-                        <div class="nc-info-row">
-                            <i class="fa-solid fa-user-tag"></i> 인도자: <strong>${nc.guide_name || '-'}</strong>
+                    </td>
+                    <td>
+                        <div style="font-weight: 500; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-user-tag text-primary" style="color: var(--accent-color); font-size: 0.85rem;"></i>
+                            <span>${nc.guide_name || '-'}</span>
                         </div>
-                        <div class="nc-info-row">
-                            <i class="fa-solid fa-phone"></i> ${nc.phone || '연락처 미등록'}
+                    </td>
+                    <td>
+                        <span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-primary); font-weight: 500;">
+                            ${nc.area_code}구역
+                        </span>
+                    </td>
+                    <td style="text-align: center; font-weight: 600; color: var(--accent-color);">
+                        ${nc.attendance_count || 0}회
+                    </td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">
+                        ${regDate}
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 6px; justify-content: center;">
+                            <button class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="openEditModal(${nc.id})">
+                                <i class="fa-solid fa-pen"></i> 수정
+                            </button>
+                            <button class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: rgba(220, 53, 69, 0.3); color: var(--danger-color);" onclick="deleteNewcomer(${nc.id}, '${nc.name}')">
+                                <i class="fa-solid fa-trash"></i> 삭제
+                            </button>
                         </div>
-                        <div class="nc-info-row">
-                            <i class="fa-solid fa-map-location-dot"></i> 배정 구역: <strong>${nc.area_code}구역</strong>
-                        </div>
-                        <div class="nc-info-row">
-                            <i class="fa-solid fa-clipboard-check"></i> 누적 출석: <strong>${nc.attendance_count || 0}회</strong>
-                        </div>
-                        ${nc.memo ? `<div class="nc-info-row" style="font-size:0.8rem; color:var(--text-secondary);"><i class="fa-solid fa-note-sticky"></i> ${nc.memo}</div>` : ''}
-                    </div>
-                    <div class="nc-actions">
-                        <button class="btn btn-outline" onclick="openEditModal(${nc.id})">
-                            <i class="fa-solid fa-pen"></i> 수정
-                        </button>
-                        <button class="btn btn-outline" style="border-color: rgba(220, 53, 69, 0.3); color: var(--danger-color);" onclick="deleteNewcomer(${nc.id}, '${nc.name}')">
-                            <i class="fa-solid fa-trash"></i> 삭제
-                        </button>
-                    </div>
+                    </td>
                 `;
-                newcomerGrid.appendChild(card);
+                newcomerList.appendChild(tr);
             });
         }
 
