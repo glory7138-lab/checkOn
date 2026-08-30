@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  checkon:
+    build: .
+    image: checkon:latest
+    container_name: checkon
+    restart: unless-stopped
+    ports:
+      - "3047:3047"
+    environment:
+      - NODE_ENV=production
+      - PORT=3047
+      - DB_HOST=jbchcw.com
+      - DB_PORT=3307
+      - DB_USER=changwon
+      - DB_PASSWORD=Changwon0691!
+      - DB_NAME=jbchcwDB
+    env_file:
+      - .env
