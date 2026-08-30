@@ -44,6 +44,7 @@ async function initializeTables() {
             CREATE TABLE IF NOT EXISTS faithon_newcomer (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
+                guide_name VARCHAR(100) NULL,
                 phone VARCHAR(100),
                 area_code VARCHAR(100) NOT NULL,
                 memo VARCHAR(255),
@@ -54,6 +55,9 @@ async function initializeTables() {
         `);
 
         // 혹시 기존 테이블에 신규 컬럼이 없으면 자동 추가
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN guide_name VARCHAR(100) NULL AFTER name`);
+        } catch (e) {}
         try {
             await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN area_code VARCHAR(100) NULL AFTER phone`);
         } catch (e) {}

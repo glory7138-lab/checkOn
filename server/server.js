@@ -259,7 +259,7 @@ app.get('/api/members', async (req, res) => {
         const regularMembers = await conn.query(query, params);
 
         // 2-2. 해당 구역 새참자 목록 조회하여 함께 포함
-        let ncQuery = `SELECT id, name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer`;
+        let ncQuery = `SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer`;
         const ncParams = [];
         if (areaCode) {
             ncQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
@@ -272,6 +272,7 @@ app.get('/api/members', async (req, res) => {
             CODE_NO: `NC_${nc.id}`,
             NAME: nc.name,
             POSITION: '새참자',
+            guide_name: nc.guide_name,
             AREA_CODE: nc.area_code,
             PHONE: nc.phone,
             PIC: null,
@@ -311,7 +312,7 @@ app.get('/api/newcomers', async (req, res) => {
         await syncNewcomersWithAddressBook(conn, activeYear);
 
         let query = `
-            SELECT nc.id, nc.name, nc.phone, COALESCE(nc.area_code, nc.temp_area) as area_code, nc.memo, nc.registered_at,
+            SELECT nc.id, nc.name, nc.guide_name, nc.phone, COALESCE(nc.area_code, nc.temp_area) as area_code, nc.memo, nc.registered_at,
                    (SELECT COUNT(*) FROM faithon_attendance a WHERE a.member_code = CONCAT('NC_', nc.id) AND a.is_attended = TRUE) as attendance_count
             FROM faithon_newcomer nc
         `;
@@ -332,11 +333,11 @@ app.get('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사)
+// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사 & 인도자 필수)
 app.post('/api/newcomers', async (req, res) => {
-    const { name, phone, area_code, memo, created_by } = req.body;
-    if (!name || !area_code) {
-        return res.status(400).json({ success: false, error: '이름과 구역은 필수 항목입니다.' });
+    const { name, guide_name, phone, area_code, memo, created_by } = req.body;
+    if (!name || !guide_name || !area_code) {
+        return res.status(400).json({ success: false, error: '이름, 인도자, 배정 구역은 필수 항목입니다.' });
     }
 
     let conn;
@@ -366,9 +367,9 @@ app.post('/api/newcomers', async (req, res) => {
 
         // 3. 새참자 등록
         const insertRes = await conn.query(`
-            INSERT INTO faithon_newcomer (name, phone, area_code, memo, created_by)
-            VALUES (?, ?, ?, ?, ?)
-        `, [name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
+            INSERT INTO faithon_newcomer (name, guide_name, phone, area_code, memo, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [name.trim(), guide_name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
 
         res.json({ success: true, id: insertRes.insertId, message: `'${name}' 새참자가 ${area_code}구역에 등록되었습니다.` });
     } catch (err) {
@@ -382,15 +383,19 @@ app.post('/api/newcomers', async (req, res) => {
 // 새참자 수정
 app.put('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
-    const { name, phone, area_code, memo } = req.body;
+    const { name, guide_name, phone, area_code, memo } = req.body;
+    if (!name || !guide_name || !area_code) {
+        return res.status(400).json({ success: false, error: '이름, 인도자, 배정 구역은 필수 항목입니다.' });
+    }
+
     let conn;
     try {
         conn = await db.pool.getConnection();
         await conn.query(`
             UPDATE faithon_newcomer
-            SET name = ?, phone = ?, area_code = ?, memo = ?
+            SET name = ?, guide_name = ?, phone = ?, area_code = ?, memo = ?
             WHERE id = ?
-        `, [name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
+        `, [name.trim(), guide_name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
 
         res.json({ success: true, message: '새참자 정보가 수정되었습니다.' });
     } catch (err) {

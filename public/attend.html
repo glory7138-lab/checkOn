@@ -454,7 +454,7 @@
                             <div class="avatar" style="${avatarBg}">${initial}</div>
                             <span style="font-weight: 500; font-size: 1rem;">
                                 ${member.NAME}
-                                ${isNewcomer ? '<span style="font-size:0.75rem; color:var(--text-secondary); margin-left:4px;">(신규)</span>' : ''}
+                                ${isNewcomer ? `<span style="font-size:0.75rem; color:var(--text-secondary); margin-left:4px;">(인도: ${member.guide_name || '-'})</span>` : ''}
                             </span>
                         </div>
                     </td>
