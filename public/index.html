@@ -663,13 +663,27 @@
                     badgeHtml = ''; // '성도'는 뱃지 미표시
                 }
 
+                // Odd vs Even Area Styling
+                const areaNum = parseInt(m.area, 10);
+                const isEvenArea = !isNaN(areaNum) && (areaNum % 2 === 0);
+
                 // Session date stamp cells
                 let sessionCells = '';
                 cachedSessions.forEach(s => {
                     const attended = m.history && m.history[s.date];
                     if (attended) {
-                        const stampColor = isNewcomer ? '#06b6d4' : '#1428A0';
-                        const stampBg = isNewcomer ? 'rgba(6, 182, 212, 0.12)' : 'rgba(20, 40, 160, 0.1)';
+                        let stampColor = '#1428A0';
+                        let stampBg = 'rgba(20, 40, 160, 0.1)';
+
+                        if (isNewcomer) {
+                            stampColor = '#0891b2';
+                            stampBg = 'rgba(6, 182, 212, 0.12)';
+                        } else if (isEvenArea) {
+                            // 짝수 구역: 에메랄드 틸 색상
+                            stampColor = '#0d9488';
+                            stampBg = 'rgba(13, 148, 136, 0.12)';
+                        }
+
                         sessionCells += `
                             <td style="text-align: center; vertical-align: middle;">
                                 <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.8rem;" title="${s.date} 출석">
@@ -695,6 +709,9 @@
                     barColor = '#cbd5e1';
                 } else if (rate < 50) {
                     barColor = 'linear-gradient(90deg, #e11d48 0%, #f43f5e 100%)';
+                } else if (isEvenArea) {
+                    // 짝수 구역: 틸 그라데이션
+                    barColor = 'linear-gradient(90deg, #0d9488 0%, #2dd4bf 100%)';
                 }
 
                 const barHtml = `
@@ -708,7 +725,13 @@
                     </div>
                 `;
 
-                const areaTd = isAllAreas ? `<td style="text-align: center;"><span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); font-weight: 700;">${m.area}구역</span></td>` : '';
+                // 구역 뱃지 (홀수 구역: 블루, 짝수 구역: 틸/에메랄드 그린)
+                let areaBadgeStyle = 'background: rgba(20, 40, 160, 0.08); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.2);';
+                if (isEvenArea) {
+                    areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
+                }
+
+                const areaTd = isAllAreas ? `<td style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : '';
 
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>
