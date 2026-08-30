@@ -743,7 +743,7 @@
         }
 
         // ==========================================
-        // 엑셀 다운로드 (SheetJS 활용 - 1장의 엑셀 시트에 주일 성도 + 주일 새참자 참석현황, 그래프 요약, 표 통합 출력)
+        // 엑셀 다운로드 (SheetJS 활용 - 교회 실제 양식 100% 일치: 구역별 출석 집계표 + 주일 새참자 성명 매트릭스)
         // ==========================================
         function downloadMatrixExcel() {
             if (!cachedMembersMatrix || cachedMembersMatrix.length === 0) {
@@ -752,7 +752,7 @@
             }
 
             const isAllAreas = !areaFilter.value;
-            const currentAreaText = isAllAreas ? '전체구역' : `${areaFilter.value}구역`;
+            const currentAreaText = isAllAreas ? '창원교회 전체' : `${areaFilter.value}구역`;
             const sDate = startDateInput.value || '';
             const eDate = endDateInput.value || '';
 
@@ -763,176 +763,161 @@
                 return;
             }
 
-            const query = (memberSearchInput ? memberSearchInput.value : '').trim().toLowerCase();
-            
-            // 1. 성도 명단 및 새참자 명단 분리
-            const regularList = cachedMembersMatrix.filter(m => !m.is_newcomer).filter(m => 
-                (m.name && m.name.toLowerCase().includes(query)) ||
-                (m.position && m.position.toLowerCase().includes(query)) ||
-                (m.area && m.area.includes(query))
-            );
+            // 정규 성도 및 새참자 목록 분리
+            const regularList = cachedMembersMatrix.filter(m => !m.is_newcomer);
+            const newcomerList = cachedMembersMatrix.filter(m => !!m.is_newcomer);
 
-            const newcomerList = cachedMembersMatrix.filter(m => !!m.is_newcomer).filter(m => 
-                (m.name && m.name.toLowerCase().includes(query)) ||
-                (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
-                (m.area && m.area.includes(query))
-            );
+            // 전체 등록된 구역 목록 추출 및 정렬 (11, 12, 21, 22, 31, 32...)
+            const areaSet = new Set();
+            if (isAllAreas) {
+                regularList.forEach(m => { if (m.area) areaSet.add(m.area.trim()); });
+                newcomerList.forEach(m => { if (m.area) areaSet.add(m.area.trim()); });
+            } else {
+                areaSet.add(areaFilter.value.trim());
+            }
+
+            const sortedAreas = Array.from(areaSet).sort((a, b) => {
+                const numA = parseInt(a, 10);
+                const numB = parseInt(b, 10);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.localeCompare(b);
+            });
 
             const sheetData = [];
 
             // =========================================================================
             // [SECTION 1] 주일 성도 참석 현황
             // =========================================================================
-            sheetData.push([`■ [${currentAreaText}] 주일 성도 참석 현황 (${sDate} ~ ${eDate})`]);
+            sheetData.push(['주일 성도 참석 현황']);
             sheetData.push([]); // 빈 줄
 
-            // 1-1. 주일 성도 주간 출석 요약 (차트/그래프 데이터 테이블)
-            sheetData.push(['[ 주일 성도 주간 출석 추세 및 출석률 요약 ]']);
-            const regTrendHeader = ['구분'];
-            sundaySessions.forEach(s => regTrendHeader.push(s.label.replace('2026년 ', '')));
-            regTrendHeader.push('기간 평균/합계');
-            sheetData.push(regTrendHeader);
+            // 1-1. 헤더 1행: 구분 | 날짜 | 날짜1 | 날짜2 ... | 한달 평균
+            const headerRow1 = ['구분', '날짜'];
+            sundaySessions.forEach(s => headerRow1.push(s.label.replace('2026년 ', '')));
+            headerRow1.push('한달 평균');
+            sheetData.push(headerRow1);
 
-            const regTrendRow = ['성도 출석 인원(명)'];
-            let regTotalAttendSum = 0;
-            sundaySessions.forEach(s => {
-                const count = regularList.filter(m => m.history && m.history[s.date]).length;
-                regTrendRow.push(`${count}명`);
-                regTotalAttendSum += count;
-            });
-            const regAvg = sundaySessions.length > 0 ? (regTotalAttendSum / sundaySessions.length).toFixed(1) : '0';
-            regTrendRow.push(`평균 ${regAvg}명`);
-            sheetData.push(regTrendRow);
+            // 1-2. 성인 총 출석 인원 행 (합계 행)
+            const adultTotalRow = ['성인', regularList.length]; // 총 재적
+            let allWeeksAdultSum = 0;
+            const weekAdultTotals = [];
 
-            const regRateRow = ['성도 출석률(%)'];
-            const totalRegMembers = regularList.length;
-            sundaySessions.forEach(s => {
-                const count = regularList.filter(m => m.history && m.history[s.date]).length;
-                const r = totalRegMembers > 0 ? Math.round((count / totalRegMembers) * 100) : 0;
-                regRateRow.push(`${r}%`);
-            });
-            const regOverallRate = (totalRegMembers * sundaySessions.length) > 0 
-                ? Math.round((regTotalAttendSum / (totalRegMembers * sundaySessions.length)) * 100) 
-                : 0;
-            regRateRow.push(`누적 ${regOverallRate}%`);
-            sheetData.push(regRateRow);
-            sheetData.push([]); // 빈 줄
-
-            // 1-2. 주일 성도 상세 엑셀표
-            sheetData.push(['[ 주일 성도 출석 명부 및 출석률 ]']);
-            const regTableHeaders = ['순번'];
-            if (isAllAreas) regTableHeaders.push('구역');
-            regTableHeaders.push('성도명', '직분');
-            sundaySessions.forEach(s => regTableHeaders.push(s.label.replace('2026년 ', '')));
-            regTableHeaders.push('출석횟수', '총주일수', '주일출석률');
-            sheetData.push(regTableHeaders);
-
-            if (regularList.length === 0) {
-                sheetData.push(['해당 조건에 해당하는 성도가 없습니다.']);
-            } else {
-                regularList.forEach((m, idx) => {
-                    let attendCnt = 0;
-                    const row = [idx + 1];
-                    if (isAllAreas) row.push(`${m.area}구역`);
-                    row.push(m.name);
-                    row.push((m.position || '성도').trim());
-
-                    sundaySessions.forEach(s => {
-                        const attended = m.history && m.history[s.date];
-                        if (attended) {
-                            attendCnt++;
-                            row.push('O');
-                        } else {
-                            row.push('-');
-                        }
-                    });
-
-                    const totalSessions = sundaySessions.length;
-                    const rate = totalSessions > 0 ? Math.round((attendCnt / totalSessions) * 100) : 0;
-                    row.push(attendCnt, totalSessions, `${rate}%`);
-                    sheetData.push(row);
+            sundaySessions.forEach((s, sIdx) => {
+                let weekCount = 0;
+                sortedAreas.forEach(area => {
+                    const areaMembers = regularList.filter(m => (m.area || '').trim() === area);
+                    const attCount = areaMembers.filter(m => m.history && m.history[s.date]).length;
+                    weekCount += attCount;
                 });
-            }
+                adultTotalRow.push(weekCount);
+                weekAdultTotals.push(weekCount);
+                allWeeksAdultSum += weekCount;
+            });
+            const adultAvg = sundaySessions.length > 0 ? Math.round(allWeeksAdultSum / sundaySessions.length) : 0;
+            adultTotalRow.push(adultAvg);
+            sheetData.push(adultTotalRow);
 
-            sheetData.push([]); // 섹션 간 구분 빈 줄
-            sheetData.push([]); // 섹션 간 구분 빈 줄
+            // 1-3. 출석률(%) 요약 행
+            const rateRow = ['구역', '재적'];
+            const totalRegMembers = regularList.length;
+            sundaySessions.forEach((s, sIdx) => {
+                const count = weekAdultTotals[sIdx];
+                const r = totalRegMembers > 0 ? Math.round((count / totalRegMembers) * 100) : 0;
+                rateRow.push(`${r}%`);
+            });
+            const totalOverallRate = (totalRegMembers * sundaySessions.length) > 0
+                ? Math.round((allWeeksAdultSum / (totalRegMembers * sundaySessions.length)) * 100)
+                : 0;
+            rateRow.push(`${totalOverallRate}%`);
+            sheetData.push(rateRow);
+
+            // 1-4. 각 구역별 행 (11, 12, 21, 22, 31, 32 ...)
+            sortedAreas.forEach(area => {
+                const areaMembers = regularList.filter(m => (m.area || '').trim() === area);
+                const areaRegisteredCount = areaMembers.length;
+                const row = [area, areaRegisteredCount];
+
+                let areaAttSum = 0;
+                sundaySessions.forEach(s => {
+                    const attCount = areaMembers.filter(m => m.history && m.history[s.date]).length;
+                    row.push(attCount);
+                    areaAttSum += attCount;
+                });
+                const areaAvg = sundaySessions.length > 0 ? Math.round(areaAttSum / sundaySessions.length) : 0;
+                row.push(areaAvg);
+                sheetData.push(row);
+            });
+
+            // 1-5. 교회학교 (유초등부, 중고등부) 안내 행
+            sheetData.push(['교회학교', '유초', ...sundaySessions.map(() => '-'), '-']);
+            sheetData.push(['', '중고', ...sundaySessions.map(() => '-'), '-']);
+
+            // 1-6. 최하단 합계 행
+            const finalAdultSumRow = ['합계', regularList.length];
+            sundaySessions.forEach((s, sIdx) => {
+                finalAdultSumRow.push(weekAdultTotals[sIdx]);
+            });
+            finalAdultSumRow.push(adultAvg);
+            sheetData.push(finalAdultSumRow);
+            sheetData.push(['※ 유초등부, 중고등부는 별도 파악하여 입력']);
+            sheetData.push([]); // 빈 줄
+            sheetData.push([]); // 빈 줄
 
             // =========================================================================
             // [SECTION 2] 주일 새참자 참석 현황
             // =========================================================================
-            sheetData.push([`■ [${currentAreaText}] 주일 새참자 참석 현황 (${sDate} ~ ${eDate})`]);
+            sheetData.push(['주일 새참자 참석 현황']);
             sheetData.push([]); // 빈 줄
 
-            // 2-1. 주일 새참자 주간 출석 요약 (차트/그래프 데이터 테이블)
-            sheetData.push(['[ 주일 새참자 주간 참석 추세 요약 ]']);
-            const ncTrendHeader = ['구분'];
-            sundaySessions.forEach(s => ncTrendHeader.push(s.label.replace('2026년 ', '')));
-            ncTrendHeader.push('기간 총참석 건수');
-            sheetData.push(ncTrendHeader);
+            // 2-1. 새참자 헤더: 명단 | 인도자 | 구역 | 날짜1 | 날짜2 ...
+            const ncHeaderRow = ['명단', '인도자', '구역'];
+            sundaySessions.forEach(s => ncHeaderRow.push(s.label.replace('2026년 ', '')));
+            sheetData.push(ncHeaderRow);
 
-            const ncTrendRow = ['새참자 참석 인원(명)'];
-            let ncTotalAttendSum = 0;
-            sundaySessions.forEach(s => {
-                const count = newcomerList.filter(m => m.history && m.history[s.date]).length;
-                ncTrendRow.push(`${count}명`);
-                ncTotalAttendSum += count;
-            });
-            ncTrendRow.push(`총 ${ncTotalAttendSum}건`);
-            sheetData.push(ncTrendRow);
-            sheetData.push([]); // 빈 줄
-
-            // 2-2. 주일 새참자 상세 엑셀표 (출석 시 새참자명(인도자) 출력)
-            sheetData.push(['[ 주일 새참자 일자별 참석자 명단 및 출석률 ]']);
-            const ncTableHeaders = ['순번'];
-            if (isAllAreas) ncTableHeaders.push('구역');
-            ncTableHeaders.push('새참자명', '인도자');
-            sundaySessions.forEach(s => ncTableHeaders.push(s.label.replace('2026년 ', '')));
-            ncTableHeaders.push('출석횟수', '총주일수', '주일출석률');
-            sheetData.push(ncTableHeaders);
+            // 2-2. 새참자별 데이터 행 (해당 일자에 출석했으면 새참자 이름 출력)
+            const weekNcTotals = new Array(sundaySessions.length).fill(0);
 
             if (newcomerList.length === 0) {
-                sheetData.push(['해당 기간/구역에 등록된 새참자가 없습니다.']);
+                sheetData.push(['등록된 새참자가 없습니다.', '-', '-', ...sundaySessions.map(() => '')]);
             } else {
-                newcomerList.forEach((m, idx) => {
-                    let attendCnt = 0;
-                    const row = [idx + 1];
-                    if (isAllAreas) row.push(`${m.area}구역`);
-                    row.push(m.name);
-                    row.push(m.guide_name || '-');
+                newcomerList.forEach(nc => {
+                    const row = [nc.name, nc.guide_name || '-', `${nc.area || '-'}구역`];
 
-                    sundaySessions.forEach(s => {
-                        const attended = m.history && m.history[s.date];
+                    sundaySessions.forEach((s, sIdx) => {
+                        const attended = nc.history && nc.history[s.date];
                         if (attended) {
-                            attendCnt++;
-                            row.push(`${m.name}(${m.guide_name || '인도자미상'})`);
+                            row.push(nc.name); // 이미지 양식과 동일하게 출석한 날짜에 이름 기재
+                            weekNcTotals[sIdx]++;
                         } else {
-                            row.push('-');
+                            row.push(''); // 미출석은 빈 칸
                         }
                     });
-
-                    const totalSessions = sundaySessions.length;
-                    const rate = totalSessions > 0 ? Math.round((attendCnt / totalSessions) * 100) : 0;
-                    row.push(attendCnt, totalSessions, `${rate}%`);
                     sheetData.push(row);
                 });
             }
+
+            // 2-3. 새참자 최하단 '계' 합계 행
+            const ncTotalRow = ['계', '', ''];
+            sundaySessions.forEach((s, sIdx) => {
+                ncTotalRow.push(weekNcTotals[sIdx]);
+            });
+            sheetData.push(ncTotalRow);
+            sheetData.push(['※ 새참자: 주소록에 등록되지 않은 분으로 주일에 성경강연회(인터넷) 말씀 또는 주일 말씀을 듣기위해 방문하신 분']);
 
             // 3. 워크시트 및 워크북 생성
             const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
             // 열 너비 자동 설정
-            const colWidths = [{ wch: 6 }]; // 순번
-            if (isAllAreas) colWidths.push({ wch: 10 }); // 구역
-            colWidths.push({ wch: 14 }, { wch: 12 }); // 이름, 직분/인도자
-            sundaySessions.forEach(() => colWidths.push({ wch: 18 })); // 날짜 열들 (새참자명(인도자) 지원을 위해 넉넉한 너비)
-            colWidths.push({ wch: 10 }, { wch: 10 }, { wch: 12 }); // 출석횟수, 총집회수, 출석률
+            const colWidths = [{ wch: 12 }, { wch: 12 }, { wch: 10 }];
+            sundaySessions.forEach(() => colWidths.push({ wch: 15 }));
+            colWidths.push({ wch: 12 });
             ws['!cols'] = colWidths;
 
             const wb = XLSX.utils.book_new();
-            const sheetTitle = `${currentAreaText}_주일출석통합`;
+            const sheetTitle = `26년${sDate.substring(5, 7)}~${eDate.substring(5, 7)}월_주일출석`;
             XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
 
-            const fileName = `창원교회_주일출석통합보고서_${currentAreaText}_${sDate}_${eDate}.xlsx`;
+            const fileName = `창원교회_주일성도_새참자_참석현황_${currentAreaText}_${sDate}_${eDate}.xlsx`;
             XLSX.writeFile(wb, fileName);
         }
 
