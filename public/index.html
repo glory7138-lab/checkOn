@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <!-- Mobile Top Bar -->
@@ -176,8 +178,8 @@
                         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.</p>
                     </div>
 
-                    <!-- Service Tabs & Search -->
-                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <!-- Service Tabs, Excel & Search -->
+                    <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
                         <!-- Tab Pills: 주일 / 수요 / 전체 -->
                         <div class="matrix-tab-group">
                             <button class="matrix-tab active" id="tabSunday" onclick="switchMatrixTab('sunday')">
@@ -191,7 +193,13 @@
                             </button>
                         </div>
 
-                        <div style="width: 180px; position: relative;">
+                        <!-- Excel Download Button -->
+                        <button class="btn btn-outline" id="btnExcelExport" onclick="downloadMatrixExcel()" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.42rem 0.8rem; font-size: 0.85rem; font-weight: 700; color: #166534; border-color: #86efac; background: #f0fdf4; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;" title="현재 표 엑셀 다운로드">
+                            <i class="fa-solid fa-file-excel" style="color: #16a34a; font-size: 0.95rem;"></i>
+                            <span>엑셀 다운로드</span>
+                        </button>
+
+                        <div style="width: 170px; position: relative;">
                             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
                             <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="성도 이름 검색...">
                         </div>
@@ -859,6 +867,94 @@
             });
 
             window.addEventListener('resize', updateDateScrollButtons);
+        }
+
+        // ==========================================
+        // 엑셀 다운로드 (SheetJS 활용)
+        // ==========================================
+        function downloadMatrixExcel() {
+            if (!cachedMembersMatrix || cachedMembersMatrix.length === 0) {
+                alert('다운로드할 성도 출석 데이터가 없습니다.');
+                return;
+            }
+
+            const isAllAreas = !areaFilter.value;
+            const currentAreaText = isAllAreas ? '전체구역' : `${areaFilter.value}구역`;
+            const tabName = currentMatrixTab === 'sunday' ? '주일말씀' : (currentMatrixTab === 'wednesday' ? '수요말씀' : '전체집회');
+            const sDate = startDateInput.value || '';
+            const eDate = endDateInput.value || '';
+
+            // 현재 선택된 탭의 날짜 세션 목록
+            const activeSessions = cachedSessions.filter(s => {
+                if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
+                if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
+                return true;
+            });
+
+            const query = (memberSearchInput ? memberSearchInput.value : '').trim().toLowerCase();
+            const filtered = cachedMembersMatrix.filter(m => 
+                (m.name && m.name.toLowerCase().includes(query)) ||
+                (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
+                (m.position && m.position.toLowerCase().includes(query)) ||
+                (m.area && m.area.includes(query))
+            );
+
+            // 1. 헤더 생성
+            const headers = ['순번'];
+            if (isAllAreas) headers.push('구역');
+            headers.push('성도명', '직분', '구분', '인도자');
+
+            activeSessions.forEach(s => {
+                headers.push(s.label.replace('2026년 ', ''));
+            });
+
+            const tabRateHeader = currentMatrixTab === 'sunday' ? '주일출석률' : (currentMatrixTab === 'wednesday' ? '수요출석률' : '전체출석률');
+            headers.push('출석횟수', '총집회수', tabRateHeader);
+
+            // 2. 데이터 행 생성
+            const rows = [];
+            filtered.forEach((m, idx) => {
+                let attendCnt = 0;
+                const row = [idx + 1];
+                if (isAllAreas) row.push(`${m.area}구역`);
+                row.push(m.name);
+                row.push((m.position || '성도').trim());
+                row.push(m.is_newcomer ? '새참자' : '일반성도');
+                row.push(m.is_newcomer ? (m.guide_name || '-') : '-');
+
+                activeSessions.forEach(s => {
+                    const attended = m.history && m.history[s.date];
+                    if (attended) {
+                        attendCnt++;
+                        row.push('O');
+                    } else {
+                        row.push('-');
+                    }
+                });
+
+                const totalSessions = activeSessions.length;
+                const rate = totalSessions > 0 ? Math.round((attendCnt / totalSessions) * 100) : 0;
+                row.push(attendCnt, totalSessions, `${rate}%`);
+                rows.push(row);
+            });
+
+            // 3. 워크시트 및 워크북 생성
+            const wsData = [headers, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // 열 너비 자동 설정
+            const colWidths = [{ wch: 6 }]; // 순번
+            if (isAllAreas) colWidths.push({ wch: 10 }); // 구역
+            colWidths.push({ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }); // 성도명, 직분, 구분, 인도자
+            activeSessions.forEach(() => colWidths.push({ wch: 12 })); // 날짜 열들
+            colWidths.push({ wch: 10 }, { wch: 10 }, { wch: 12 }); // 출석횟수, 총집회수, 출석률
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `${currentAreaText}_${tabName}`);
+
+            const fileName = `창원교회_출석현황_${currentAreaText}_${tabName}_${sDate}_${eDate}.xlsx`;
+            XLSX.writeFile(wb, fileName);
         }
 
         function logout() {
