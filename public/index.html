@@ -295,18 +295,10 @@
                 areaFilter.disabled = true;
             }
 
-            // Set default date range: 오늘 기준 최근 4주
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            endDateInput.value = `${yyyy}-${mm}-${dd}`;
-
-            const monthAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
-            const mY = monthAgo.getFullYear();
-            const mM = String(monthAgo.getMonth() + 1).padStart(2, '0');
-            const mD = String(monthAgo.getDate()).padStart(2, '0');
-            startDateInput.value = `${mY}-${mM}-${mD}`;
+            // Set default date range: 오늘 기준 일요일 4번과 수요일 4번이 모두 온전히 포함되는 시작일~종료일 자동 계산
+            const range = calculateRecent4WeeksRange();
+            startDateInput.value = range.startDate;
+            endDateInput.value = range.endDate;
 
             if (memberSearchInput) {
                 memberSearchInput.addEventListener('input', renderMemberMatrix);
@@ -314,6 +306,46 @@
 
             initCharts();
             await loadDashboardData();
+        }
+
+        // 오늘 기준 일요일 4회, 수요일 4회가 모두 포함되는 날짜 범위 계산
+        function calculateRecent4WeeksRange() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const endDateStr = `${yyyy}-${mm}-${dd}`;
+
+            // 최근 4번째 일요일 탐색
+            const sundays = [];
+            let currS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            while (sundays.length < 4) {
+                if (currS.getDay() === 0) {
+                    sundays.push(new Date(currS));
+                }
+                currS.setDate(currS.getDate() - 1);
+            }
+            const fourthSunday = sundays[3];
+
+            // 최근 4번째 수요일 탐색
+            const wednesdays = [];
+            let currW = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            while (wednesdays.length < 4) {
+                if (currW.getDay() === 3) {
+                    wednesdays.push(new Date(currW));
+                }
+                currW.setDate(currW.getDate() - 1);
+            }
+            const fourthWednesday = wednesdays[3];
+
+            // 4번째 일요일과 4번째 수요일 중 더 빠른 날짜를 시작일로 지정하여 4회씩 모두 포함
+            const startObj = fourthSunday < fourthWednesday ? fourthSunday : fourthWednesday;
+            const sY = startObj.getFullYear();
+            const sM = String(startObj.getMonth() + 1).padStart(2, '0');
+            const sD = String(startObj.getDate()).padStart(2, '0');
+            const startDateStr = `${sY}-${sM}-${sD}`;
+
+            return { startDate: startDateStr, endDate: endDateStr };
         }
 
         async function loadAllAreas() {
