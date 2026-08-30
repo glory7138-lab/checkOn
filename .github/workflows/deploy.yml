@@ -1,0 +1,70 @@
+name: Build and Package Docker Image for NAS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-and-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Server Image
+        run: |
+          docker build -t gospel_app:latest .
+
+      - name: Save image to tar
+        run: |
+          docker save gospel_app:latest > gospel_app.tar
+
+      - name: Publish to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Clear old releases
+          python3 -c "
+          import urllib.request, json, os
+
+          token = os.environ.get('GH_TOKEN')
+          repo = os.environ.get('GITHUB_REPOSITORY')
+          headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
+
+          req = urllib.request.Request(f'https://api.github.com/repos/{repo}/releases', headers=headers)
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  releases = json.loads(resp.read().decode())
+                  for r in releases:
+                      rel_id = r['id']
+                      print(f'Deleting release {rel_id}...')
+                      del_req = urllib.request.Request(f'https://api.github.com/repos/{repo}/releases/{rel_id}', headers=headers, method='DELETE')
+                      urllib.request.urlopen(del_req)
+          except Exception as e:
+              print(f'Release cleanup note: {e}')
+          "
+
+          # 2. Clear old tags
+          git fetch --tags || true
+          git tag -l | while read -r t; do
+            if [ -n "$t" ]; then
+              git tag -d "$t" || true
+              git push --delete origin "$t" || true
+            fi
+          done
+
+          # 3. Create new release with tar artifact
+          gh release create latest gospel_app.tar --title "Latest Build" --notes "Auto-generated Docker Image tar build for Synology Container Manager" --target main
