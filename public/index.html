@@ -181,21 +181,30 @@
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table" id="memberMatrixTable">
-                        <thead>
-                            <tr id="matrixHeaderRow">
-                                <th style="width: 50px; text-align: center;">순번</th>
-                                <th>성도 정보</th>
-                                <th style="width: 90px; text-align: center;">직분</th>
-                                <!-- Dynamic Date Headers will be appended here -->
-                                <th style="width: 220px; text-align: center;">누적 출석률 (가로 막대)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="memberMatrixBody">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
+                <div class="matrix-scroll-wrapper" id="matrixScrollWrapper">
+                    <button class="matrix-nav-btn btn-prev" id="btnDateScrollLeft" onclick="scrollDateColumns(-200)" title="이전 날짜로 스크롤">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button class="matrix-nav-btn btn-next" id="btnDateScrollRight" onclick="scrollDateColumns(200)" title="다음 날짜로 스크롤">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+
+                    <div class="table-container" id="matrixTableContainer">
+                        <table class="data-table" id="memberMatrixTable">
+                            <thead>
+                                <tr id="matrixHeaderRow">
+                                    <th class="sticky-col-seq">순번</th>
+                                    <th>성도 정보</th>
+                                    <th style="width: 90px; text-align: center;">직분</th>
+                                    <!-- Dynamic Date Headers will be appended here -->
+                                    <th class="sticky-col-rate" style="text-align: center;">누적 출석률 (가로 막대)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberMatrixBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>
@@ -605,25 +614,27 @@
             if (!matrixHeaderRow || !memberMatrixBody) return;
 
             const isAllAreas = !areaFilter.value;
+            const infoLeft = isAllAreas ? '113px' : '45px';
 
-            // 1. Build Header with dynamic session dates
-            let headerHtml = `<th style="width: 50px; text-align: center;">순번</th>`;
+            // 1. Build Header with sticky and dynamic session dates
+            let headerHtml = `<th class="sticky-col-seq">순번</th>`;
             if (isAllAreas) {
-                headerHtml += `<th style="width: 75px; text-align: center;">구역</th>`;
+                headerHtml += `<th class="sticky-col-area">구역</th>`;
             }
-            headerHtml += `<th>성도 정보 & 직분</th>`;
+            headerHtml += `<th class="sticky-col-info" style="left: ${infoLeft};">성도 정보 & 직분</th>`;
             matrixHeaderRow.innerHTML = headerHtml;
 
             cachedSessions.forEach(s => {
                 const th = document.createElement('th');
                 th.style.textAlign = 'center';
-                th.style.minWidth = '65px';
+                th.style.minWidth = '78px';
+                th.style.padding = '0.85rem 0.5rem';
                 th.textContent = s.label.replace('2026년 ', '');
                 matrixHeaderRow.appendChild(th);
             });
 
             const barTh = document.createElement('th');
-            barTh.style.width = '240px';
+            barTh.className = 'sticky-col-rate';
             barTh.style.textAlign = 'center';
             barTh.textContent = '누적 출석률 (가로 막대 바)';
             matrixHeaderRow.appendChild(barTh);
@@ -641,6 +652,7 @@
             if (filtered.length === 0) {
                 const totalCols = (isAllAreas ? 4 : 3) + cachedSessions.length;
                 memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
+                updateDateScrollButtons();
                 return;
             }
 
@@ -733,12 +745,10 @@
                     areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
                 }
 
-                const areaTd = isAllAreas ? `<td style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : '';
-
-                tr.innerHTML = `
-                    <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>
-                    ${areaTd}
-                    <td>
+                const seqTd = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>`;
+                const areaTd = isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : '';
+                const infoTd = `
+                    <td class="sticky-col-info" style="left: ${infoLeft};">
                         <div style="display: flex; align-items: center; flex-wrap: wrap;">
                             <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
                                 ${m.name}
@@ -747,14 +757,67 @@
                             ${isNewcomer ? `<span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 6px;">(인도: ${m.guide_name || '-'})</span>` : ''}
                         </div>
                     </td>
-                    ${sessionCells}
-                    <td>
-                        ${barHtml}
-                    </td>
                 `;
+                const rateTd = `<td class="sticky-col-rate">${barHtml}</td>`;
 
+                tr.innerHTML = `${seqTd}${areaTd}${infoTd}${sessionCells}${rateTd}`;
                 memberMatrixBody.appendChild(tr);
             });
+
+            // Update Left/Right Navigation buttons
+            updateDateScrollButtons();
+        }
+
+        // ==========================================
+        // 날짜 영역 좌우 스크롤 & 마우스 이동 내비게이션
+        // ==========================================
+        const tableContainerEl = document.getElementById('matrixTableContainer');
+        const btnScrollLeft = document.getElementById('btnDateScrollLeft');
+        const btnScrollRight = document.getElementById('btnDateScrollRight');
+
+        function scrollDateColumns(delta) {
+            if (tableContainerEl) {
+                tableContainerEl.scrollBy({ left: delta, behavior: 'smooth' });
+            }
+        }
+
+        function updateDateScrollButtons() {
+            if (!tableContainerEl || !btnScrollLeft || !btnScrollRight) return;
+            const scrollLeft = tableContainerEl.scrollLeft;
+            const maxScroll = tableContainerEl.scrollWidth - tableContainerEl.clientWidth;
+
+            if (maxScroll > 15) {
+                // Scrollable
+                btnScrollLeft.classList.toggle('visible', scrollLeft > 10);
+                btnScrollRight.classList.toggle('visible', scrollLeft < maxScroll - 10);
+            } else {
+                btnScrollLeft.classList.remove('visible');
+                btnScrollRight.classList.remove('visible');
+            }
+        }
+
+        if (tableContainerEl) {
+            tableContainerEl.addEventListener('scroll', updateDateScrollButtons, { passive: true });
+            
+            // Mouse pointer positioning & auto track
+            tableContainerEl.addEventListener('mousemove', (e) => {
+                const rect = tableContainerEl.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const totalWidth = rect.width;
+                const maxScroll = tableContainerEl.scrollWidth - tableContainerEl.clientWidth;
+
+                if (maxScroll <= 15) return;
+
+                // Position buttons near the middle date area dynamically
+                if (btnScrollLeft) {
+                    btnScrollLeft.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
+                }
+                if (btnScrollRight) {
+                    btnScrollRight.style.top = `${Math.min(Math.max(e.clientY - rect.top, 50), rect.height - 50)}px`;
+                }
+            });
+
+            window.addEventListener('resize', updateDateScrollButtons);
         }
 
         function logout() {
