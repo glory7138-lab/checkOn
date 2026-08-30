@@ -77,16 +77,29 @@ app.post('/api/auth/login', async (req, res) => {
         const effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
         const effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
 
-        // 2. 관리자 권한 확인 (CWTB_ADMIN 테이블 혹은 직분이 관리자/부장/총무/목사/전도사 등)
+        // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
         let isAdmin = false;
         try {
-            const adminCheck = await conn.query(`
-                SELECT * FROM CWTB_ADMIN WHERE REPLACE(REPLACE(PHONE, '-', ''), ' ', '') = ? LIMIT 1
+            // WEB_ADMIN_PHONES 확인
+            const phoneCheck = await conn.query(`
+                SELECT * FROM WEB_ADMIN_PHONES 
+                WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                LIMIT 1
             `, [cleanPhone]);
-            if (adminCheck && adminCheck.length > 0) isAdmin = true;
-        } catch (e) {}
+            if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
 
-        if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('총무') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+            // CWTB_ADMIN 확인
+            const adminCheck = await conn.query(`
+                SELECT * FROM CWTB_ADMIN 
+                WHERE NAME = ?
+                LIMIT 1
+            `, [user.NAME]);
+            if (adminCheck && adminCheck.length > 0) isAdmin = true;
+        } catch (e) {
+            console.error("Admin check query error:", e);
+        }
+
+        if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
             isAdmin = true;
         }
 
