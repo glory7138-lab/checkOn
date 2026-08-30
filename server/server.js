@@ -380,7 +380,7 @@ app.post('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 수정
+// 새참자 수정 (이름 변경 시에도 고유 ID(NC_id) 기반으로 과거 출석 기록 100% 소급 유지)
 app.put('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
     const { name, guide_name, phone, area_code, memo } = req.body;
@@ -391,14 +391,34 @@ app.put('/api/newcomers/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. 본인을 제외하고 해당 구역에 동일한 이름의 새참자가 있는지 중복 검사
+        const dup = await conn.query(`
+            SELECT id FROM faithon_newcomer 
+            WHERE name = ? AND (area_code = ? OR temp_area = ?) AND id != ?
+        `, [name.trim(), area_code.trim(), area_code.trim(), id]);
+
+        if (dup && dup.length > 0) {
+            return res.status(400).json({ success: false, error: `이미 ${area_code}구역에 동일한 이름의 다른 새참자(${name})가 존재합니다.` });
+        }
+
+        // 2. 새참자 정보 업데이트 (이름이 변경되어도 ID 기반으로 과거 출석 기록 자동 보존)
         await conn.query(`
             UPDATE faithon_newcomer
             SET name = ?, guide_name = ?, phone = ?, area_code = ?, memo = ?
             WHERE id = ?
         `, [name.trim(), guide_name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
 
-        res.json({ success: true, message: '새참자 정보가 수정되었습니다.' });
+        // 3. 수정된 이름이 주소록(CWTB_USER)에 이미 존재하는지 즉시 확인 및 자동 정리/이관
+        await syncNewcomersWithAddressBook(conn, activeYear);
+
+        res.json({ 
+            success: true, 
+            message: `'${name}' 새참자 정보가 수정되었으며, 이전 출석 기록이 모두 소급 유지됩니다.` 
+        });
     } catch (err) {
+        console.error("Error updating newcomer:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
