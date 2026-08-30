@@ -1273,7 +1273,7 @@ app.get('/api/admin/candidates', async (req, res) => {
             }
         }
 
-        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC LIMIT 100`;
+        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC`;
 
         const rows = await conn.query(sql, params);
         res.json({ success: true, data: rows });

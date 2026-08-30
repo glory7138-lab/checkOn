@@ -280,7 +280,7 @@
         const adminCountBadge = document.getElementById('adminCountBadge');
 
         let currentAdmins = [];
-        let currentCandidates = [];
+        let allCandidates = [];
 
         async function initPage() {
             if (!currentUser) return;
@@ -294,25 +294,12 @@
 
             await loadAreas();
             await loadAdmins();
-            await searchCandidates();
+            await loadCandidates();
 
-            // Event Listeners
-            let searchTimeout = null;
-            searchCandidateInput.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(searchCandidates, 200);
-            });
-            searchCandidateInput.addEventListener('compositionend', () => {
-                clearTimeout(searchTimeout);
-                searchCandidates();
-            });
-            searchCandidateInput.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter') {
-                    clearTimeout(searchTimeout);
-                    searchCandidates();
-                }
-            });
-            areaFilterCandidate.addEventListener('change', searchCandidates);
+            // Event Listeners (실시간 즉시 검색)
+            searchCandidateInput.addEventListener('input', renderCandidates);
+            searchCandidateInput.addEventListener('compositionend', renderCandidates);
+            areaFilterCandidate.addEventListener('change', renderCandidates);
         }
 
         async function loadAreas() {
@@ -346,6 +333,21 @@
             } catch (err) {
                 console.error(err);
                 adminListEl.innerHTML = `<div style="color: var(--danger-color); padding: 1rem;">관리자 목록을 불러오지 못했습니다. (${err.message})</div>`;
+            }
+        }
+
+        async function loadCandidates() {
+            candidateListEl.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 목록 로딩 중...</div>';
+            try {
+                const res = await fetch('/api/admin/candidates');
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                allCandidates = json.data || [];
+                renderCandidates();
+            } catch (err) {
+                console.error(err);
+                candidateListEl.innerHTML = `<div style="color: var(--danger-color); padding: 1rem;">성도 목록을 불러오지 못했습니다. (${err.message})</div>`;
             }
         }
 
@@ -400,38 +402,35 @@
             });
         }
 
-        async function searchCandidates() {
-            const query = searchCandidateInput.value.trim();
+        function renderCandidates() {
+            const query = searchCandidateInput.value.trim().toLowerCase();
             const areaCode = areaFilterCandidate.value;
 
-            candidateListEl.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 목록 로딩 중...</div>';
+            const filtered = allCandidates.filter(cand => {
+                // 구역 필터
+                if (areaCode && cand.AREA_CODE !== areaCode) return false;
+                // 검색어 필터
+                if (query) {
+                    const nameMatch = cand.NAME && cand.NAME.toLowerCase().includes(query);
+                    const cleanPhone = (cand.PHONE || '').replace(/[^0-9]/g, '');
+                    const cleanQuery = query.replace(/[^0-9]/g, '');
+                    const phoneMatch = (cleanQuery && cleanPhone.includes(cleanQuery)) || (cand.PHONE && cand.PHONE.includes(query));
+                    const posMatch = cand.POSITION && cand.POSITION.toLowerCase().includes(query);
+                    const areaMatch = cand.AREA_CODE && cand.AREA_CODE.includes(query);
+                    return nameMatch || phoneMatch || posMatch || areaMatch;
+                }
+                return true;
+            });
 
-            try {
-                let url = `/api/admin/candidates?`;
-                if (query) url += `query=${encodeURIComponent(query)}&`;
-                if (areaCode) url += `areaCode=${encodeURIComponent(areaCode)}&`;
-
-                const res = await fetch(url);
-                const json = await res.json();
-                if (!json.success) throw new Error(json.error);
-
-                currentCandidates = json.data || [];
-                candidateCountBadge.textContent = `${currentCandidates.length}명 검색됨`;
-                renderCandidates();
-            } catch (err) {
-                console.error(err);
-                candidateListEl.innerHTML = `<div style="color: var(--danger-color); padding: 1rem;">성도 목록을 불러오지 못했습니다. (${err.message})</div>`;
-            }
-        }
-
-        function renderCandidates() {
+            candidateCountBadge.textContent = `${filtered.length}명 검색됨`;
             candidateListEl.innerHTML = '';
-            if (currentCandidates.length === 0) {
+
+            if (filtered.length === 0) {
                 candidateListEl.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: var(--text-secondary);">검색 조건에 일치하는 성도가 없습니다.</div>';
                 return;
             }
 
-            currentCandidates.forEach(cand => {
+            filtered.slice(0, 100).forEach(cand => {
                 const div = document.createElement('div');
                 div.className = 'transfer-item';
                 const initial = (cand.NAME || '성').charAt(0);
@@ -480,7 +479,7 @@
 
                 // Reload both panels
                 await loadAdmins();
-                await searchCandidates();
+                await loadCandidates();
             } catch (err) {
                 alert(`관리자 지정 중 오류가 발생했습니다: ${err.message}`);
             }
@@ -505,7 +504,7 @@
 
                 // Reload both panels
                 await loadAdmins();
-                await searchCandidates();
+                await loadCandidates();
             } catch (err) {
                 alert(`관리자 해제 중 오류가 발생했습니다: ${err.message}`);
             }
