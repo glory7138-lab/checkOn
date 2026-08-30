@@ -12,6 +12,22 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <!-- Mobile Top Bar -->
+    <header class="mobile-top-bar">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="brand-icon" style="width: 30px; height: 30px; font-size: 0.9rem;">
+                <i class="fa-solid fa-church"></i>
+            </div>
+            <span style="font-weight: 800; color: var(--accent-color); font-size: 1.15rem;">FaithOn</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">31구역</span>
+            <button onclick="logout()" style="color: var(--danger-color); font-size: 0.95rem; padding: 4px;">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+        </div>
+    </header>
+
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -132,6 +148,28 @@
         </main>
     </div>
 
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <div class="mobile-bottom-nav-inner">
+            <a href="/" class="mobile-nav-item active">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>대시보드</span>
+            </a>
+            <a href="/attend.html" class="mobile-nav-item">
+                <i class="fa-solid fa-clipboard-user"></i>
+                <span>출석체크</span>
+            </a>
+            <a href="/newcomer.html" class="mobile-nav-item">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>새참자</span>
+            </a>
+            <a href="/reserve.html" class="mobile-nav-item" id="mobNavReserve" style="display: none;">
+                <i class="fa-solid fa-users-slash"></i>
+                <span>예비명단</span>
+            </a>
+        </div>
+    </nav>
+
     <!-- Chart Logic & Live Data Fetching -->
     <script>
         const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
@@ -167,15 +205,20 @@
         let ratioChartInstance = null;
 
         async function initPage() {
-            // 1. Sidebar & Profile
+            // 1. Sidebar & Mobile Nav
+            const mobNavReserve = document.getElementById('mobNavReserve');
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
+            }
+            if (mobNavReserve) {
+                mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
             }
             if (cardReserveStat) {
                 cardReserveStat.style.display = isAdmin ? 'flex' : 'none';
             }
 
             userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
+            document.getElementById('mobileUserDisplay').textContent = isAdmin ? '총괄 관리자' : `${userArea}구역`;
             
             if (isAdmin) {
                 userRoleDisplay.textContent = '총괄 관리자 권한';
