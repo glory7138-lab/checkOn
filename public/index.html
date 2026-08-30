@@ -139,9 +139,34 @@
                     </div>
                 </div>
                 <div class="card chart-container">
-                    <h3>최근 주일 출석 구성비 (기존 성도 vs 새참자)</h3>
-                    <div class="chart-wrapper">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                        <h3 style="margin-bottom: 0;">최근 주일 출석 구성비</h3>
+                        <span class="badge" id="ratioLatestDateBadge" style="background: var(--accent-light); color: var(--accent-color); font-weight: 700; font-size: 0.8rem;">-</span>
+                    </div>
+
+                    <!-- 총원 / 성도 / 새참자 수치 & % 요약 바 -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; background: #f8fafc; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="text-align: center;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">구역 총원</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);" id="summaryTotalMembers">-</div>
+                        </div>
+                        <div style="text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
+                            <div style="font-size: 0.75rem; color: var(--accent-color); font-weight: 600;">기존 성도</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: var(--accent-color);" id="summaryRegularAttend">-</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 0.75rem; color: #0891b2; font-weight: 600;">새참자</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #0891b2;" id="summaryNewcomerAttend">-</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-wrapper" style="position: relative;">
                         <canvas id="ratioChart"></canvas>
+                        <!-- 도넛 차트 중앙 총 출석률 텍스트 -->
+                        <div style="position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">총 출석률</div>
+                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px;" id="centerAttendanceRate">-</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -510,17 +535,52 @@
 
         function updateRatioChart(m) {
             if (!ratioChartInstance) return;
+            const total = m.total_members || 0;
             const regAttended = m.regular_attended || 0;
             const ncAttended = m.newcomer_attended || 0;
             const unattended = m.unattended_count || 0;
             const reserve = isAdmin ? (m.reserve_count || 0) : 0;
+            const totalAttended = regAttended + ncAttended;
 
+            const totalRate = total > 0 ? ((totalAttended / total) * 100).toFixed(1) : '0.0';
+            const regRate = total > 0 ? ((regAttended / total) * 100).toFixed(1) : '0.0';
+            const ncRate = total > 0 ? ((ncAttended / total) * 100).toFixed(1) : '0.0';
+            const unRate = total > 0 ? ((unattended / total) * 100).toFixed(1) : '0.0';
+
+            // 1. Update summary bar
+            const summaryTotal = document.getElementById('summaryTotalMembers');
+            const summaryReg = document.getElementById('summaryRegularAttend');
+            const summaryNc = document.getElementById('summaryNewcomerAttend');
+            const centerRate = document.getElementById('centerAttendanceRate');
+            const dateBadge = document.getElementById('ratioLatestDateBadge');
+
+            if (summaryTotal) summaryTotal.textContent = `${total}명`;
+            if (summaryReg) summaryReg.innerHTML = `${regAttended}명 <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">(${regRate}%)</span>`;
+            if (summaryNc) summaryNc.innerHTML = `${ncAttended}명 <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">(${ncRate}%)</span>`;
+            if (centerRate) centerRate.textContent = `${totalRate}%`;
+
+            if (dateBadge && cachedSessions.length > 0) {
+                const lastSession = cachedSessions[cachedSessions.length - 1];
+                dateBadge.textContent = lastSession ? lastSession.label.replace('2026년 ', '') : '금주 주일';
+            }
+
+            // 2. Update Doughnut Chart
             if (isAdmin) {
-                ratioChartInstance.data.labels = ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'];
+                const resRate = total > 0 ? ((reserve / total) * 100).toFixed(1) : '0.0';
+                ratioChartInstance.data.labels = [
+                    `기존 성도: ${regAttended}명 (${regRate}%)`,
+                    `새참자: ${ncAttended}명 (${ncRate}%)`,
+                    `미출석: ${unattended}명 (${unRate}%)`,
+                    `예비명단: ${reserve}명 (${resRate}%)`
+                ];
                 ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended, reserve];
                 ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'];
             } else {
-                ratioChartInstance.data.labels = ['기존 성도 출석', '새참자 출석', '미출석'];
+                ratioChartInstance.data.labels = [
+                    `기존 성도: ${regAttended}명 (${regRate}%)`,
+                    `새참자: ${ncAttended}명 (${ncRate}%)`,
+                    `미출석: ${unattended}명 (${unRate}%)`
+                ];
                 ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended];
                 ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0'];
             }
