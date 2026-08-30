@@ -1,14 +1,32 @@
 const mariadb = require('mariadb');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
-const pool = mariadb.createPool({
+let dbConfig = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     connectionLimit: 10
-});
+};
+
+if (process.env.DATABASE_URL) {
+    try {
+        const url = new URL(process.env.DATABASE_URL);
+        dbConfig = {
+            host: url.hostname,
+            port: url.port || 3306,
+            user: url.username,
+            password: decodeURIComponent(url.password),
+            database: url.pathname.substring(1),
+            connectionLimit: 10
+        };
+    } catch (e) {
+        console.error("[FaithOn DB] Failed to parse DATABASE_URL:", e.message);
+    }
+}
+
+const pool = mariadb.createPool(dbConfig);
 
 async function initializeTables() {
     let conn;
