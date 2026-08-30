@@ -1,12 +1,20 @@
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
 const db = require('./db'); // Initialize DB and get pool
+
+// BigInt JSON 직렬화 지원 (MariaDB COUNT(*) 등 BigInt 반환 시 오류 방지)
+BigInt.prototype.toJSON = function() {
+    return Number(this);
+};
 
 const app = express();
 const PORT = process.env.PORT || 3047;
 
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(cors());
 app.use(express.json()); // Parse JSON bodies
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Helper: 현시점 최신 활성 연도(Active Year) 동적 조회
 async function getActiveYear(conn) {
@@ -508,34 +516,65 @@ app.delete('/api/reserve/:member_code', async (req, res) => {
     }
 });
 
+// 출석 조회 (정규 성도 및 새참자 모두 포함)
 app.get('/api/attendance', async (req, res) => {
     const { date, type, areaCode } = req.query;
     let conn;
     try {
         conn = await db.pool.getConnection();
         const query = `
-            SELECT a.member_code 
+            SELECT DISTINCT a.member_code 
             FROM faithon_attendance a
-            JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+            LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
             WHERE a.service_date = ? 
               AND a.service_type = ? 
               AND a.is_attended = TRUE
-              AND u.AREA_CODE = ?
+              AND (
+                  ? IS NULL 
+                  OR u.AREA_CODE = ? 
+                  OR nc.area_code = ? 
+                  OR nc.temp_area = ?
+              )
         `;
-        const rows = await conn.query(query, [date, type, areaCode]);
+        const rows = await conn.query(query, [date, type, areaCode || null, areaCode, areaCode, areaCode]);
         const attendedCodes = rows.map(r => r.member_code);
         res.json({ success: true, data: attendedCodes });
     } catch (err) {
+        console.error("Error fetching attendance:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
     }
 });
 
-// 3. 출석 체크 저장/업데이트
+// 3-1. 실시간 즉시 출석 체크 토글 (체크 클릭 즉시 저장)
+app.post('/api/attendance/toggle', async (req, res) => {
+    const { date, type, member_code, is_attended } = req.body;
+    if (!date || !type || !member_code) {
+        return res.status(400).json({ success: false, error: '필수 항목이 누락되었습니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_attendance (member_code, service_date, service_type, is_attended)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE is_attended = ?
+        `, [member_code, date, type, !!is_attended, !!is_attended]);
+
+        res.json({ success: true, message: '출석 상태가 실시간 저장되었습니다.' });
+    } catch (err) {
+        console.error("Error toggling attendance:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 3-2. 출석 체크 일괄 저장/업데이트 (기존 호환 유지)
 app.post('/api/attendance', async (req, res) => {
     const { date, type, members } = req.body;
-    // members: [{ member_code: '...', is_attended: true/false }]
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -546,7 +585,7 @@ app.post('/api/attendance', async (req, res) => {
                 INSERT INTO faithon_attendance (member_code, service_date, service_type, is_attended)
                 VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE is_attended = ?
-            `, [m.member_code, date, type, m.is_attended, m.is_attended]);
+            `, [m.member_code, date, type, !!m.is_attended, !!m.is_attended]);
         }
 
         await conn.commit();

@@ -212,12 +212,12 @@
             <div class="page-header">
                 <div>
                     <h1 class="page-title">출석 체크</h1>
-                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하고 저장하세요.</p>
+                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하세요. (클릭 시 실시간 자동 저장)</p>
                 </div>
                 <div class="header-actions">
-                    <button class="btn btn-primary" id="saveBtn" onclick="saveAttendance()">
-                        <i class="fa-solid fa-floppy-disk"></i> 출석 저장
-                    </button>
+                    <div id="saveStatusIndicator" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--success-color); background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 500;">
+                        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--success-color);"></i> 실시간 자동 저장
+                    </div>
                 </div>
             </div>
 
@@ -340,12 +340,12 @@
             
             if (isAdmin) {
                 userRoleDisplay.textContent = '총괄 관리자 권한 (전체 구역)';
-                pageSubTitle.innerHTML = '전체 구역 성도들의 출석 현황을 관리자 권한으로 확인 및 수정합니다.';
+                pageSubTitle.innerHTML = '전체 구역 성도들의 출석 현황을 관리자 권한으로 확인 및 실시간 체크합니다.';
                 await loadAllAreas();
             } else {
                 const userArea = currentUser.scope_code || currentUser.area_code || '11';
                 userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
-                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 출석을 확인하고 저장하세요.`;
+                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 출석을 확인하세요. (클릭 시 실시간 자동 저장)`;
                 areaSelectLabel.innerHTML = `담당 구역 <span class="badge badge-success" style="font-size:0.75rem;">권한 고정</span>`;
                 
                 // Only populate their assigned area and lock
@@ -472,52 +472,44 @@
             });
         }
 
-        function toggleCheck(codeNo, isChecked) {
+        // 실시간 출석 체크 즉시 저장
+        async function toggleCheck(codeNo, isChecked) {
             const member = membersData.find(m => m.CODE_NO === codeNo);
             if (member) member.checked = isChecked;
-        }
 
-        async function saveAttendance() {
             const date = attendDateEl.value;
             const type = sessionTypeEl.value;
-            const saveBtn = document.getElementById('saveBtn');
+            const indicator = document.getElementById('saveStatusIndicator');
 
-            if (!date || !type) {
-                alert('출석일자와 출석유형을 선택해주세요.');
-                return;
+            if (indicator) {
+                indicator.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-color);"></i> 저장 중...';
+                indicator.style.color = 'var(--text-primary)';
             }
-            
-            const payload = {
-                date,
-                type,
-                members: membersData.map(m => ({
-                    member_code: m.CODE_NO,
-                    is_attended: !!m.checked
-                }))
-            };
-
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
 
             try {
-                const res = await fetch('/api/attendance', {
+                const res = await fetch('/api/attendance/toggle', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        date,
+                        type,
+                        member_code: codeNo,
+                        is_attended: isChecked
+                    })
                 });
                 const json = await res.json();
-                
-                if (json.success) {
-                    alert('출석이 성공적으로 저장되었습니다.');
-                } else {
-                    throw new Error(json.error);
+                if (!json.success) throw new Error(json.error);
+
+                if (indicator) {
+                    indicator.innerHTML = '<i class="fa-solid fa-check" style="color: var(--success-color);"></i> 실시간 자동 저장됨';
+                    indicator.style.color = 'var(--success-color)';
                 }
             } catch (err) {
-                console.error("Save error:", err);
-                alert("출석 저장 중 오류가 발생했습니다: " + err.message);
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 출석 저장';
+                console.error("Auto-save toggle error:", err);
+                if (indicator) {
+                    indicator.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: var(--danger-color);"></i> 저장 실패';
+                    indicator.style.color = 'var(--danger-color)';
+                }
             }
         }
 
