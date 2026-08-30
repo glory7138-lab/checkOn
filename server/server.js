@@ -231,21 +231,40 @@ app.get('/api/members', async (req, res) => {
         // 주소록에 등록된 새참자 자동 동기화
         await syncNewcomersWithAddressBook(conn, activeYear);
 
-        // 2-1. 정규 성도 조회 (예비명단 제외)
+        // 2-1. 정규 성도 조회 (구역 임원 및 집사/목사/부목사/전도사 직분 연동, 예비명단 제외)
         let query = `
             SELECT u.CODE_NO, u.NAME, 
-                   COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                           WHEN d.NAME IS NOT NULL THEN '집사'
+                           ELSE NULL 
+                       END,
+                       u.POSITION,
+                       '성도'
+                   ) AS POSITION, 
                    u.AREA_CODE, u.PHONE, u.PIC,
                    FALSE as is_newcomer
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ?
               AND r.member_code IS NULL 
               AND u.IS_HIDDEN = 'N' 
               AND u.DEL_YN = 'N'
         `;
-        const params = [activeYear, activeYear];
+        const params = [activeYear, activeYear, activeYear];
         
         if (areaCode) {
             query += ` AND u.AREA_CODE = ?`;
@@ -259,7 +278,12 @@ app.get('/api/members', async (req, res) => {
                 WHEN pa.POSITION LIKE '%조장%' THEN 3
                 WHEN pa.POSITION LIKE '%조총무%' THEN 4
                 WHEN pa.POSITION LIKE '%서기%' THEN 5
-                ELSE 6
+                WHEN pep.POSITION = '담임목사' THEN 6
+                WHEN pep.POSITION = '목사' THEN 7
+                WHEN pep.POSITION = '부목사' THEN 8
+                WHEN pep.POSITION = '전도사' THEN 9
+                WHEN pep.POSITION = '집사' OR d.NAME IS NOT NULL THEN 10
+                ELSE 11
             END,
             u.NAME ASC
         `;
@@ -533,16 +557,24 @@ app.get('/api/admin/users', async (req, res) => {
                 COALESCE(u.CODE_NO, CONCAT('ADM_', a.SEQ)) as code_no,
                 a.NAME as name,
                 COALESCE(u.PHONE, wp.phone, '-') as phone,
-                COALESCE(pa.POSITION, u.POSITION, '관리자') as position,
+                COALESCE(
+                    pa.POSITION,
+                    pep.POSITION,
+                    u.POSITION,
+                    '관리자'
+                ) as position,
                 COALESCE(u.AREA_CODE, '관리부서') as area_code,
                 a.SEQ as seq
             FROM CWTB_ADMIN a
             LEFT JOIN CWTB_USER u ON a.NAME = u.NAME AND u.YEAR = ? AND u.DEL_YN = 'N'
             LEFT JOIN CWTB_PA pa ON a.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION FROM CWTB_PEP WHERE (YEAR = ? OR YEAR = '2025') AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') GROUP BY NAME
+            ) pep ON a.NAME = pep.NAME
             LEFT JOIN WEB_ADMIN_PHONES wp ON REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = wp.phone OR a.NAME = wp.name
             ORDER BY a.SEQ ASC, a.NAME ASC
         `;
-        const admins = await conn.query(query, [activeYear, activeYear]);
+        const admins = await conn.query(query, [activeYear, activeYear, activeYear]);
         res.json({ success: true, data: admins });
     } catch (err) {
         console.error("Error fetching admin list:", err);
@@ -562,17 +594,36 @@ app.get('/api/admin/candidates', async (req, res) => {
 
         let sql = `
             SELECT u.CODE_NO, u.NAME, 
-                   COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                           WHEN d.NAME IS NOT NULL THEN '집사'
+                           ELSE NULL 
+                       END,
+                       u.POSITION,
+                       '성도'
+                   ) AS POSITION, 
                    u.AREA_CODE, u.PHONE
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
             LEFT JOIN CWTB_ADMIN a ON u.NAME = a.NAME
             WHERE u.YEAR = ? 
               AND u.DEL_YN = 'N' 
               AND u.IS_HIDDEN = 'N'
               AND a.NAME IS NULL
         `;
-        const params = [activeYear, activeYear];
+        const params = [activeYear, activeYear, activeYear, activeYear];
 
         if (areaCode) {
             sql += ` AND u.AREA_CODE = ?`;

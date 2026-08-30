@@ -493,6 +493,10 @@
                     badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">새참자</span>`;
                 } else if (isLeader) {
                     badgeHtml = `<span class="badge badge-success" style="padding: 0.2rem 0.5rem;">${member.POSITION}</span>`;
+                } else if (pos.includes('목사') || pos.includes('전도사')) {
+                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">${pos}</span>`;
+                } else if (pos.includes('집사')) {
+                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.2rem 0.5rem;">집사</span>`;
                 } else if (pos && pos !== '성도') {
                     badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.2rem 0.5rem;">${pos}</span>`;
                 } else {

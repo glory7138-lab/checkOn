@@ -251,6 +251,17 @@
             }
         }
 
+        function getPositionBadge(pos) {
+            if (!pos || pos === '성도') return '';
+            if (pos.includes('목사') || pos.includes('전도사')) {
+                return `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; margin-left: 5px; font-size: 0.72rem;">${pos}</span>`;
+            }
+            if (pos.includes('집사')) {
+                return `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; margin-left: 5px; font-size: 0.72rem;">집사</span>`;
+            }
+            return `<span class="badge badge-success" style="margin-left: 5px; font-size: 0.72rem;">${pos}</span>`;
+        }
+
         function renderNormalList() {
             const query = normalSearchInput.value.trim().toLowerCase();
             const filtered = normalMembers.filter(m => 
@@ -268,11 +279,13 @@
                 const div = document.createElement('div');
                 div.className = 'list-item';
                 const initial = (member.NAME || '성').charAt(0);
+                const posBadge = getPositionBadge(member.POSITION);
+
                 div.innerHTML = `
                     <div class="user-info">
                         <div class="avatar">${initial}</div>
                         <div>
-                            <div style="font-weight: 500;">${member.NAME} <span class="badge" style="margin-left: 5px;">${member.POSITION || '성도'}</span></div>
+                            <div style="font-weight: 500;">${member.NAME} ${posBadge}</div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">${member.AREA_CODE}구역</div>
                         </div>
                     </div>
@@ -305,12 +318,13 @@
                 div.style.background = 'rgba(224, 122, 0, 0.05)';
                 div.style.borderColor = 'rgba(224, 122, 0, 0.2)';
                 const initial = (member.name || '성').charAt(0);
+                const posBadge = getPositionBadge(member.position);
 
                 div.innerHTML = `
                     <div class="user-info">
                         <div class="avatar" style="background: rgba(224, 122, 0, 0.15); color: var(--warning-color);">${initial}</div>
                         <div>
-                            <div style="font-weight: 500;">${member.name || '미등록'} <span class="badge" style="margin-left: 5px;">${member.position || '성도'}</span></div>
+                            <div style="font-weight: 500;">${member.name || '미등록'} ${posBadge}</div>
                             <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">원래 소속: ${member.original_area || '-'}구역</div>
                         </div>
                     </div>
