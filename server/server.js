@@ -779,28 +779,44 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const totalEligible = regularMemberCount + newcomerCount;
         const unattendedCount = Math.max(0, totalEligible - (regularAttended + newcomerAttended));
 
-        // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계
+        // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계 (출석체크 화면과 100% 동일한 순서 + 새참자 항상 하단 배치)
         let memberListQuery = `
-            SELECT u.CODE_NO, u.NAME, u.POSITION, u.PHONE, u.AREA_CODE, 0 as is_newcomer, NULL as guide_name
+            SELECT u.CODE_NO, u.NAME, 
+                   COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
+                   u.PHONE, u.AREA_CODE, 0 as is_newcomer, NULL as guide_name
             FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
         `;
-        const memberListParams = [activeYear];
+        const memberListParams = [activeYear, activeYear];
         if (areaCode) {
             memberListQuery += ` AND u.AREA_CODE = ?`;
             memberListParams.push(areaCode);
         }
 
+        memberListQuery += ` ORDER BY 
+            CASE 
+                WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1
+                WHEN pa.POSITION LIKE '%부구역장%' THEN 2
+                WHEN pa.POSITION LIKE '%조장%' THEN 3
+                WHEN pa.POSITION LIKE '%조총무%' THEN 4
+                WHEN pa.POSITION LIKE '%서기%' THEN 5
+                ELSE 6
+            END,
+            u.NAME ASC
+        `;
+
         const regMembers = await conn.query(memberListQuery, memberListParams);
 
-        // 새참자 목록
+        // 새참자 목록 (항상 정규 성도 아래에 배치)
         let ncListQuery = `SELECT id, name as NAME, '새참자' as POSITION, phone as PHONE, COALESCE(area_code, temp_area) as AREA_CODE, 1 as is_newcomer, guide_name FROM faithon_newcomer`;
         const ncListParams = [];
         if (areaCode) {
             ncListQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
             ncListParams.push(areaCode, areaCode);
         }
+        ncListQuery += ` ORDER BY name ASC`;
         const ncMembers = await conn.query(ncListQuery, ncListParams);
 
         const allRoster = [
@@ -841,7 +857,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             return {
                 code: m.code,
                 name: m.NAME,
-                position: m.POSITION || '성도',
+                position: (m.POSITION || '성도').trim(),
                 area: m.AREA_CODE,
                 is_newcomer: !!m.is_newcomer,
                 guide_name: m.guide_name,
@@ -850,16 +866,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 total_sessions: totalSundaySessions,
                 rate
             };
-        });
-
-        // 정렬: 출석률 높은 순 -> 구역장/임원 우선 -> 성명 가나다순
-        memberAttendanceList.sort((a, b) => {
-            if (b.rate !== a.rate) return b.rate - a.rate;
-            const isALeader = (a.position || '').includes('구역장') || (a.position || '').includes('조장');
-            const isBLeader = (b.position || '').includes('구역장') || (b.position || '').includes('조장');
-            if (isALeader && !isBLeader) return -1;
-            if (!isALeader && isBLeader) return 1;
-            return (a.name || '').localeCompare(b.name || '');
         });
 
         res.json({

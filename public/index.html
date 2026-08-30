@@ -533,8 +533,7 @@
             // 1. Build Header with dynamic session dates
             matrixHeaderRow.innerHTML = `
                 <th style="width: 50px; text-align: center;">순번</th>
-                <th>성도 정보</th>
-                <th style="width: 90px; text-align: center;">직분</th>
+                <th>성도 정보 & 직분</th>
             `;
 
             cachedSessions.forEach(s => {
@@ -561,7 +560,7 @@
 
             memberMatrixBody.innerHTML = '';
             if (filtered.length === 0) {
-                const totalCols = 4 + cachedSessions.length;
+                const totalCols = 3 + cachedSessions.length;
                 memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
                 return;
             }
@@ -569,18 +568,16 @@
             filtered.forEach((m, idx) => {
                 const tr = document.createElement('tr');
                 const isNewcomer = !!m.is_newcomer;
-                const pos = m.position || '성도';
-                const isLeader = pos.includes('구역장') || pos.includes('조장');
-                const initial = (m.name || '성').charAt(0);
+                const pos = (m.position || '').trim();
+                const isLeader = pos && pos !== '성도' && !isNewcomer;
 
                 let badgeHtml = '';
                 if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700;">새참자</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">새참자</span>`;
                 } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success">${pos}</span>`;
-                } else {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);">${pos}</span>`;
+                    badgeHtml = `<span class="badge badge-success" style="padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">${pos}</span>`;
                 }
+                // 직분이 '성도'일 때는 직분 뱃지를 완전히 숨깁니다.
 
                 // Session date stamp cells
                 let sessionCells = '';
@@ -591,7 +588,7 @@
                         const stampBg = isNewcomer ? 'rgba(6, 182, 212, 0.12)' : 'rgba(20, 40, 160, 0.1)';
                         sessionCells += `
                             <td style="text-align: center; vertical-align: middle;">
-                                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.85rem;" title="${s.date} 출석">
+                                <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.8rem;" title="${s.date} 출석">
                                     <i class="fa-solid fa-check"></i>
                                 </span>
                             </td>
@@ -627,21 +624,16 @@
                     </div>
                 `;
 
-                const avatarStyle = isNewcomer ? 'background: rgba(6, 182, 212, 0.15); color: #0891b2;' : '';
-
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>
                     <td>
-                        <div class="user-info">
-                            <div class="avatar" style="${avatarStyle}">${initial}</div>
-                            <div>
-                                <span style="font-weight: 600; font-size: 0.95rem;">${m.name}</span>
-                                ${isNewcomer ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 1px;">(인도: ${m.guide_name || '-'})</div>` : ''}
-                            </div>
+                        <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                                ${m.name}
+                            </span>
+                            ${badgeHtml}
+                            ${isNewcomer ? `<span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 6px;">(인도: ${m.guide_name || '-'})</span>` : ''}
                         </div>
-                    </td>
-                    <td style="text-align: center;">
-                        ${badgeHtml}
                     </td>
                     ${sessionCells}
                     <td>
