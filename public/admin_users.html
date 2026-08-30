@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 설정 | FaithOn</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .transfer-grid {
+            display: grid;
+            grid-template-columns: 1fr 60px 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .transfer-grid {
+                grid-template-columns: 1fr;
+            }
+            .transfer-divider {
+                display: none;
+            }
+        }
+
+        .transfer-divider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 250px;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        .candidate-list, .admin-list {
+            max-height: 540px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            padding-right: 0.25rem;
+        }
+
+        .transfer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1rem;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        .transfer-item:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 12px rgba(20, 40, 160, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .transfer-item.admin-active {
+            background: #f8fafc;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .btn-assign {
+            background: var(--accent-light);
+            color: var(--accent-color);
+            border: 1px solid rgba(20, 40, 160, 0.2);
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-assign:hover {
+            background: var(--accent-color);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(20, 40, 160, 0.3);
+        }
+
+        .btn-revoke {
+            background: rgba(220, 53, 69, 0.08);
+            color: var(--danger-color);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-revoke:hover {
+            background: var(--danger-color);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <img src="/images/logo.jpg" alt="FaithOn Logo" class="brand-img" style="width: 100px; margin-bottom: 0.5rem;">
+                <h2>FaithOn</h2>
+                <span class="badge badge-success" style="font-size: 0.7rem;">창원교회</span>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>대시보드</span>
+                </a>
+                <a href="/attend.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span>출석체크</span>
+                </a>
+                <a href="/newcomer.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>새참자 관리</span>
+                </a>
+                <a href="/reserve.html" class="nav-item" id="navReserve" style="display: none;">
+                    <i class="fa-solid fa-users-slash"></i>
+                    <span>예비명단 관리</span>
+                </a>
+                <a href="/admin_users.html" class="nav-item active" id="navAdminUsers" style="display: none;">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>관리자 설정</span>
+                </a>
+            </nav>
+
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="avatar" id="userAvatar">관</div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;" id="userNameDisplay">관리자</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);" id="userRoleDisplay">총괄 관리자</div>
+                    </div>
+                </div>
+                <button class="btn btn-outline" style="width: 100%; margin-top: 1rem; padding: 0.4rem;" onclick="logout()">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃
+                </button>
+            </div>
+        </aside>
+
+        <!-- Mobile Top Bar -->
+        <header class="mobile-top-bar">
+            <div class="mobile-brand">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>FaithOn 관리자 설정</span>
+            </div>
+            <div class="mobile-user-badge" id="mobileUserDisplay">총괄 관리자</div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="page-header">
+                <div>
+                    <h1 class="page-title">
+                        <i class="fa-solid fa-user-shield" style="color: var(--accent-color); margin-right: 8px;"></i>
+                        총괄 관리자 지정 및 권한 관리
+                    </h1>
+                    <p class="page-subtitle">좌측에서 성도를 검색한 후 <strong>[관리자 지정]</strong>을 클릭하면 우측 관리자 명단으로 즉시 추가됩니다.</p>
+                </div>
+            </header>
+
+            <div class="transfer-grid">
+                <!-- Left Panel: Candidate Search & List -->
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
+                            <i class="fa-solid fa-users" style="color: var(--accent-color); margin-right: 6px;"></i>
+                            전체 성도 검색 (후보)
+                        </h3>
+                        <span class="badge" id="candidateCountBadge">0명 검색됨</span>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                        <div style="flex: 1; position: relative;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                            <input type="text" class="form-input" id="searchCandidateInput" placeholder="이름 또는 전화번호 검색..." style="padding-left: 2.2rem;">
+                        </div>
+                        <select class="form-select" id="areaFilterCandidate" style="width: 110px;">
+                            <option value="">전체 구역</option>
+                        </select>
+                    </div>
+
+                    <!-- Candidate List -->
+                    <div class="candidate-list" id="candidateListEl">
+                        <div style="text-align: center; padding: 2.5rem; color: var(--text-secondary);">
+                            <i class="fa-solid fa-spinner fa-spin"></i> 성도 목록을 불러오는 중...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Transfer Indicator -->
+                <div class="transfer-divider">
+                    <i class="fa-solid fa-angles-right"></i>
+                </div>
+
+                <!-- Right Panel: Current Admin List -->
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
+                            <i class="fa-solid fa-shield-halved" style="color: var(--success-color); margin-right: 6px;"></i>
+                            현재 총괄 관리자 명단
+                        </h3>
+                        <span class="badge badge-success" id="adminCountBadge">0명</span>
+                    </div>
+
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        * 등록된 관리자는 전체 구역 대시보드 조회 및 예비명단/관리자 설정 권한을 가집니다.
+                    </p>
+
+                    <!-- Admin List -->
+                    <div class="admin-list" id="adminListEl">
+                        <div style="text-align: center; padding: 2.5rem; color: var(--text-secondary);">
+                            <i class="fa-solid fa-spinner fa-spin"></i> 관리자 목록을 불러오는 중...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <div class="mobile-bottom-nav-inner">
+            <a href="/" class="mobile-nav-item">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>대시보드</span>
+            </a>
+            <a href="/attend.html" class="mobile-nav-item">
+                <i class="fa-solid fa-clipboard-user"></i>
+                <span>출석체크</span>
+            </a>
+            <a href="/newcomer.html" class="mobile-nav-item">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>새참자</span>
+            </a>
+            <a href="/admin_users.html" class="mobile-nav-item active">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>관리자</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
+        if (!currentUser) {
+            window.location.href = '/login.html';
+        }
+
+        const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+        if (!isAdmin) {
+            alert('총괄 관리자만 접근할 수 있는 페이지입니다.');
+            window.location.href = '/attend.html';
+        }
+
+        // DOM Elements
+        const userNameDisplay = document.getElementById('userNameDisplay');
+        const userRoleDisplay = document.getElementById('userRoleDisplay');
+        const userAvatar = document.getElementById('userAvatar');
+        const navReserve = document.getElementById('navReserve');
+        const navAdminUsers = document.getElementById('navAdminUsers');
+        const searchCandidateInput = document.getElementById('searchCandidateInput');
+        const areaFilterCandidate = document.getElementById('areaFilterCandidate');
+        const candidateListEl = document.getElementById('candidateListEl');
+        const adminListEl = document.getElementById('adminListEl');
+        const candidateCountBadge = document.getElementById('candidateCountBadge');
+        const adminCountBadge = document.getElementById('adminCountBadge');
+
+        let currentAdmins = [];
+        let currentCandidates = [];
+
+        async function initPage() {
+            // Display User info
+            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+            userRoleDisplay.textContent = '총괄 관리자';
+            userAvatar.textContent = (currentUser.name || '관').charAt(0);
+
+            if (navReserve) navReserve.style.display = 'flex';
+            if (navAdminUsers) navAdminUsers.style.display = 'flex';
+
+            await loadAreas();
+            await loadAdmins();
+            await searchCandidates();
+
+            // Event Listeners
+            let searchTimeout = null;
+            searchCandidateInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(searchCandidates, 250);
+            });
+            areaFilterCandidate.addEventListener('change', searchCandidates);
+        }
+
+        async function loadAreas() {
+            try {
+                const res = await fetch('/api/areas');
+                const json = await res.json();
+                if (json.success && json.data) {
+                    areaFilterCandidate.innerHTML = '<option value="">전체 구역</option>';
+                    json.data.forEach(a => {
+                        const opt = document.createElement('option');
+                        opt.value = a;
+                        opt.textContent = `${a}구역`;
+                        areaFilterCandidate.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadAdmins() {
+            adminListEl.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 관리자 목록 로딩 중...</div>';
+            try {
+                const res = await fetch('/api/admin/users');
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                currentAdmins = json.data || [];
+                adminCountBadge.textContent = `${currentAdmins.length}명`;
+                renderAdmins();
+            } catch (err) {
+                console.error(err);
+                adminListEl.innerHTML = `<div style="color: var(--danger-color); padding: 1rem;">관리자 목록을 불러오지 못했습니다. (${err.message})</div>`;
+            }
+        }
+
+        function renderAdmins() {
+            adminListEl.innerHTML = '';
+            if (currentAdmins.length === 0) {
+                adminListEl.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: var(--text-secondary);">등록된 관리자가 없습니다.</div>';
+                return;
+            }
+
+            currentAdmins.forEach((admin, idx) => {
+                const div = document.createElement('div');
+                div.className = 'transfer-item admin-active';
+                const initial = (admin.name || '관').charAt(0);
+                const pos = (admin.position || '성도').trim();
+                const posBadge = (pos && pos !== '성도') ? `<span class="badge badge-success" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">${pos}</span>` : '';
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div class="avatar" style="background: rgba(20, 40, 160, 0.1); color: var(--accent-color); width: 34px; height: 34px; font-size: 0.85rem;">
+                            ${initial}
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <strong style="font-size: 0.95rem; color: var(--text-primary);">${admin.name}</strong>
+                                <span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); font-weight: 700; font-size: 0.72rem;">${admin.area_code}구역</span>
+                                ${posBadge}
+                            </div>
+                            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+                                <i class="fa-solid fa-phone" style="font-size: 0.7rem; margin-right: 3px;"></i> ${admin.phone || '-'}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn-revoke" onclick="revokeAdmin('${admin.name}')" title="관리자 권한 해제">
+                            <i class="fa-solid fa-user-minus"></i> 해제
+                        </button>
+                    </div>
+                `;
+                adminListEl.appendChild(div);
+            });
+        }
+
+        async function searchCandidates() {
+            const query = searchCandidateInput.value.trim();
+            const areaCode = areaFilterCandidate.value;
+
+            candidateListEl.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 목록 로딩 중...</div>';
+
+            try {
+                let url = `/api/admin/candidates?`;
+                if (query) url += `query=${encodeURIComponent(query)}&`;
+                if (areaCode) url += `areaCode=${encodeURIComponent(areaCode)}&`;
+
+                const res = await fetch(url);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                currentCandidates = json.data || [];
+                candidateCountBadge.textContent = `${currentCandidates.length}명 검색됨`;
+                renderCandidates();
+            } catch (err) {
+                console.error(err);
+                candidateListEl.innerHTML = `<div style="color: var(--danger-color); padding: 1rem;">성도 목록을 불러오지 못했습니다. (${err.message})</div>`;
+            }
+        }
+
+        function renderCandidates() {
+            candidateListEl.innerHTML = '';
+            if (currentCandidates.length === 0) {
+                candidateListEl.innerHTML = '<div style="text-align:center; padding: 2.5rem; color: var(--text-secondary);">검색 조건에 일치하는 성도가 없습니다.</div>';
+                return;
+            }
+
+            currentCandidates.forEach(cand => {
+                const div = document.createElement('div');
+                div.className = 'transfer-item';
+                const initial = (cand.NAME || '성').charAt(0);
+                const pos = (cand.POSITION || '성도').trim();
+                const posBadge = (pos && pos !== '성도') ? `<span class="badge badge-success" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">${pos}</span>` : '';
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div class="avatar" style="width: 34px; height: 34px; font-size: 0.85rem;">
+                            ${initial}
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <strong style="font-size: 0.95rem; color: var(--text-primary);">${cand.NAME}</strong>
+                                <span class="badge" style="background: var(--surface-hover); color: var(--text-secondary); font-weight: 700; font-size: 0.72rem;">${cand.AREA_CODE}구역</span>
+                                ${posBadge}
+                            </div>
+                            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+                                <i class="fa-solid fa-phone" style="font-size: 0.7rem; margin-right: 3px;"></i> ${cand.PHONE || '-'}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn-assign" onclick="assignAdmin('${cand.NAME}', '${cand.PHONE || ''}')" title="총괄 관리자로 지정">
+                            관리자 지정 <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                `;
+                candidateListEl.appendChild(div);
+            });
+        }
+
+        async function assignAdmin(name, phone) {
+            if (!confirm(`'${name}' 성도를 총괄 관리자로 지정하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                // Reload both panels
+                await loadAdmins();
+                await searchCandidates();
+            } catch (err) {
+                alert(`관리자 지정 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        async function revokeAdmin(name) {
+            if (currentAdmins.length <= 1) {
+                alert('최소 1명 이상의 총괄 관리자가 유지되어야 합니다.');
+                return;
+            }
+
+            if (!confirm(`'${name}' 성도의 관리자 권한을 해제하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/revoke/${encodeURIComponent(name)}`, {
+                    method: 'DELETE'
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                // Reload both panels
+                await loadAdmins();
+                await searchCandidates();
+            } catch (err) {
+                alert(`관리자 해제 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('faithon_user');
+                window.location.href = '/login.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

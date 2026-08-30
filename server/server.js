@@ -516,6 +516,158 @@ app.delete('/api/reserve/:member_code', async (req, res) => {
     }
 });
 
+// ==========================================
+// 관리자(Admin) 권한 설정 전용 API Routes
+// ==========================================
+
+// 현재 관리자 목록 조회
+app.get('/api/admin/users', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // CWTB_ADMIN 및 WEB_ADMIN_PHONES에 등록된 관리자 목록과 주소록 정보 조인
+        const query = `
+            SELECT DISTINCT 
+                COALESCE(u.CODE_NO, CONCAT('ADM_', a.SEQ)) as code_no,
+                a.NAME as name,
+                COALESCE(u.PHONE, wp.phone, '-') as phone,
+                COALESCE(pa.POSITION, u.POSITION, '관리자') as position,
+                COALESCE(u.AREA_CODE, '관리부서') as area_code,
+                a.SEQ as seq
+            FROM CWTB_ADMIN a
+            LEFT JOIN CWTB_USER u ON a.NAME = u.NAME AND u.YEAR = ? AND u.DEL_YN = 'N'
+            LEFT JOIN CWTB_PA pa ON a.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN WEB_ADMIN_PHONES wp ON REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = wp.phone OR a.NAME = wp.name
+            ORDER BY a.SEQ ASC, a.NAME ASC
+        `;
+        const admins = await conn.query(query, [activeYear, activeYear]);
+        res.json({ success: true, data: admins });
+    } catch (err) {
+        console.error("Error fetching admin list:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 관리자 후보 성도 검색 (현재 관리자가 아닌 성도)
+app.get('/api/admin/candidates', async (req, res) => {
+    const { query: searchQuery, areaCode } = req.query;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        let sql = `
+            SELECT u.CODE_NO, u.NAME, 
+                   COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
+                   u.AREA_CODE, u.PHONE
+            FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN CWTB_ADMIN a ON u.NAME = a.NAME
+            WHERE u.YEAR = ? 
+              AND u.DEL_YN = 'N' 
+              AND u.IS_HIDDEN = 'N'
+              AND a.NAME IS NULL
+        `;
+        const params = [activeYear, activeYear];
+
+        if (areaCode) {
+            sql += ` AND u.AREA_CODE = ?`;
+            params.push(areaCode);
+        }
+
+        if (searchQuery) {
+            sql += ` AND (u.NAME LIKE ? OR u.PHONE LIKE ? OR u.AREA_CODE LIKE ?)`;
+            const qStr = `%${searchQuery.trim()}%`;
+            params.push(qStr, qStr, qStr);
+        }
+
+        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC LIMIT 50`;
+
+        const candidates = await conn.query(sql, params);
+        res.json({ success: true, data: candidates });
+    } catch (err) {
+        console.error("Error fetching admin candidates:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 관리자 지정 (CWTB_ADMIN 및 WEB_ADMIN_PHONES 추가)
+app.post('/api/admin/assign', async (req, res) => {
+    const { name, phone } = req.body;
+    if (!name) {
+        return res.status(400).json({ success: false, error: '성도 이름이 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+
+        // 1. 이미 CWTB_ADMIN에 존재하는지 확인
+        const existing = await conn.query(`SELECT SEQ FROM CWTB_ADMIN WHERE NAME = ? LIMIT 1`, [name.trim()]);
+        if (existing && existing.length > 0) {
+            return res.status(400).json({ success: false, error: `'${name}' 성도는 이미 관리자로 등록되어 있습니다.` });
+        }
+
+        // 2. 최대 SEQ 구하기
+        const seqRow = await conn.query(`SELECT COALESCE(MAX(SEQ), 0) + 1 as next_seq FROM CWTB_ADMIN`);
+        const nextSeq = seqRow[0]?.next_seq || 1;
+
+        // 3. CWTB_ADMIN 추가
+        await conn.query(`INSERT INTO CWTB_ADMIN (SEQ, NAME) VALUES (?, ?)`, [nextSeq, name.trim()]);
+
+        // 4. WEB_ADMIN_PHONES 추가 (전화번호가 있는 경우)
+        if (phone) {
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone) {
+                await conn.query(`
+                    INSERT INTO WEB_ADMIN_PHONES (phone, name) 
+                    VALUES (?, ?)
+                    ON DUPLICATE KEY UPDATE name = ?
+                `, [cleanPhone, name.trim(), name.trim()]);
+            }
+        }
+
+        res.json({ success: true, message: `'${name}' 성도를 총괄 관리자로 지정했습니다.` });
+    } catch (err) {
+        console.error("Error assigning admin:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 관리자 권한 해제 (CWTB_ADMIN 및 WEB_ADMIN_PHONES 삭제)
+app.delete('/api/admin/revoke/:name', async (req, res) => {
+    const name = req.params.name;
+    if (!name) {
+        return res.status(400).json({ success: false, error: '성도 이름이 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+
+        // CWTB_ADMIN 삭제
+        await conn.query(`DELETE FROM CWTB_ADMIN WHERE NAME = ?`, [name.trim()]);
+
+        // WEB_ADMIN_PHONES 삭제
+        await conn.query(`DELETE FROM WEB_ADMIN_PHONES WHERE name = ?`, [name.trim()]);
+
+        res.json({ success: true, message: `'${name}' 성도의 관리자 권한을 해제했습니다.` });
+    } catch (err) {
+        console.error("Error revoking admin:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // 출석 조회 (정규 성도 및 새참자 모두 포함)
 app.get('/api/attendance', async (req, res) => {
     const { date, type, areaCode } = req.query;

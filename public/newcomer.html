@@ -223,13 +223,17 @@
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
-                <a href="/reserve.html" class="nav-item" id="navReserve">
+                <a href="/reserve.html" class="nav-item" id="navReserve" style="display: none;">
                     <i class="fa-solid fa-users-slash"></i>
                     <span>예비명단 관리</span>
                 </a>
                 <a href="/newcomer.html" class="nav-item active">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>새참자 관리</span>
+                </a>
+                <a href="/admin_users.html" class="nav-item" id="navAdminUsers" style="display: none;">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>관리자 설정</span>
                 </a>
             </nav>
 
@@ -317,9 +321,9 @@
                 <i class="fa-solid fa-user-plus"></i>
                 <span>새참자</span>
             </a>
-            <a href="/reserve.html" class="mobile-nav-item" id="mobNavReserve" style="display: none;">
-                <i class="fa-solid fa-users-slash"></i>
-                <span>예비명단</span>
+            <a href="/admin_users.html" class="mobile-nav-item" id="mobNavAdminUsers" style="display: none;">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>관리자</span>
             </a>
         </div>
     </nav>
@@ -380,6 +384,8 @@
         const areaFilter = document.getElementById('areaFilter');
         const modalArea = document.getElementById('modalArea');
         const navReserve = document.getElementById('navReserve');
+        const navAdminUsers = document.getElementById('navAdminUsers');
+        const mobNavAdminUsers = document.getElementById('mobNavAdminUsers');
 
         let newcomersList = [];
 
@@ -389,8 +395,14 @@
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
             }
+            if (navAdminUsers) {
+                navAdminUsers.style.display = isAdmin ? 'flex' : 'none';
+            }
             if (mobNavReserve) {
                 mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
+            }
+            if (mobNavAdminUsers) {
+                mobNavAdminUsers.style.display = isAdmin ? 'flex' : 'none';
             }
             document.getElementById('userNameDisplay').textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
             document.getElementById('mobileUserDisplay').textContent = isAdmin ? '총괄 관리자' : `${userArea}구역`;
