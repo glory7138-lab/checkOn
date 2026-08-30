@@ -475,15 +475,17 @@
                 const tr = document.createElement('tr');
                 const pos = (member.POSITION || '').trim();
                 const isNewcomer = !!member.is_newcomer;
-                const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장');
+                const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장') || pos.includes('조총무') || pos.includes('서기');
                 
                 let badgeHtml = '';
                 if (isNewcomer) {
                     badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">새참자</span>`;
                 } else if (isLeader) {
                     badgeHtml = `<span class="badge badge-success" style="padding: 0.2rem 0.5rem;">${member.POSITION}</span>`;
+                } else if (pos && pos !== '성도') {
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.2rem 0.5rem;">${pos}</span>`;
                 } else {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.2rem 0.5rem;">${member.POSITION || '성도'}</span>`;
+                    badgeHtml = ''; // '성도'는 뱃지 미표시
                 }
 
                 const initial = (member.NAME || '성').charAt(0);
