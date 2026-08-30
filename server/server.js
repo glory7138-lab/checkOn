@@ -779,7 +779,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const totalEligible = regularMemberCount + newcomerCount;
         const unattendedCount = Math.max(0, totalEligible - (regularAttended + newcomerAttended));
 
-        // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계 (출석체크 화면과 100% 동일한 순서 + 새참자 항상 하단 배치)
+        // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계 (11구역부터 순차적으로 구역별 성도 + 새참자 순차 배치)
         let memberListQuery = `
             SELECT u.CODE_NO, u.NAME, 
                    COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
@@ -796,6 +796,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
         }
 
         memberListQuery += ` ORDER BY 
+            CAST(u.AREA_CODE AS UNSIGNED) ASC,
+            u.AREA_CODE ASC,
             CASE 
                 WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1
                 WHEN pa.POSITION LIKE '%부구역장%' THEN 2
@@ -809,20 +811,35 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
         const regMembers = await conn.query(memberListQuery, memberListParams);
 
-        // 새참자 목록 (항상 정규 성도 아래에 배치)
+        // 새참자 목록
         let ncListQuery = `SELECT id, name as NAME, '새참자' as POSITION, phone as PHONE, COALESCE(area_code, temp_area) as AREA_CODE, 1 as is_newcomer, guide_name FROM faithon_newcomer`;
         const ncListParams = [];
         if (areaCode) {
             ncListQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
             ncListParams.push(areaCode, areaCode);
         }
-        ncListQuery += ` ORDER BY name ASC`;
+        ncListQuery += ` ORDER BY CAST(COALESCE(area_code, temp_area) AS UNSIGNED) ASC, name ASC`;
         const ncMembers = await conn.query(ncListQuery, ncListParams);
 
-        const allRoster = [
-            ...regMembers.map(m => ({ ...m, code: m.CODE_NO })),
-            ...ncMembers.map(m => ({ ...m, code: `NC_${m.id}` }))
-        ];
+        // 11구역, 12구역 ... 순서대로 각 구역별 정규 성도(임원 우선) -> 새참자 순차 조합
+        const areaSet = new Set();
+        regMembers.forEach(m => { if (m.AREA_CODE) areaSet.add(m.AREA_CODE.trim()); });
+        ncMembers.forEach(m => { if (m.AREA_CODE) areaSet.add(m.AREA_CODE.trim()); });
+
+        const sortedAreas = Array.from(areaSet).sort((a, b) => {
+            const numA = parseInt(a, 10);
+            const numB = parseInt(b, 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.localeCompare(b);
+        });
+
+        const allRoster = [];
+        sortedAreas.forEach(area => {
+            const areaRegs = regMembers.filter(m => (m.AREA_CODE || '').trim() === area);
+            const areaNcs = ncMembers.filter(m => (m.AREA_CODE || '').trim() === area);
+            areaRegs.forEach(m => allRoster.push({ ...m, code: m.CODE_NO }));
+            areaNcs.forEach(m => allRoster.push({ ...m, code: `NC_${m.id}` }));
+        });
 
         // 해당 기간 내 모든 주일 출석 레코드 가져오기
         const sundayDates = sundaysOnly.map(s => s.date);

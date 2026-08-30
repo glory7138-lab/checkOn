@@ -590,11 +590,15 @@
         function renderMemberMatrix() {
             if (!matrixHeaderRow || !memberMatrixBody) return;
 
+            const isAllAreas = !areaFilter.value;
+
             // 1. Build Header with dynamic session dates
-            matrixHeaderRow.innerHTML = `
-                <th style="width: 50px; text-align: center;">순번</th>
-                <th>성도 정보 & 직분</th>
-            `;
+            let headerHtml = `<th style="width: 50px; text-align: center;">순번</th>`;
+            if (isAllAreas) {
+                headerHtml += `<th style="width: 75px; text-align: center;">구역</th>`;
+            }
+            headerHtml += `<th>성도 정보 & 직분</th>`;
+            matrixHeaderRow.innerHTML = headerHtml;
 
             cachedSessions.forEach(s => {
                 const th = document.createElement('th');
@@ -615,12 +619,13 @@
             const filtered = cachedMembersMatrix.filter(m => 
                 (m.name && m.name.toLowerCase().includes(query)) ||
                 (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
-                (m.position && m.position.toLowerCase().includes(query))
+                (m.position && m.position.toLowerCase().includes(query)) ||
+                (m.area && m.area.includes(query))
             );
 
             memberMatrixBody.innerHTML = '';
             if (filtered.length === 0) {
-                const totalCols = 3 + cachedSessions.length;
+                const totalCols = (isAllAreas ? 4 : 3) + cachedSessions.length;
                 memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
                 return;
             }
@@ -687,8 +692,11 @@
                     </div>
                 `;
 
+                const areaTd = isAllAreas ? `<td style="text-align: center;"><span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); font-weight: 700;">${m.area}구역</span></td>` : '';
+
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>
+                    ${areaTd}
                     <td>
                         <div style="display: flex; align-items: center; flex-wrap: wrap;">
                             <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">

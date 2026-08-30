@@ -383,7 +383,8 @@
             
             if (isAdmin) {
                 userRoleDisplay.textContent = '총괄 관리자 권한 (전체 구역)';
-                pageSubTitle.innerHTML = '전체 구역 성도들의 출석 현황을 관리자 권한으로 확인 및 실시간 체크합니다.';
+                pageSubTitle.innerHTML = `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 700; margin-right: 6px;">관리자 조회 전용</span> 전체 구역 성도 출석을 실시간 조회합니다. (출석 체크 수정은 각 구역 담당자만 가능)`;
+                areaSelectLabel.innerHTML = `구역 선택 <span class="badge badge-info" style="font-size:0.75rem;">관리자 전체 조회</span>`;
                 await loadAllAreas();
             } else {
                 userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
@@ -471,6 +472,8 @@
                 return;
             }
             
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+
             membersData.forEach((member, index) => {
                 const tr = document.createElement('tr');
                 const pos = (member.POSITION || '').trim();
@@ -491,6 +494,10 @@
                 const initial = (member.NAME || '성').charAt(0);
                 const avatarBg = isNewcomer ? 'background: rgba(6, 182, 212, 0.15); color: #0891b2;' : '';
                 
+                const disabledAttr = isAdmin ? 'disabled' : '';
+                const btnCursorStyle = isAdmin ? 'cursor: not-allowed; opacity: 0.85;' : '';
+                const btnTitle = isAdmin ? '관리자는 조회만 가능하며 출석 체크를 수정할 수 없습니다.' : '';
+
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${index + 1}</td>
                     <td>
@@ -506,8 +513,8 @@
                         </div>
                     </td>
                     <td style="text-align: center;">
-                        <label class="attend-btn-container">
-                            <input type="checkbox" ${member.checked ? 'checked' : ''} onchange="toggleCheck('${member.CODE_NO}', this.checked)">
+                        <label class="attend-btn-container" style="${btnCursorStyle}" title="${btnTitle}">
+                            <input type="checkbox" ${member.checked ? 'checked' : ''} ${disabledAttr} onchange="toggleCheck('${member.CODE_NO}', this.checked)">
                             <div class="attend-btn-pill">
                                 <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
                                 <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
@@ -521,6 +528,13 @@
 
         // 실시간 출석 체크 즉시 저장
         async function toggleCheck(codeNo, isChecked) {
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            if (isAdmin) {
+                alert('관리자는 구역 출석을 조회만 할 수 있으며, 출석 체크 수정 권한이 없습니다.');
+                fetchMembersAndAttendance(); // Re-render to revert any accidental client toggle
+                return;
+            }
+
             const member = membersData.find(m => m.CODE_NO === codeNo);
             if (member) member.checked = isChecked;
 
