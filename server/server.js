@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const db = require('./db'); // Initialize DB and get pool
@@ -12,7 +11,15 @@ BigInt.prototype.toJSON = function() {
 const app = express();
 const PORT = process.env.PORT || 3047;
 
-app.use(cors());
+// CORS 설정 (외부 모듈 의존성 없이 네이티브 처리)
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
 app.use(express.json()); // Parse JSON bodies
 app.use(express.static(path.join(__dirname, '../public')));
 
