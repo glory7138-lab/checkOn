@@ -640,7 +640,7 @@ app.get('/api/admin/candidates', async (req, res) => {
             params.push(qStr, qStr, qStr);
         }
 
-        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC LIMIT 50`;
+        sql += ` ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.NAME ASC`;
 
         const candidates = await conn.query(sql, params);
         res.json({ success: true, data: candidates });
