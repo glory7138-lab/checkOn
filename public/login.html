@@ -8,30 +8,51 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
             justify-content: center;
             align-items: center;
-            background-color: var(--bg-color);
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            margin: 0;
+            padding: 1.5rem;
+            box-sizing: border-box;
         }
         
         .login-container {
             width: 100%;
-            max-width: 420px;
+            max-width: 400px;
+            background: #ffffff;
+            border-radius: 16px;
             padding: 2.5rem 2rem;
             text-align: center;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 12px 30px -5px rgba(20, 40, 160, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+            box-sizing: border-box;
+        }
+        
+        .brand-img {
+            width: 120px;
+            height: auto;
+            max-height: 90px;
+            object-fit: contain;
+            margin: 0 auto 1rem auto;
+            display: block;
         }
         
         .login-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+            color: var(--accent-color);
+            letter-spacing: -0.5px;
         }
         
         .login-subtitle {
             color: var(--text-secondary);
-            margin-bottom: 2.5rem;
-            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
         
         .login-form {
@@ -39,15 +60,15 @@
         }
         
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
         }
         
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 0.88rem;
+            font-weight: 600;
         }
         
         .input-with-icon {
@@ -59,36 +80,42 @@
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-secondary);
+            color: var(--accent-color);
+            font-size: 1rem;
         }
         
         .input-with-icon input {
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.5rem;
-            border-radius: 8px;
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
+            padding: 0.85rem 1rem 0.85rem 2.6rem;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1.5px solid #cbd5e1;
             color: var(--text-primary);
             font-size: 1rem;
-            transition: var(--transition-fast);
+            box-sizing: border-box;
+            transition: all 0.2s ease;
         }
         
         .input-with-icon input:focus {
+            background: #ffffff;
             border-color: var(--accent-color);
             outline: none;
-            box-shadow: 0 0 0 2px var(--accent-light);
+            box-shadow: 0 0 0 3px rgba(20, 40, 160, 0.15);
         }
         
         .btn-block {
             width: 100%;
             padding: 0.85rem;
-            font-size: 1.05rem;
-            margin-top: 1rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 10px;
+            margin-top: 0.75rem;
+            box-shadow: 0 4px 12px rgba(20, 40, 160, 0.25);
         }
     </style>
 </head>
 <body>
-    <div class="card login-container">
+    <div class="login-container">
         <img src="/images/logo.jpg" alt="FaithOn Logo" class="brand-img">
         <h1 class="login-title">FaithOn</h1>
         <p class="login-subtitle">창원교회 출석체크 관리 시스템</p>

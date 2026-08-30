@@ -44,6 +44,15 @@
   --transition-normal: 0.25s ease;
 }
 
+.brand-img {
+  width: 120px;
+  height: auto;
+  max-height: 90px;
+  object-fit: contain;
+  margin: 0 auto 1rem auto;
+  display: block;
+}
+
 /* ==========================================================================
    Base Styles
    ========================================================================== */
