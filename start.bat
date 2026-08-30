@@ -6,7 +6,7 @@ if not exist "node_modules\" (
     call npm install
 )
 
-set PORT=3047
+set PORT=3033
 
 echo Opening browser... http://localhost:%PORT%
 start http://localhost:%PORT%

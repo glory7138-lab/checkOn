@@ -11,11 +11,11 @@ RUN npm install --production
 COPY . .
 
 # Expose server port
-EXPOSE 3047
+EXPOSE 3033
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3047
+ENV PORT=3033
 
 # Start the application
 CMD ["node", "server/server.js"]

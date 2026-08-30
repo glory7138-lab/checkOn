@@ -9,7 +9,7 @@ BigInt.prototype.toJSON = function() {
 };
 
 const app = express();
-const PORT = process.env.PORT || 3047;
+const PORT = process.env.PORT || 3033;
 
 // CORS 설정 (외부 모듈 의존성 없이 네이티브 처리)
 app.use((req, res, next) => {
