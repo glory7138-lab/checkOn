@@ -131,7 +131,7 @@
             </div>
 
             <!-- Charts Section -->
-            <div class="charts-grid">
+            <div class="charts-grid" style="margin-bottom: 1.75rem;">
                 <div class="card chart-container">
                     <h3 id="trendChartTitle">주간 출석 트렌드</h3>
                     <div class="chart-wrapper">
@@ -139,10 +139,44 @@
                     </div>
                 </div>
                 <div class="card chart-container">
-                    <h3>최근 주일 출석 비율</h3>
+                    <h3>최근 주일 출석 구성비 (기존 성도 vs 새참자)</h3>
                     <div class="chart-wrapper">
                         <canvas id="ratioChart"></canvas>
                     </div>
+                </div>
+            </div>
+
+            <!-- 구역 인원별 출석 현황 (가로 막대 바 & 주차별 매트릭스) -->
+            <div class="card" style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+                    <div>
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
+                            <i class="fa-solid fa-users" style="color: var(--accent-color); margin-right: 6px;"></i>
+                            구역 성도별 출석 현황 & 출석률
+                        </h3>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">선택된 기간 동안의 인원별 주차별 출석 여부와 누적 출석률을 확인하세요.</p>
+                    </div>
+                    <div style="width: 220px; position: relative;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                        <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="성도 이름 검색...">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="memberMatrixTable">
+                        <thead>
+                            <tr id="matrixHeaderRow">
+                                <th style="width: 50px; text-align: center;">순번</th>
+                                <th>성도 정보</th>
+                                <th style="width: 90px; text-align: center;">직분</th>
+                                <!-- Dynamic Date Headers will be appended here -->
+                                <th style="width: 220px; text-align: center;">누적 출석률 (가로 막대)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="memberMatrixBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
@@ -191,6 +225,9 @@
         const customDateRange = document.getElementById('customDateRange');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
+        const memberSearchInput = document.getElementById('memberSearchInput');
+        const matrixHeaderRow = document.getElementById('matrixHeaderRow');
+        const memberMatrixBody = document.getElementById('memberMatrixBody');
 
         // Stat value elements
         const valSundayAttend = document.getElementById('valSundayAttend');
@@ -203,6 +240,8 @@
 
         let trendChartInstance = null;
         let ratioChartInstance = null;
+        let cachedMembersMatrix = [];
+        let cachedSessions = [];
 
         async function initPage() {
             // 1. Sidebar & Mobile Nav
@@ -243,6 +282,10 @@
             const mM = String(monthAgo.getMonth() + 1).padStart(2, '0');
             const mD = String(monthAgo.getDate()).padStart(2, '0');
             startDateInput.value = `${mY}-${mM}-${mD}`;
+
+            if (memberSearchInput) {
+                memberSearchInput.addEventListener('input', renderMemberMatrix);
+            }
 
             initCharts();
             await loadDashboardData();
@@ -330,8 +373,15 @@
                 // Update Trend Chart
                 updateTrendChart(data.trend);
 
-                // Update Ratio Chart
+                // Update Ratio Chart (기존 성도 vs 새참자)
                 updateRatioChart(m);
+
+                // Update Member Attendance Matrix
+                if (data.member_matrix) {
+                    cachedSessions = data.member_matrix.sessions || [];
+                    cachedMembersMatrix = data.member_matrix.members || [];
+                    renderMemberMatrix();
+                }
 
             } catch (err) {
                 console.error("Dashboard data load error:", err);
@@ -410,15 +460,20 @@
                 }
             });
 
-            // 2. Ratio Chart
+            // 2. Ratio Chart (Doughnut with Distinct Newcomer & Regular Colors)
             const ratioCtx = document.getElementById('ratioChart').getContext('2d');
             ratioChartInstance = new Chart(ratioCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['출석', '미출석', '예비명단'],
+                    labels: ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'],
                     datasets: [{
-                        data: [0, 0, 0],
-                        backgroundColor: ['#1428A0', '#dee2e6', '#e07a00'],
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#1428A0', // 삼성 CI 블루 (기존 성도)
+                            '#06b6d4', // 시안/스카이블루 (새참자)
+                            '#e2e8f0', // 라이트 그레이 (미출석)
+                            '#f59e0b'  // 앰버 (예비명단)
+                        ],
                         borderWidth: 0,
                         hoverOffset: 4
                     }]
@@ -426,11 +481,19 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '72%',
+                    cutout: '70%',
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { usePointStyle: true, padding: 16, font: { size: 12 } }
+                            labels: { usePointStyle: true, padding: 14, font: { size: 12 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.raw || 0;
+                                    return ` ${context.label}: ${val}명`;
+                                }
+                            }
                         }
                     }
                 }
@@ -447,20 +510,147 @@
 
         function updateRatioChart(m) {
             if (!ratioChartInstance) return;
-            const attended = m.attended_count || 0;
+            const regAttended = m.regular_attended || 0;
+            const ncAttended = m.newcomer_attended || 0;
             const unattended = m.unattended_count || 0;
             const reserve = isAdmin ? (m.reserve_count || 0) : 0;
 
             if (isAdmin) {
-                ratioChartInstance.data.labels = ['출석', '미출석', '예비명단'];
-                ratioChartInstance.data.datasets[0].data = [attended, unattended, reserve];
-                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#dee2e6', '#e07a00'];
+                ratioChartInstance.data.labels = ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'];
+                ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended, reserve];
+                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'];
             } else {
-                ratioChartInstance.data.labels = ['출석', '미출석'];
-                ratioChartInstance.data.datasets[0].data = [attended, unattended];
-                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#dee2e6'];
+                ratioChartInstance.data.labels = ['기존 성도 출석', '새참자 출석', '미출석'];
+                ratioChartInstance.data.datasets[0].data = [regAttended, ncAttended, unattended];
+                ratioChartInstance.data.datasets[0].backgroundColor = ['#1428A0', '#06b6d4', '#e2e8f0'];
             }
             ratioChartInstance.update();
+        }
+
+        function renderMemberMatrix() {
+            if (!matrixHeaderRow || !memberMatrixBody) return;
+
+            // 1. Build Header with dynamic session dates
+            matrixHeaderRow.innerHTML = `
+                <th style="width: 50px; text-align: center;">순번</th>
+                <th>성도 정보</th>
+                <th style="width: 90px; text-align: center;">직분</th>
+            `;
+
+            cachedSessions.forEach(s => {
+                const th = document.createElement('th');
+                th.style.textAlign = 'center';
+                th.style.minWidth = '65px';
+                th.textContent = s.label.replace('2026년 ', '');
+                matrixHeaderRow.appendChild(th);
+            });
+
+            const barTh = document.createElement('th');
+            barTh.style.width = '240px';
+            barTh.style.textAlign = 'center';
+            barTh.textContent = '누적 출석률 (가로 막대 바)';
+            matrixHeaderRow.appendChild(barTh);
+
+            // 2. Build Body
+            const query = (memberSearchInput ? memberSearchInput.value : '').trim().toLowerCase();
+            const filtered = cachedMembersMatrix.filter(m => 
+                (m.name && m.name.toLowerCase().includes(query)) ||
+                (m.guide_name && m.guide_name.toLowerCase().includes(query)) ||
+                (m.position && m.position.toLowerCase().includes(query))
+            );
+
+            memberMatrixBody.innerHTML = '';
+            if (filtered.length === 0) {
+                const totalCols = 4 + cachedSessions.length;
+                memberMatrixBody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding: 2.5rem; color:var(--text-secondary);">조회된 인원이 없습니다.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach((m, idx) => {
+                const tr = document.createElement('tr');
+                const isNewcomer = !!m.is_newcomer;
+                const pos = m.position || '성도';
+                const isLeader = pos.includes('구역장') || pos.includes('조장');
+                const initial = (m.name || '성').charAt(0);
+
+                let badgeHtml = '';
+                if (isNewcomer) {
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700;">새참자</span>`;
+                } else if (isLeader) {
+                    badgeHtml = `<span class="badge badge-success">${pos}</span>`;
+                } else {
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);">${pos}</span>`;
+                }
+
+                // Session date stamp cells
+                let sessionCells = '';
+                cachedSessions.forEach(s => {
+                    const attended = m.history && m.history[s.date];
+                    if (attended) {
+                        const stampColor = isNewcomer ? '#06b6d4' : '#1428A0';
+                        const stampBg = isNewcomer ? 'rgba(6, 182, 212, 0.12)' : 'rgba(20, 40, 160, 0.1)';
+                        sessionCells += `
+                            <td style="text-align: center; vertical-align: middle;">
+                                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.85rem;" title="${s.date} 출석">
+                                    <i class="fa-solid fa-check"></i>
+                                </span>
+                            </td>
+                        `;
+                    } else {
+                        sessionCells += `
+                            <td style="text-align: center; vertical-align: middle;">
+                                <span style="color: #cbd5e1; font-weight: bold; font-size: 1.1rem;">-</span>
+                            </td>
+                        `;
+                    }
+                });
+
+                // Horizontal Attendance Progress Bar
+                const rate = m.rate || 0;
+                let barColor = 'linear-gradient(90deg, #1428A0 0%, #3b82f6 100%)';
+                if (isNewcomer) {
+                    barColor = 'linear-gradient(90deg, #0891b2 0%, #06b6d4 100%)';
+                } else if (rate === 0) {
+                    barColor = '#cbd5e1';
+                } else if (rate < 50) {
+                    barColor = 'linear-gradient(90deg, #e11d48 0%, #f43f5e 100%)';
+                }
+
+                const barHtml = `
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                        <div style="flex: 1; height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; position: relative;">
+                            <div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div>
+                        </div>
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 70px; text-align: right;">
+                            ${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${m.attend_count}/${m.total_sessions})</span>
+                        </span>
+                    </div>
+                `;
+
+                const avatarStyle = isNewcomer ? 'background: rgba(6, 182, 212, 0.15); color: #0891b2;' : '';
+
+                tr.innerHTML = `
+                    <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>
+                    <td>
+                        <div class="user-info">
+                            <div class="avatar" style="${avatarStyle}">${initial}</div>
+                            <div>
+                                <span style="font-weight: 600; font-size: 0.95rem;">${m.name}</span>
+                                ${isNewcomer ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 1px;">(인도: ${m.guide_name || '-'})</div>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        ${badgeHtml}
+                    </td>
+                    ${sessionCells}
+                    <td>
+                        ${barHtml}
+                    </td>
+                `;
+
+                memberMatrixBody.appendChild(tr);
+            });
         }
 
         function logout() {

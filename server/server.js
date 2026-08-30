@@ -749,10 +749,118 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const prevWednesdayCount = prevWednesdayObj ? Number(prevWednesdayObj.wednesdayAttend || 0) : 0;
         const wednesdayDiff = prevWednesdayCount > 0 ? (((latestWednesdayCount - prevWednesdayCount) / prevWednesdayCount) * 100).toFixed(1) : 0;
 
-        // 출석 비율 계산
+        // 6. 최근 주일 기존 성도 vs 새참자 출석 분리 집계
+        let regularAttended = 0;
+        let newcomerAttended = 0;
+
+        if (latestSundayObj) {
+            const splitQuery = `
+                SELECT 
+                    SUM(CASE WHEN a.member_code NOT LIKE 'NC_%' THEN 1 ELSE 0 END) as reg_cnt,
+                    SUM(CASE WHEN a.member_code LIKE 'NC_%' THEN 1 ELSE 0 END) as nc_cnt
+                FROM faithon_attendance a
+                LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
+                LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
+                  AND a.service_type = 'sunday'
+                  AND a.is_attended = TRUE
+                  AND (
+                      ? IS NULL 
+                      OR u.AREA_CODE = ? 
+                      OR nc.area_code = ? 
+                      OR nc.temp_area = ?
+                  )
+            `;
+            const splitRows = await conn.query(splitQuery, [activeYear, latestSundayObj.date, areaCode || null, areaCode, areaCode, areaCode]);
+            regularAttended = Number(splitRows[0]?.reg_cnt || 0);
+            newcomerAttended = Number(splitRows[0]?.nc_cnt || 0);
+        }
+
         const totalEligible = regularMemberCount + newcomerCount;
-        const attendedCount = latestSundayCount;
-        const unattendedCount = Math.max(0, totalEligible - attendedCount);
+        const unattendedCount = Math.max(0, totalEligible - (regularAttended + newcomerAttended));
+
+        // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계
+        let memberListQuery = `
+            SELECT u.CODE_NO, u.NAME, u.POSITION, u.PHONE, u.AREA_CODE, 0 as is_newcomer, NULL as guide_name
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+        `;
+        const memberListParams = [activeYear];
+        if (areaCode) {
+            memberListQuery += ` AND u.AREA_CODE = ?`;
+            memberListParams.push(areaCode);
+        }
+
+        const regMembers = await conn.query(memberListQuery, memberListParams);
+
+        // 새참자 목록
+        let ncListQuery = `SELECT id, name as NAME, '새참자' as POSITION, phone as PHONE, COALESCE(area_code, temp_area) as AREA_CODE, 1 as is_newcomer, guide_name FROM faithon_newcomer`;
+        const ncListParams = [];
+        if (areaCode) {
+            ncListQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
+            ncListParams.push(areaCode, areaCode);
+        }
+        const ncMembers = await conn.query(ncListQuery, ncListParams);
+
+        const allRoster = [
+            ...regMembers.map(m => ({ ...m, code: m.CODE_NO })),
+            ...ncMembers.map(m => ({ ...m, code: `NC_${m.id}` }))
+        ];
+
+        // 해당 기간 내 모든 주일 출석 레코드 가져오기
+        const sundayDates = sundaysOnly.map(s => s.date);
+        let individualAttMap = {};
+
+        if (sundayDates.length > 0) {
+            const indQuery = `
+                SELECT a.member_code, DATE_FORMAT(a.service_date, '%Y-%m-%d') as s_date
+                FROM faithon_attendance a
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') >= ? 
+                  AND DATE_FORMAT(a.service_date, '%Y-%m-%d') <= ?
+                  AND a.service_type = 'sunday'
+                  AND a.is_attended = TRUE
+            `;
+            const indRows = await conn.query(indQuery, [fromDateStr, toDateStr]);
+            indRows.forEach(r => {
+                const key = `${r.member_code}_${r.s_date}`;
+                individualAttMap[key] = true;
+            });
+        }
+
+        const totalSundaySessions = sundayDates.length;
+        const memberAttendanceList = allRoster.map(m => {
+            const history = {};
+            let attendCnt = 0;
+            sundayDates.forEach(d => {
+                const attended = !!individualAttMap[`${m.code}_${d}`];
+                history[d] = attended;
+                if (attended) attendCnt++;
+            });
+            const rate = totalSundaySessions > 0 ? Math.round((attendCnt / totalSundaySessions) * 100) : 0;
+            return {
+                code: m.code,
+                name: m.NAME,
+                position: m.POSITION || '성도',
+                area: m.AREA_CODE,
+                is_newcomer: !!m.is_newcomer,
+                guide_name: m.guide_name,
+                history,
+                attend_count: attendCnt,
+                total_sessions: totalSundaySessions,
+                rate
+            };
+        });
+
+        // 정렬: 출석률 높은 순 -> 구역장/임원 우선 -> 성명 가나다순
+        memberAttendanceList.sort((a, b) => {
+            if (b.rate !== a.rate) return b.rate - a.rate;
+            const isALeader = (a.position || '').includes('구역장') || (a.position || '').includes('조장');
+            const isBLeader = (b.position || '').includes('구역장') || (b.position || '').includes('조장');
+            if (isALeader && !isBLeader) return -1;
+            if (!isALeader && isBLeader) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        });
 
         res.json({
             success: true,
@@ -765,13 +873,18 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     newcomer_count: newcomerCount,
                     reserve_count: reserveCount,
                     total_members: totalEligible,
-                    attended_count: attendedCount,
+                    regular_attended: regularAttended,
+                    newcomer_attended: newcomerAttended,
                     unattended_count: unattendedCount
                 },
                 trend: {
                     labels: allDates.map(d => d.label),
                     sundays: allDates.map(d => d.sundayAttend),
                     wednesdays: allDates.map(d => d.wednesdayAttend)
+                },
+                member_matrix: {
+                    sessions: sundaysOnly.map(s => ({ date: s.date, label: s.label })),
+                    members: memberAttendanceList
                 },
                 range: {
                     from: fromDateStr,
