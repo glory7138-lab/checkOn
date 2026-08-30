@@ -22,6 +22,57 @@ async function getActiveYear(conn) {
     return '2026';
 }
 
+// Helper: 주소록(CWTB_USER)에 정식 등록된 새참자를 faithon_newcomer에서 자동 삭제/정리
+async function syncNewcomersWithAddressBook(conn, activeYear) {
+    try {
+        const newcomers = await conn.query(`SELECT id, name, phone, COALESCE(area_code, temp_area) as area_code FROM faithon_newcomer`);
+        if (!newcomers || newcomers.length === 0) return;
+
+        for (const nc of newcomers) {
+            const cleanPhone = (nc.phone || '').replace(/[^0-9]/g, '');
+            let matchedCode = null;
+
+            if (cleanPhone.length >= 10) {
+                const res = await conn.query(`
+                    SELECT CODE_NO FROM CWTB_USER 
+                    WHERE YEAR = ? 
+                      AND DEL_YN = 'N' 
+                      AND REPLACE(REPLACE(PHONE, '-', ''), ' ', '') = ?
+                    LIMIT 1
+                `, [activeYear, cleanPhone]);
+                if (res && res.length > 0) matchedCode = res[0].CODE_NO;
+            }
+
+            if (!matchedCode && nc.name && nc.area_code) {
+                const res = await conn.query(`
+                    SELECT CODE_NO FROM CWTB_USER 
+                    WHERE YEAR = ? 
+                      AND DEL_YN = 'N' 
+                      AND NAME = ? 
+                      AND AREA_CODE = ?
+                    LIMIT 1
+                `, [activeYear, nc.name.trim(), nc.area_code.trim()]);
+                if (res && res.length > 0) matchedCode = res[0].CODE_NO;
+            }
+
+            if (matchedCode) {
+                console.log(`[Auto-Sync] 새참자 '${nc.name}'(${nc.area_code}구역)이 주소록(코드: ${matchedCode})에 정식 등록되어 새참자 테이블에서 자동 정리합니다.`);
+                // 과거 새참자 출석 기록을 정식 코드_NO로 이관
+                await conn.query(`
+                    UPDATE faithon_attendance 
+                    SET member_code = ? 
+                    WHERE member_code = ?
+                `, [matchedCode, `NC_${nc.id}`]).catch(() => {});
+
+                // 새참자 테이블에서 삭제
+                await conn.query(`DELETE FROM faithon_newcomer WHERE id = ?`, [nc.id]);
+            }
+        }
+    } catch (e) {
+        console.error("syncNewcomersWithAddressBook error:", e);
+    }
+}
+
 // ==========================================
 // API Routes
 // ==========================================
@@ -80,7 +131,6 @@ app.post('/api/auth/login', async (req, res) => {
         // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
         let isAdmin = false;
         try {
-            // WEB_ADMIN_PHONES 확인
             const phoneCheck = await conn.query(`
                 SELECT * FROM WEB_ADMIN_PHONES 
                 WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
@@ -88,7 +138,6 @@ app.post('/api/auth/login', async (req, res) => {
             `, [cleanPhone]);
             if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
 
-            // CWTB_ADMIN 확인
             const adminCheck = await conn.query(`
                 SELECT * FROM CWTB_ADMIN 
                 WHERE NAME = ?
@@ -163,7 +212,7 @@ app.get('/api/areas', async (req, res) => {
     }
 });
 
-// 2. 최신 활성 연도 구역별 성도 목록 조회 (직분순 및 이름순 정렬, 예비명단 제외)
+// 2. 최신 활성 연도 구역별 성도 목록 조회 (직분순 및 이름순 정렬 + 해당 구역 새참자 포함)
 app.get('/api/members', async (req, res) => {
     const areaCode = req.query.areaCode;
     let conn;
@@ -171,10 +220,15 @@ app.get('/api/members', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
         
+        // 주소록에 등록된 새참자 자동 동기화
+        await syncNewcomersWithAddressBook(conn, activeYear);
+
+        // 2-1. 정규 성도 조회 (예비명단 제외)
         let query = `
             SELECT u.CODE_NO, u.NAME, 
                    COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
-                   u.AREA_CODE, u.PHONE, u.PIC
+                   u.AREA_CODE, u.PHONE, u.PIC,
+                   FALSE as is_newcomer
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
@@ -190,7 +244,6 @@ app.get('/api/members', async (req, res) => {
             params.push(areaCode);
         }
         
-        // 직분(구역장 > 부구역장 > 조장 > 조총무 > 서기 > 성도) 및 성명 순 정렬
         query += ` ORDER BY 
             CASE 
                 WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1
@@ -203,10 +256,227 @@ app.get('/api/members', async (req, res) => {
             u.NAME ASC
         `;
         
-        const members = await conn.query(query, params);
-        res.json({ success: true, data: members, active_year: activeYear });
+        const regularMembers = await conn.query(query, params);
+
+        // 2-2. 해당 구역 새참자 목록 조회하여 함께 포함
+        let ncQuery = `SELECT id, name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer`;
+        const ncParams = [];
+        if (areaCode) {
+            ncQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
+            ncParams.push(areaCode, areaCode);
+        }
+        ncQuery += ` ORDER BY name ASC`;
+        const newcomers = await conn.query(ncQuery, ncParams);
+
+        const newcomerMembers = newcomers.map(nc => ({
+            CODE_NO: `NC_${nc.id}`,
+            NAME: nc.name,
+            POSITION: '새참자',
+            AREA_CODE: nc.area_code,
+            PHONE: nc.phone,
+            PIC: null,
+            is_newcomer: true,
+            newcomer_id: nc.id
+        }));
+
+        // 정규 성도 뒤에 새참자 병합
+        const allMembers = [...regularMembers, ...newcomerMembers];
+
+        res.json({ 
+            success: true, 
+            data: allMembers, 
+            regular_count: regularMembers.length,
+            newcomer_count: newcomerMembers.length,
+            active_year: activeYear 
+        });
     } catch (err) {
         console.error("Error fetching members:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ==========================================
+// 새참자(Newcomer) 전용 API Routes
+// ==========================================
+
+// 새참자 목록 조회
+app.get('/api/newcomers', async (req, res) => {
+    const areaCode = req.query.areaCode;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        await syncNewcomersWithAddressBook(conn, activeYear);
+
+        let query = `
+            SELECT nc.id, nc.name, nc.phone, COALESCE(nc.area_code, nc.temp_area) as area_code, nc.memo, nc.registered_at,
+                   (SELECT COUNT(*) FROM faithon_attendance a WHERE a.member_code = CONCAT('NC_', nc.id) AND a.is_attended = TRUE) as attendance_count
+            FROM faithon_newcomer nc
+        `;
+        const params = [];
+        if (areaCode) {
+            query += ` WHERE (nc.area_code = ? OR nc.temp_area = ?)`;
+            params.push(areaCode, areaCode);
+        }
+        query += ` ORDER BY nc.registered_at DESC, nc.name ASC`;
+
+        const newcomers = await conn.query(query, params);
+        res.json({ success: true, data: newcomers });
+    } catch (err) {
+        console.error("Error fetching newcomers:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사)
+app.post('/api/newcomers', async (req, res) => {
+    const { name, phone, area_code, memo, created_by } = req.body;
+    if (!name || !area_code) {
+        return res.status(400).json({ success: false, error: '이름과 구역은 필수 항목입니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. 해당 구역 내 동일 이름 중복 등록 여부 확인
+        const dup = await conn.query(`
+            SELECT id FROM faithon_newcomer 
+            WHERE name = ? AND (area_code = ? OR temp_area = ?)
+        `, [name.trim(), area_code.trim(), area_code.trim()]);
+
+        if (dup && dup.length > 0) {
+            return res.status(400).json({ success: false, error: `이미 ${area_code}구역에 등록된 동일한 이름의 새참자(${name})가 존재합니다.` });
+        }
+
+        // 2. 이미 주소록(CWTB_USER)에 등록된 성도인지 확인
+        const inUser = await conn.query(`
+            SELECT CODE_NO FROM CWTB_USER 
+            WHERE YEAR = ? AND DEL_YN = 'N' AND NAME = ? AND AREA_CODE = ?
+        `, [activeYear, name.trim(), area_code.trim()]);
+
+        if (inUser && inUser.length > 0) {
+            return res.status(400).json({ success: false, error: `'${name}' 성도는 이미 ${activeYear}년도 주소록(${area_code}구역)에 정식 등록되어 있습니다.` });
+        }
+
+        // 3. 새참자 등록
+        const insertRes = await conn.query(`
+            INSERT INTO faithon_newcomer (name, phone, area_code, memo, created_by)
+            VALUES (?, ?, ?, ?, ?)
+        `, [name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
+
+        res.json({ success: true, id: insertRes.insertId, message: `'${name}' 새참자가 ${area_code}구역에 등록되었습니다.` });
+    } catch (err) {
+        console.error("Error creating newcomer:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 새참자 수정
+app.put('/api/newcomers/:id', async (req, res) => {
+    const id = req.params.id;
+    const { name, phone, area_code, memo } = req.body;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            UPDATE faithon_newcomer
+            SET name = ?, phone = ?, area_code = ?, memo = ?
+            WHERE id = ?
+        `, [name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
+
+        res.json({ success: true, message: '새참자 정보가 수정되었습니다.' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 새참자 삭제 (해당 구역장이 삭제)
+app.delete('/api/newcomers/:id', async (req, res) => {
+    const id = req.params.id;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`DELETE FROM faithon_newcomer WHERE id = ?`, [id]);
+        res.json({ success: true, message: '새참자가 삭제되었습니다.' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ==========================================
+// 예비명단(Reserve) 전용 API Routes
+// ==========================================
+
+// 예비명단 조회
+app.get('/api/reserve', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        const rows = await conn.query(`
+            SELECT r.id, r.member_code, r.original_area, r.reason, r.added_at,
+                   u.NAME as name, u.PHONE as phone, u.POSITION as position
+            FROM faithon_reserve r
+            LEFT JOIN CWTB_USER u ON r.member_code = u.CODE_NO AND u.YEAR = ?
+            ORDER BY r.added_at DESC
+        `, [activeYear]);
+
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error("Error fetching reserve list:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 예비명단 추가 (관리자 전용)
+app.post('/api/reserve', async (req, res) => {
+    const { member_code, original_area, reason } = req.body;
+    if (!member_code) {
+        return res.status(400).json({ success: false, error: '성도 고유 코드가 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_reserve (member_code, original_area, reason)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE original_area = ?, reason = ?
+        `, [member_code, original_area || null, reason || null, original_area || null, reason || null]);
+
+        res.json({ success: true, message: '예비명단으로 이동되었습니다.' });
+    } catch (err) {
+        console.error("Error adding to reserve:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 예비명단에서 구역으로 복귀 (관리자 전용)
+app.delete('/api/reserve/:member_code', async (req, res) => {
+    const member_code = req.params.member_code;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`DELETE FROM faithon_reserve WHERE member_code = ?`, [member_code]);
+        res.json({ success: true, message: '구역으로 복귀되었습니다.' });
+    } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();

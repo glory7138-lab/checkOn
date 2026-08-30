@@ -45,11 +45,21 @@ async function initializeTables() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 phone VARCHAR(100),
-                temp_area VARCHAR(100),
-                attendance_count INT DEFAULT 0,
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                area_code VARCHAR(100) NOT NULL,
+                memo VARCHAR(255),
+                created_by VARCHAR(100),
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_newcomer (name, area_code)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
+
+        // 혹시 기존 테이블에 area_code 컬럼이 없으면 추가
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN area_code VARCHAR(100) NOT NULL AFTER phone`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD UNIQUE KEY unique_newcomer (name, area_code)`);
+        } catch (e) {}
 
         console.log("[FaithOn DB] Initialized custom tables successfully.");
     } catch (err) {

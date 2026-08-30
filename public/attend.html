@@ -328,17 +328,24 @@
         async function initPage() {
             if (!currentUser) return;
 
+            // 1. Check admin vs officer for Sidebar menu visibility
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            const navReserve = document.getElementById('navReserve');
+            if (navReserve) {
+                navReserve.style.display = isAdmin ? 'flex' : 'none';
+            }
+
             // Display user info in sidebar
             userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
             
-            if (currentUser.role === 'admin' || currentUser.scope_type === 'all') {
+            if (isAdmin) {
                 userRoleDisplay.textContent = '총괄 관리자 권한 (전체 구역)';
                 pageSubTitle.innerHTML = '전체 구역 성도들의 출석 현황을 관리자 권한으로 확인 및 수정합니다.';
                 await loadAllAreas();
             } else {
                 const userArea = currentUser.scope_code || currentUser.area_code || '11';
                 userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
-                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도들의 출석을 확인하고 저장하세요.`;
+                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 출석을 확인하고 저장하세요.`;
                 areaSelectLabel.innerHTML = `담당 구역 <span class="badge badge-success" style="font-size:0.75rem;">권한 고정</span>`;
                 
                 // Only populate their assigned area and lock
@@ -390,7 +397,7 @@
             memberListEl.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 명단을 불러오는 중...</td></tr>';
 
             try {
-                // 1. Fetch Members in Area
+                // 1. Fetch Members in Area (includes newcomers)
                 const membersRes = await fetch(`/api/members?areaCode=${encodeURIComponent(areaCode)}`);
                 const membersJson = await membersRes.json();
                 if (!membersJson.success) throw new Error(membersJson.error);
@@ -425,23 +432,34 @@
             membersData.forEach((member, index) => {
                 const tr = document.createElement('tr');
                 const pos = (member.POSITION || '').trim();
+                const isNewcomer = !!member.is_newcomer;
                 const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장');
-                const positionBadgeClass = isLeader ? 'badge-success' : '';
-                const positionStyle = (!isLeader && pos === '성도') ? 'background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);' : '';
+                
+                let badgeHtml = '';
+                if (isNewcomer) {
+                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); font-weight: 600;">새참자</span>`;
+                } else if (isLeader) {
+                    badgeHtml = `<span class="badge badge-success">${member.POSITION}</span>`;
+                } else {
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary);">${member.POSITION || '성도'}</span>`;
+                }
+
                 const initial = (member.NAME || '성').charAt(0);
+                const avatarBg = isNewcomer ? 'background: rgba(20, 40, 160, 0.15); color: var(--accent-color);' : '';
                 
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary);">${index + 1}</td>
                     <td>
                         <div class="user-info">
-                            <div class="avatar">${initial}</div>
-                            <span style="font-weight: 500; font-size: 1rem;">${member.NAME}</span>
+                            <div class="avatar" style="${avatarBg}">${initial}</div>
+                            <span style="font-weight: 500; font-size: 1rem;">
+                                ${member.NAME}
+                                ${isNewcomer ? '<span style="font-size:0.75rem; color:var(--text-secondary); margin-left:4px;">(신규)</span>' : ''}
+                            </span>
                         </div>
                     </td>
                     <td>
-                        <span class="badge ${positionBadgeClass}" style="${positionStyle}">
-                            ${member.POSITION || '성도'}
-                        </span>
+                        ${badgeHtml}
                     </td>
                     <td style="text-align: center;">
                         <label class="check-container" style="display: inline-block;">
