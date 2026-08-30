@@ -985,14 +985,33 @@ app.get('/api/dashboard/stats', async (req, res) => {
         // 7. 구역 인원별 출석 매트릭스 & 개인별 출석률 집계 (11구역부터 순차적으로 구역별 성도 + 새참자 순차 배치)
         let memberListQuery = `
             SELECT u.CODE_NO, u.NAME, 
-                   COALESCE(pa.POSITION, u.POSITION, '성도') AS POSITION, 
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                           WHEN d.NAME IS NOT NULL THEN '집사'
+                           ELSE NULL 
+                       END,
+                       u.POSITION,
+                       '성도'
+                   ) AS POSITION, 
                    u.PHONE, u.AREA_CODE, 0 as is_newcomer, NULL as guide_name
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
         `;
-        const memberListParams = [activeYear, activeYear];
+        const memberListParams = [activeYear, activeYear, activeYear];
         if (areaCode) {
             memberListQuery += ` AND u.AREA_CODE = ?`;
             memberListParams.push(areaCode);
@@ -1007,7 +1026,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 WHEN pa.POSITION LIKE '%조장%' THEN 3
                 WHEN pa.POSITION LIKE '%조총무%' THEN 4
                 WHEN pa.POSITION LIKE '%서기%' THEN 5
-                ELSE 6
+                WHEN pep.POSITION = '담임목사' THEN 6
+                WHEN pep.POSITION = '목사' THEN 7
+                WHEN pep.POSITION = '부목사' THEN 8
+                WHEN pep.POSITION = '전도사' THEN 9
+                WHEN pep.POSITION = '집사' OR d.NAME IS NOT NULL THEN 10
+                ELSE 11
             END,
             u.NAME ASC
         `;
@@ -1128,6 +1152,9 @@ app.get('/api/dashboard/stats', async (req, res) => {
         console.error("Dashboard stats error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
+        if (conn) conn.release();
+    }
+});
 // ==========================================
 // 관리자 설정 & 권한 부여 / 해제 API Routes
 // ==========================================
