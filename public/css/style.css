@@ -563,17 +563,17 @@ button {
 }
 
 .matrix-tab {
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
   border: none;
   background: transparent;
-  padding: 0.45rem 0.95rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
   color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
@@ -970,9 +970,20 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     white-space: nowrap;
   }
   
+  #btnToggleMobileCharts {
+    display: inline-flex !important;
+  }
+
+  .charts-grid {
+    display: none; /* 모바일에서는 기본적으로 차트를 접어 출석표가 1화면에 바로 보이게 함 */
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
   .chart-container {
-    min-height: 360px;
-    padding: 1rem;
+    min-height: 280px !important;
+    padding: 0.85rem !important;
   }
   
   .filter-bar {
@@ -1019,72 +1030,89 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     width: 100%;
   }
 
-  /* 1. 순번 컬럼 (0px ~ 45px) */
+  /* 1. 순번 컬럼 (0px ~ 34px) */
   .data-table th.sticky-col-seq {
     position: sticky !important;
     left: 0 !important;
     z-index: 20 !important;
     background-color: #f8fafc !important;
-    width: 45px !important;
-    min-width: 45px !important;
-    max-width: 45px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     text-align: center;
-    padding: 0.6rem 0.2rem !important;
+    padding: 0.5rem 0.1rem !important;
+    font-size: 0.75rem !important;
   }
   .data-table td.sticky-col-seq {
     position: sticky !important;
     left: 0 !important;
     z-index: 15 !important;
     background-color: #ffffff !important;
-    width: 45px !important;
-    min-width: 45px !important;
-    max-width: 45px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     text-align: center;
-    padding: 0.6rem 0.2rem !important;
+    padding: 0.5rem 0.1rem !important;
+    font-size: 0.78rem !important;
   }
 
-  /* 2. 구역 컬럼 (전체 조회 시에만 45px ~ 105px) */
+  /* 2. 구역 컬럼 (전체 조회 시에만 34px ~ 88px) */
   .data-table th.sticky-col-area {
     position: sticky !important;
-    left: 45px !important;
+    left: 34px !important;
     z-index: 20 !important;
     background-color: #f8fafc !important;
-    width: 60px !important;
-    min-width: 60px !important;
-    max-width: 60px !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
     text-align: center;
-    padding: 0.6rem 0.2rem !important;
+    padding: 0.5rem 0.15rem !important;
+    font-size: 0.75rem !important;
   }
   .data-table td.sticky-col-area {
     position: sticky !important;
-    left: 45px !important;
+    left: 34px !important;
     z-index: 15 !important;
     background-color: #ffffff !important;
-    width: 60px !important;
-    min-width: 60px !important;
-    max-width: 60px !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
     text-align: center;
-    padding: 0.6rem 0.2rem !important;
+    padding: 0.5rem 0.15rem !important;
+    font-size: 0.78rem !important;
   }
 
-  /* 3. 이름(성도정보) 컬럼 (구역별 접속 시 left: 45px, 전체 조회 시 left: 105px) */
+  /* 3. 이름(성도정보) 컬럼 (구역별 접속 시 left: 34px, 전체 조회 시 left: 88px) */
   .data-table th.sticky-col-info {
     position: sticky !important;
     z-index: 20 !important;
     background-color: #f8fafc !important;
-    min-width: 115px !important;
+    min-width: 78px !important;
+    max-width: 90px !important;
     border-right: 2px solid #cbd5e1 !important;
-    box-shadow: 4px 0 8px -3px rgba(0, 0, 0, 0.12) !important;
-    padding: 0.6rem 0.5rem !important;
+    box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.1) !important;
+    padding: 0.5rem 0.3rem !important;
+    font-size: 0.75rem !important;
   }
   .data-table td.sticky-col-info {
     position: sticky !important;
     z-index: 15 !important;
     background-color: #ffffff !important;
-    min-width: 115px !important;
+    min-width: 78px !important;
+    max-width: 90px !important;
     border-right: 2px solid #cbd5e1 !important;
-    box-shadow: 4px 0 8px -3px rgba(0, 0, 0, 0.12) !important;
-    padding: 0.6rem 0.5rem !important;
+    box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.1) !important;
+    padding: 0.5rem 0.3rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* 4. 날짜 열 & 체크 셀 모바일 최적화 (4개 날짜가 가로 스크롤 없이 100% 핏) */
+  .data-table th.matrix-date-col-th,
+  .data-table td.matrix-date-cell {
+    min-width: 44px !important;
+    max-width: 56px !important;
+    padding: 0.45rem 0.15rem !important;
+    text-align: center !important;
   }
 
   .data-table tr:hover td.sticky-col-seq,
@@ -1097,9 +1125,13 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   .data-table td.sticky-col-rate {
     position: static !important;
     right: auto !important;
-    min-width: 150px !important;
+    min-width: 120px !important;
     border-left: none !important;
     box-shadow: none !important;
+    padding: 0.5rem 0.4rem !important;
+  }
+  .data-table th.sticky-col-rate {
+    font-size: 0.72rem !important;
   }
 
   .matrix-nav-btn {
@@ -1115,8 +1147,9 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   .matrix-tab {
     flex: 1;
     justify-content: center;
-    padding: 0.4rem 0.4rem;
-    font-size: 0.78rem;
+    padding: 0.35rem 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 700;
   }
 
   /* Modal on mobile */

@@ -136,17 +136,23 @@
             </div>
 
             <!-- Category Selector (성도 참석현황 / 새참자 참석현황 탭) -->
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
-                <button class="matrix-tab active" id="catTabMember" onclick="switchCategoryTab('member')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
-                    <i class="fa-solid fa-users"></i> 성도 참석현황
-                </button>
-                <button class="matrix-tab" id="catTabNewcomer" onclick="switchCategoryTab('newcomer')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
-                    <i class="fa-solid fa-user-plus"></i> 새참자 참석현황
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; flex-wrap: wrap;">
+                <div style="display: flex; gap: 0.4rem;">
+                    <button class="matrix-tab active" id="catTabMember" onclick="switchCategoryTab('member')" style="font-size: 0.92rem; padding: 0.45rem 1rem; font-weight: 700;">
+                        <i class="fa-solid fa-users"></i> 성도 출석
+                    </button>
+                    <button class="matrix-tab" id="catTabNewcomer" onclick="switchCategoryTab('newcomer')" style="font-size: 0.92rem; padding: 0.45rem 1rem; font-weight: 700;">
+                        <i class="fa-solid fa-user-plus"></i> 새참자 참석
+                    </button>
+                </div>
+                <!-- Mobile Chart Toggle Button -->
+                <button type="button" id="btnToggleMobileCharts" onclick="toggleMobileCharts()" class="btn btn-outline" style="font-size: 0.76rem; padding: 0.35rem 0.65rem; border-radius: 8px; font-weight: 700; color: var(--text-secondary); display: none;">
+                    <i class="fa-solid fa-chart-pie"></i> <span id="textToggleCharts">차트 보기</span>
                 </button>
             </div>
 
-            <!-- Charts Section -->
-            <div class="charts-grid" style="margin-bottom: 1.75rem;">
+            <!-- Charts Section (PC는 항상 표시, 모바일 구역장은 기본 접힘으로 바로 표 확인 가능) -->
+            <div class="charts-grid" id="chartsSectionGrid" style="margin-bottom: 1.5rem;">
                 <div class="card chart-container">
                     <h3 id="trendChartTitle">주간 출석 트렌드</h3>
                     <div class="chart-wrapper">
@@ -559,6 +565,24 @@
             renderMemberMatrix();
         }
 
+        // Toggle Charts for Mobile
+        function toggleMobileCharts() {
+            const grid = document.getElementById('chartsSectionGrid');
+            const textEl = document.getElementById('textToggleCharts');
+            if (!grid) return;
+            const isHidden = grid.style.display === 'none' || getComputedStyle(grid).display === 'none';
+            if (isHidden) {
+                grid.style.display = 'grid';
+                if (textEl) textEl.textContent = '차트 접기';
+                // Trigger chart resize
+                if (trendChartInstance) trendChartInstance.resize();
+                if (ratioChartInstance) ratioChartInstance.resize();
+            } else {
+                grid.style.display = 'none';
+                if (textEl) textEl.textContent = '차트 보기';
+            }
+        }
+
         function updateChartsWithCategory() {
             if (!trendChartInstance || !cachedTrend) return;
             const s = startDateInput.value || '';
@@ -646,7 +670,8 @@
             if (!matrixHeaderRow || !memberMatrixBody) return;
 
             const isAllAreas = !areaFilter.value;
-            const infoLeft = isAllAreas ? '105px' : '45px';
+            const isMobile = window.innerWidth <= 768;
+            const infoLeft = isAllAreas ? (isMobile ? '88px' : '105px') : (isMobile ? '34px' : '45px');
             const activeSessions = cachedSessions.filter(s => {
                 if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
                 if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
@@ -661,10 +686,26 @@
 
             activeSessions.forEach(s => {
                 const th = document.createElement('th');
+                th.className = 'matrix-date-col-th';
                 th.style.textAlign = 'center';
-                th.style.minWidth = '85px';
-                th.style.padding = '0.85rem 0.5rem';
-                th.textContent = s.label.replace('2026년 ', '');
+                th.style.padding = '0.5rem 0.2rem';
+                
+                // Format label: "8/30" + "(일)" or "(수)"
+                let dateMain = s.date || '';
+                let dayName = s.service_type === 'sunday' ? '(일)' : '(수)';
+                let dayColor = s.service_type === 'sunday' ? '#1428A0' : '#059669';
+
+                const parts = (s.date || '').split('-');
+                if (parts.length === 3) {
+                    const m = parseInt(parts[1], 10);
+                    const d = parseInt(parts[2], 10);
+                    dateMain = `${m}/${d}`;
+                }
+
+                th.innerHTML = `
+                    <div style="font-size: 0.82rem; font-weight: 800; color: var(--text-primary); line-height: 1.1;">${dateMain}</div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: ${dayColor}; margin-top: 2px;">${dayName}</div>
+                `;
                 matrixHeaderRow.appendChild(th);
             });
 
@@ -696,15 +737,15 @@
 
                 let badgeHtml = '';
                 if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">새참자</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.62rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">새참자</span>`;
                 } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success" style="padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    badgeHtml = `<span class="badge badge-success" style="padding: 1px 3px; margin-left: 3px; font-size: 0.62rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
                 } else if (pos.includes('목사') || pos.includes('전도사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.62rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
                 } else if (pos.includes('집사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">집사</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.62rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">집사</span>`;
                 } else if (pos && pos !== '성도') {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 1px 3px; margin-left: 3px; font-size: 0.62rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
                 }
 
                 const areaNum = parseInt(m.area, 10);
@@ -723,12 +764,12 @@
                         else if (isEvenArea) { stampColor = '#0d9488'; stampBg = 'rgba(13, 148, 136, 0.12)'; }
 
                         if (isNewcomer) {
-                            sessionCells += `<td style="text-align: center; vertical-align: middle;"><div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; background: ${stampBg}; border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 6px; padding: 0.25rem 0.45rem;"><span style="font-weight: 700; font-size: 0.82rem; color: #0e7490;">${m.name}</span><span style="font-size: 0.7rem; color: var(--text-secondary);">(${m.guide_name || '인도자미상'})</span></div></td>`;
+                            sessionCells += `<td class="matrix-date-cell" style="text-align: center; vertical-align: middle; padding: 0.45rem 0.2rem;"><div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; background: ${stampBg}; border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 6px; padding: 0.2rem 0.3rem;"><span style="font-weight: 700; font-size: 0.78rem; color: #0e7490;">${m.name}</span><span style="font-size: 0.65rem; color: var(--text-secondary);">(${m.guide_name || '-'})</span></div></td>`;
                         } else {
-                            sessionCells += `<td style="text-align: center; vertical-align: middle;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.8rem;" title="${s.date} 출석"><i class="fa-solid fa-check"></i></span></td>`;
+                            sessionCells += `<td class="matrix-date-cell" style="text-align: center; vertical-align: middle; padding: 0.45rem 0.2rem;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: ${stampBg}; color: ${stampColor}; font-weight: bold; font-size: 0.75rem;" title="${s.date} 출석"><i class="fa-solid fa-check"></i></span></td>`;
                         }
                     } else {
-                        sessionCells += `<td style="text-align: center; vertical-align: middle;"><span style="color: #cbd5e1; font-weight: bold; font-size: 1.1rem;">-</span></td>`;
+                        sessionCells += `<td class="matrix-date-cell" style="text-align: center; vertical-align: middle; padding: 0.45rem 0.2rem;"><span style="color: #cbd5e1; font-weight: bold; font-size: 0.95rem;">-</span></td>`;
                     }
                 });
 
@@ -740,12 +781,12 @@
                 else if (rate < 50) barColor = 'linear-gradient(90deg, #e11d48 0%, #f43f5e 100%)';
                 else if (isEvenArea) barColor = 'linear-gradient(90deg, #0d9488 0%, #2dd4bf 100%)';
 
-                const barHtml = `<div style="display: flex; align-items: center; gap: 10px; width: 100%;"><div style="flex: 1; height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; position: relative;"><div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div></div><span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 70px; text-align: right;">${rate}% <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">(${attendCnt}/${totalSessions})</span></span></div>`;
+                const barHtml = `<div style="display: flex; align-items: center; gap: 8px; width: 100%;"><div style="flex: 1; height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; position: relative;"><div style="width: ${rate}%; height: 100%; background: ${barColor}; border-radius: 6px; transition: width 0.4s ease;"></div></div><span style="font-size: 0.78rem; font-weight: 700; color: var(--text-primary); min-width: 60px; text-align: right;">${rate}% <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 500;">(${attendCnt}/${totalSessions})</span></span></div>`;
 
                 let areaBadgeStyle = 'background: rgba(20, 40, 160, 0.08); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.2);';
                 if (isEvenArea) areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
 
-                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;"><span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); white-space: nowrap;">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 4px; white-space: nowrap;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
+                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;"><span style="font-weight: 800; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap;">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 3px; white-space: nowrap;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
                 memberMatrixBody.appendChild(tr);
             });
             updateDateScrollButtons();
