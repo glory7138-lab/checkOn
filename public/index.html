@@ -288,13 +288,9 @@
             window.location.href = '/login.html';
         }
 
-        // 모바일 접속(화면 폭 768px 이하 또는 모바일 기기)이거나 구역 임원인 경우 기본 출석부(/attend.html)로 자동 이동
-        const isMobileScreen = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
-        
-        // URL에 ?view=dashboard 파라미터가 없으면 모바일에서는 기본 출석부로 이동
+        // 기본 첫화면은 출석체크현황(/attend.html)이며, 명시적으로 통계 메뉴(?view=dashboard)를 누른 경우에만 대시보드 표시
         const urlParams = new URLSearchParams(window.location.search);
-        if (isMobileScreen && !urlParams.has('view') && !isAdmin) {
+        if (!urlParams.has('view')) {
             window.location.replace('/attend.html');
         }
         const userArea = currentUser.scope_code || currentUser.area_code || '11';

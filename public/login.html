@@ -152,12 +152,11 @@
         const errorMsg = document.getElementById('errorMsg');
         const submitBtn = document.getElementById('submitBtn');
 
-        // 이미 로그인되어 있으면 바로 이동
+        // 이미 로그인되어 있으면 출석체크현황(/attend.html)으로 바로 이동
         try {
             const savedUser = JSON.parse(localStorage.getItem('faithon_user'));
             if (savedUser) {
-                const isAdmin = savedUser.role === 'admin' || savedUser.scope_type === 'all';
-                window.location.href = isAdmin ? '/' : '/attend.html';
+                window.location.href = '/attend.html';
             }
         } catch(e) {}
 
@@ -181,14 +180,8 @@
                 if (data.success && data.user) {
                     // 사용자 정보 저장
                     localStorage.setItem('faithon_user', JSON.stringify(data.user));
-                    const isAdmin = data.user.role === 'admin' || data.user.scope_type === 'all';
-                    if (isAdmin) {
-                        // 관리자는 통계 대시보드로 이동
-                        window.location.href = '/';
-                    } else {
-                        // 구역 임원은 출석체크 페이지로 이동
-                        window.location.href = '/attend.html';
-                    }
+                    // 관리자와 구역임원 모두 첫화면은 출석체크현황(attend.html)으로 이동
+                    window.location.href = '/attend.html';
                 } else {
                     errorMsg.textContent = data.error || '로그인에 실패했습니다.';
                     errorMsg.style.display = 'block';
