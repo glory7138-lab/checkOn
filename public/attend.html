@@ -1649,16 +1649,18 @@
 
             // Ensure first tab and initial scroll starts at top (0)
             if (firstRenderedSectionKey) {
+                isManualScrolling = true;
+                if (manualScrollTimer) clearTimeout(manualScrollTimer);
                 activeFellowKey = firstRenderedSectionKey;
                 membersContainer.scrollTop = 0;
                 updateActiveTab(firstRenderedSectionKey);
+                manualScrollTimer = setTimeout(() => {
+                    isManualScrolling = false;
+                }, 300);
             }
 
-            // Allow DOM to settle before attaching observers
-            setTimeout(() => {
-                setupScrollSpy();
-                setupSwipeGestures();
-            }, 80);
+            setupScrollSpy();
+            setupSwipeGestures();
         }
 
         let activeFellowKey = '';
@@ -1687,7 +1689,7 @@
 
             manualScrollTimer = setTimeout(() => {
                 isManualScrolling = false;
-            }, 650);
+            }, 350);
         }
 
         function updateActiveTab(activeKey) {
@@ -1743,7 +1745,7 @@
         let touchStartY = 0;
         let touchStartTime = 0;
 
-        // HORIZONTAL SWIPE GESTURES: Swipe anywhere to jump between sections
+        // HORIZONTAL SWIPE GESTURES: Fast, snappy swipe response
         function setupSwipeGestures() {
             const card = document.getElementById('memberAttendanceCard');
             if (!card || swipeHandlerAttached) return;
@@ -1762,23 +1764,17 @@
                 const deltaY = e.changedTouches[0].clientY - touchStartY;
                 const elapsedTime = Date.now() - touchStartTime;
 
-                // Horizontal swipe: |deltaX| > 40px, clearly horizontal (> 1.2 * |deltaY|), under 500ms
-                if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && elapsedTime < 500) {
+                // Fast swipe detection: min 35px, horizontal dominance (> 1.1 * |deltaY|), up to 800ms
+                if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1 && elapsedTime < 800) {
                     const renderedSections = Array.from(document.querySelectorAll('.fellow-section'));
                     if (renderedSections.length <= 1) return;
 
-                    // Determine currently visible section from actual scroll position
-                    const container = document.getElementById('membersContainer');
+                    // Always base current section on the currently highlighted active tab
+                    const activePill = document.querySelector('.fellow-tab-pill.active');
                     let currentKey = activeFellowKey;
-                    if (container && !isManualScrolling) {
-                        const containerRect = container.getBoundingClientRect();
-                        for (const sec of renderedSections) {
-                            const rect = sec.getBoundingClientRect();
-                            if (rect.top <= containerRect.top + 60 && rect.bottom > containerRect.top + 30) {
-                                currentKey = sec.getAttribute('data-fellow-key');
-                                break;
-                            }
-                        }
+                    if (activePill) {
+                        const pillKey = activePill.id.replace('tab-fellow-', '');
+                        if (pillKey) currentKey = pillKey;
                     }
 
                     const currentIndex = renderedSections.findIndex(sec => sec.getAttribute('data-fellow-key') === currentKey);
