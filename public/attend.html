@@ -21,6 +21,37 @@
             margin-bottom: 1.25rem;
         }
 
+        /* Theme Variables & Dynamic Classes */
+        :root {
+            /* Sunday (주일): 차분하고 고급스러운 소프트 크림슨/로즈 레드 (눈부시지 않고 우아한 레드) */
+            --sunday-primary: #dc2626;
+            --sunday-gradient: linear-gradient(135deg, #b91c1c 0%, #e11d48 100%);
+            --sunday-light: rgba(220, 38, 38, 0.08);
+            --sunday-glow: rgba(220, 38, 38, 0.22);
+            
+            /* Wednesday (수요): 단정하고 신뢰감 있는 클래식 네이비/코발트 블루 */
+            --wednesday-primary: #1428A0;
+            --wednesday-gradient: linear-gradient(135deg, #1428A0 0%, #2563eb 100%);
+            --wednesday-light: rgba(20, 40, 160, 0.08);
+            --wednesday-glow: rgba(20, 40, 160, 0.22);
+        }
+
+        /* Sunday Theme Mode */
+        body.theme-sunday {
+            --accent-color: var(--sunday-primary);
+            --gradient-primary: var(--sunday-gradient);
+            --accent-light: var(--sunday-light);
+            --accent-glow: var(--sunday-glow);
+        }
+
+        /* Wednesday Theme Mode */
+        body.theme-wednesday {
+            --accent-color: var(--wednesday-primary);
+            --gradient-primary: var(--wednesday-gradient);
+            --accent-light: var(--wednesday-light);
+            --accent-glow: var(--wednesday-glow);
+        }
+
         /* 1. Session Type Tab Segment */
         .session-tab-segment {
             display: flex;
@@ -46,23 +77,24 @@
             gap: 6px;
         }
 
-        .session-tab-btn.active {
+        .session-tab-btn.tab-sunday.active {
             background: #ffffff;
-            color: var(--accent-color);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            color: var(--sunday-primary);
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.18);
+        }
+
+        .session-tab-btn.tab-wednesday.active {
+            background: #ffffff;
+            color: var(--wednesday-primary);
+            box-shadow: 0 2px 6px rgba(20, 40, 160, 0.18);
         }
 
         /* 2. Recent 4 Weeks Date Buttons Group */
         .date-buttons-scroll {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-        }
-
-        @media (max-width: 540px) {
-            .date-buttons-scroll {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            gap: 0.45rem;
+            width: 100%;
         }
 
         .date-btn {
@@ -70,7 +102,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0.6rem 0.4rem;
+            padding: 0.55rem 0.25rem;
             border-radius: 10px;
             border: 1.5px solid var(--border-color);
             background: var(--surface-color);
@@ -79,19 +111,23 @@
             cursor: pointer;
             transition: all 0.15s ease;
             text-align: center;
+            min-width: 0; /* Prevents grid blowout */
         }
 
         .date-btn .date-main {
-            font-size: 0.9rem;
-            font-weight: 700;
+            font-size: 0.88rem;
+            font-weight: 800;
             color: var(--text-primary);
+            white-space: nowrap;
+            letter-spacing: -0.3px;
         }
 
         .date-btn .date-sub {
-            font-size: 0.72rem;
-            font-weight: 500;
+            font-size: 0.7rem;
+            font-weight: 600;
             color: var(--text-muted);
             margin-top: 2px;
+            white-space: nowrap;
         }
 
         .date-btn:hover {
@@ -100,10 +136,10 @@
         }
 
         .date-btn.active {
-            background: var(--accent-color);
+            background: var(--gradient-primary);
             border-color: var(--accent-color);
             color: #ffffff;
-            box-shadow: 0 4px 10px rgba(20, 40, 160, 0.25);
+            box-shadow: 0 3px 8px var(--accent-glow);
         }
 
         .date-btn.active .date-main,
@@ -111,7 +147,24 @@
             color: #ffffff;
         }
 
-        /* 3. Sticky Fellow Tabs (봉사회/어머니회/청년회/은장회/새참자) */
+        @media (max-width: 480px) {
+            .date-buttons-scroll {
+                gap: 0.3rem;
+            }
+            .date-btn {
+                padding: 0.45rem 0.15rem;
+                border-radius: 8px;
+            }
+            .date-btn .date-main {
+                font-size: 0.8rem;
+            }
+            .date-btn .date-sub {
+                font-size: 0.65rem;
+                margin-top: 1px;
+            }
+        }
+
+        /* 3. Sticky Fellow Tabs (봉사회/어머니회/청년회/은장회/새참자 - 가로 스크롤 없는 1줄 균등 배치) */
         .fellow-sticky-nav {
             position: sticky;
             top: 56px;
@@ -120,45 +173,53 @@
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             margin: 0 -1rem 1rem -1rem;
-            padding: 0.5rem 1rem;
+            padding: 0.45rem 0.5rem;
             border-bottom: 1px solid var(--border-color);
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            overflow-x: auto;
-            white-space: nowrap;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-
-        .fellow-sticky-nav::-webkit-scrollbar {
-            display: none;
+            width: calc(100% + 2rem);
         }
 
         .fellow-tabs-list {
-            display: inline-flex;
-            gap: 0.4rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+            gap: 0.3rem;
+            width: 100%;
+            align-items: center;
         }
 
         .fellow-tab-pill {
-            padding: 0.45rem 0.85rem;
-            border-radius: 20px;
-            font-size: 0.82rem;
+            padding: 0.45rem 0.2rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
             font-weight: 700;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
             background: var(--bg-color);
             color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.15s ease;
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
+            gap: 3px;
+            min-width: 0;
+            white-space: nowrap;
+        }
+
+        .fellow-tab-pill i {
+            font-size: 0.72rem;
+        }
+
+        .fellow-tab-pill .pill-label {
+            white-space: nowrap;
         }
 
         .fellow-tab-pill .pill-badge {
-            font-size: 0.72rem;
-            padding: 1px 6px;
-            border-radius: 10px;
+            font-size: 0.68rem;
+            padding: 1px 4px;
+            border-radius: 6px;
             background: rgba(0, 0, 0, 0.06);
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: -0.3px;
         }
 
         .fellow-tab-pill.active {
@@ -170,6 +231,28 @@
         .fellow-tab-pill.active .pill-badge {
             background: rgba(255, 255, 255, 0.25);
             color: #ffffff;
+        }
+
+        @media (max-width: 480px) {
+            .fellow-sticky-nav {
+                padding: 0.4rem 0.35rem;
+            }
+            .fellow-tabs-list {
+                gap: 0.2rem;
+            }
+            .fellow-tab-pill {
+                padding: 0.4rem 0.1rem;
+                font-size: 0.74rem;
+                border-radius: 6px;
+                gap: 2px;
+            }
+            .fellow-tab-pill i {
+                display: none; /* 초소형 모바일에서 아이콘 숨김으로 텍스트+카운트 완벽 보존 */
+            }
+            .fellow-tab-pill .pill-badge {
+                font-size: 0.65rem;
+                padding: 0 3px;
+            }
         }
 
         /* Fellow Section Styles */
@@ -580,15 +663,12 @@
 
         <!-- Main Content -->
         <main class="main-content" style="padding-bottom: 5rem;">
-            <div class="page-header" style="margin-bottom: 1rem;">
-                <div>
-                    <h1 class="page-title" id="pageTitle">출석 체크</h1>
-                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하세요.</p>
-                </div>
-                <div class="header-actions">
-                    <div id="saveStatusIndicator" style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--success-color); background: rgba(16, 185, 129, 0.08); padding: 0.4rem 0.85rem; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 700;">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> 실시간 자동 저장
-                    </div>
+            <div class="page-header" style="margin-bottom: 0.75rem; border-bottom: none; padding-bottom: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h1 class="page-title" id="pageTitle" style="margin: 0; display: inline-flex; align-items: center; gap: 8px;">출석 체크</h1>
+                    <span id="totalAttendanceBadge" style="display: none; font-size: 0.88rem; font-weight: 800; background: var(--accent-light); color: var(--accent-color); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(220, 38, 38, 0.2);">
+                        출석 <strong id="totalAttendCountText" style="color: var(--accent-color);">0</strong> / <span id="totalMemberCountText">0</span>명 (<span id="totalAttendRateText">0%</span>)
+                    </span>
                 </div>
             </div>
 
@@ -596,10 +676,10 @@
             <div class="controls-wrapper">
                 <!-- 1. 출석유형 탭 (주일 / 수요일) -->
                 <div class="session-tab-segment" role="tablist">
-                    <button type="button" class="session-tab-btn active" id="tabSunday" onclick="setSessionType('sunday')">
+                    <button type="button" class="session-tab-btn tab-sunday active" id="tabSunday" onclick="setSessionType('sunday')">
                         <i class="fa-solid fa-sun"></i> 주일말씀
                     </button>
-                    <button type="button" class="session-tab-btn" id="tabWednesday" onclick="setSessionType('wednesday')">
+                    <button type="button" class="session-tab-btn tab-wednesday" id="tabWednesday" onclick="setSessionType('wednesday')">
                         <i class="fa-solid fa-book-bible"></i> 수요말씀
                     </button>
                 </div>
@@ -844,13 +924,45 @@
                     const d = curr.getDate();
                     const dayName = serviceType === 'sunday' ? '주일' : '수요';
                     const mainText = `${m}월 ${d}일`;
-                    const subText = `${dayName} (${iso})`;
+                    const subText = `${dayName}`;
                     
                     dates.push({ value: iso, mainText, subText });
                 }
                 curr.setDate(curr.getDate() - 1);
             }
             return dates;
+        }
+
+        // Update Mobile Top & Sticky Header Context Displays
+        function updateContextDisplays() {
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            const userArea = currentUser.scope_code || currentUser.area_code || '11';
+            
+            // Format friendly label: "8/30(주일)" or "8/26(수요)"
+            let dateLabel = '';
+            const isSunday = currentSessionType === 'sunday';
+            if (currentSelectedDate) {
+                const parts = currentSelectedDate.split('-');
+                if (parts.length === 3) {
+                    const m = parseInt(parts[1], 10);
+                    const d = parseInt(parts[2], 10);
+                    const dayName = isSunday ? '주일' : '수요';
+                    dateLabel = `${m}/${d}(${dayName})`;
+                }
+            }
+
+            const badgeStyle = isSunday
+                ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;'
+                : 'background: #eff6ff; color: #1428A0; border: 1px solid #bfdbfe;';
+
+            const mobUserDisplay = document.getElementById('mobileUserDisplay');
+            if (mobUserDisplay) {
+                if (isAdmin) {
+                    mobUserDisplay.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${currentUser.name || '관리자'} <span style="font-size:0.75rem; font-weight:800; padding:1px 6px; border-radius:6px; margin-left:3px; ${badgeStyle}">${dateLabel}</span>`;
+                } else {
+                    mobUserDisplay.innerHTML = `<i class="fa-solid fa-users"></i> ${userArea}구역 <span style="font-size:0.75rem; font-weight:800; padding:1px 6px; border-radius:6px; margin-left:3px; ${badgeStyle}">${dateLabel}</span>`;
+                }
+            }
         }
 
         // Render Recent 4 Dates as Buttons
@@ -872,6 +984,8 @@
                 `;
                 recentDatesContainer.appendChild(btn);
             });
+
+            updateContextDisplays();
         }
 
         let adminAreaStatusList = [];
@@ -903,9 +1017,13 @@
             if (type === 'sunday') {
                 tabSunday.classList.add('active');
                 tabWednesday.classList.remove('active');
+                document.body.classList.remove('theme-wednesday');
+                document.body.classList.add('theme-sunday');
             } else {
                 tabWednesday.classList.add('active');
                 tabSunday.classList.remove('active');
+                document.body.classList.remove('theme-sunday');
+                document.body.classList.add('theme-wednesday');
             }
 
             // Update 4 recent date buttons and select first
@@ -932,6 +1050,15 @@
             const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
             const userArea = currentUser.scope_code || currentUser.area_code || '11';
             currentAreaCode = userArea;
+
+            // Apply Initial Theme
+            if (currentSessionType === 'sunday') {
+                document.body.classList.remove('theme-wednesday');
+                document.body.classList.add('theme-sunday');
+            } else {
+                document.body.classList.remove('theme-sunday');
+                document.body.classList.add('theme-wednesday');
+            }
 
             // Nav item visibility
             const navAttend = document.getElementById('navAttend');
@@ -991,21 +1118,17 @@
             if (isAdmin) {
                 document.getElementById('pageTitle').textContent = '구역별 출석체크 현황';
                 userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
-                pageSubTitle.innerHTML = `각 구역별 <strong>출석체크 완료 여부</strong>를 실시간 확인하고 미체크 구역을 독려할 수 있습니다.`;
                 
                 document.getElementById('adminStatusView').style.display = 'block';
                 document.getElementById('memberAttendanceCard').style.display = 'none';
-                document.getElementById('saveStatusIndicator').style.display = 'none';
                 
                 await fetchAdminAreaStatus();
             } else {
                 document.getElementById('pageTitle').textContent = '출석 체크';
                 userRoleDisplay.textContent = `${userArea}구역 담당`;
-                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 출석을 확인하세요. (체크 시 실시간 자동 저장)`;
                 
                 document.getElementById('adminStatusView').style.display = 'none';
                 document.getElementById('memberAttendanceCard').style.display = 'block';
-                document.getElementById('saveStatusIndicator').style.display = 'flex';
                 
                 await fetchMembersAndAttendance();
             }
@@ -1085,22 +1208,26 @@
 
                 const progressColor = area.is_completed ? '#16a34a' : '#ef4444';
 
-                // Leader phone links for urging attendance
+                // Leader phone links for urging attendance (Call, SMS, KakaoTalk)
                 let leaderHtml = '';
                 if (area.leaders && area.leaders.length > 0) {
                     leaderHtml = area.leaders.map(l => {
                         const cleanPhone = (l.phone || '').replace(/[^0-9]/g, '');
+                        const dayName = currentSessionType === 'sunday' ? '주일말씀' : '수요말씀';
+                        const urgeMsg = `[FaithOn 출석체크 독려]\n${area.area_code}구역 ${l.position} ${l.name}님,\n${currentSelectedDate}(${dayName}) 구역 출석체크 확인 및 완료 부탁드립니다.`;
+                        
                         const callBtn = cleanPhone 
                             ? `<a href="tel:${cleanPhone}" class="btn-call-leader" title="전화걸기"><i class="fa-solid fa-phone"></i> 통화</a>
-                               <a href="sms:${cleanPhone}?body=${encodeURIComponent(`[FaithOn] ${area.area_code}구역 ${currentSelectedDate} 출석체크를 확인 및 완료해 주세요.`)}" class="btn-call-leader" style="background:#fef3c7; color:#b45309; border-color:#fde68a;" title="문자보내기"><i class="fa-solid fa-comment-sms"></i> 문자</a>`
+                               <a href="sms:${cleanPhone}?body=${encodeURIComponent(urgeMsg)}" class="btn-call-leader" style="background:#fef3c7; color:#b45309; border-color:#fde68a;" title="문자보내기"><i class="fa-solid fa-comment-sms"></i> 문자</a>
+                               <button type="button" onclick="sendKakaoUrge('${area.area_code}', '${l.name}', '${l.position}')" class="btn-call-leader" style="background:#fee500; color:#371d1e; border-color:#fada0a; cursor:pointer;" title="카카오톡 독려"><i class="fa-solid fa-comment"></i> 카톡</button>`
                             : '';
                         return `
-                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #f1f5f9;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #f1f5f9; flex-wrap: wrap; gap: 4px;">
                                 <div>
                                     <span class="badge" style="font-size: 0.7rem; padding: 1px 5px; margin-right: 4px;">${l.position}</span>
                                     <strong>${l.name}</strong>
                                 </div>
-                                <div style="display: flex; gap: 4px;">
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                                     ${callBtn}
                                 </div>
                             </div>
@@ -1357,6 +1484,7 @@
 
             // 2. Build Sections with Member Cards (No Avatar Circles!)
             membersContainer.innerHTML = '';
+            updateTotalAttendanceBadge();
 
             if (membersData.length === 0) {
                 membersContainer.innerHTML = `
@@ -1592,7 +1720,28 @@
             }
         }
 
-        // Update group count labels
+        // Update overall area attendance counter badge (e.g., 출석 15/30명 (50%))
+        function updateTotalAttendanceBadge() {
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            const badgeEl = document.getElementById('totalAttendanceBadge');
+            if (!badgeEl) return;
+
+            if (isAdmin) {
+                badgeEl.style.display = 'none';
+                return;
+            }
+
+            const total = membersData.length;
+            const attended = membersData.filter(m => m.checked).length;
+            const rate = total > 0 ? Math.round((attended / total) * 100) : 0;
+
+            document.getElementById('totalAttendCountText').textContent = attended;
+            document.getElementById('totalMemberCountText').textContent = total;
+            document.getElementById('totalAttendRateText').textContent = `${rate}%`;
+            badgeEl.style.display = 'inline-flex';
+        }
+
+        // Update group count labels & total badge
         function updateSectionCounts(groupKey) {
             const grouped = groupMembers(membersData);
             const list = grouped[groupKey] || [];
@@ -1606,6 +1755,39 @@
             const secCountEl = document.getElementById(`section-count-${groupKey}`);
             if (secCountEl) {
                 secCountEl.innerHTML = `출석 <strong style="color: var(--accent-color);">${attendedCount}</strong> / ${list.length}명`;
+            }
+
+            updateTotalAttendanceBadge();
+        }
+
+        // [Admin] KakaoTalk Attendance Urge Sharing
+        async function sendKakaoUrge(areaCode, leaderName, position) {
+            const dayName = currentSessionType === 'sunday' ? '주일말씀' : '수요말씀';
+            const urgeMsg = `[FaithOn 출석체크 독려]\n${areaCode}구역 ${position} ${leaderName}님,\n${currentSelectedDate}(${dayName}) 구역 출석체크 확인 및 완료 부탁드립니다.\n\n👉 출석체크 바로가기: ${window.location.origin}/attend.html`;
+
+            // 1. Web Share API (모바일에서 카카오톡, 메시지 등 선택창 즉시 호출)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `[FaithOn] ${areaCode}구역 출석체크 독려`,
+                        text: urgeMsg
+                    });
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.log("Share API skipped, using clipboard fallback:", e);
+                    } else {
+                        return; // 사용자가 공유창을 취소한 경우
+                    }
+                }
+            }
+
+            // 2. Fallback: 클립보드 복사 후 알림
+            try {
+                await navigator.clipboard.writeText(urgeMsg);
+                alert(`카카오톡 독려 문구가 클립보드에 복사되었습니다!\n\n카카오톡 채팅방에 [붙여넣기]하여 ${leaderName}님께 전송해주세요.`);
+            } catch (err) {
+                prompt("아래 독려 문구를 복사하여 카카오톡으로 전송하세요:", urgeMsg);
             }
         }
 
