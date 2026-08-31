@@ -164,7 +164,7 @@
             }
         }
 
-        /* 3. Sticky Fellow Tabs (봉사회/어머니회/청년회/은장회/새참자 - 가로 스크롤 없는 1줄 균등 배치) */
+        /* 3. Sticky Fellow Tabs (봉사회/어머니회/청년회/은장회/새참자 - 5개 탭 1줄 균등 배치) */
         .fellow-sticky-nav {
             position: sticky;
             top: 56px;
@@ -173,7 +173,7 @@
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             margin: 0 -1rem 1rem -1rem;
-            padding: 0.45rem 0.5rem;
+            padding: 0.4rem 0.35rem;
             border-bottom: 1px solid var(--border-color);
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             width: calc(100% + 2rem);
@@ -181,14 +181,14 @@
 
         .fellow-tabs-list {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-            gap: 0.3rem;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
             width: 100%;
             align-items: center;
         }
 
         .fellow-tab-pill {
-            padding: 0.5rem 0.2rem;
+            padding: 0.48rem 0.15rem;
             border-radius: 8px;
             font-size: 0.92rem;
             font-weight: 800;
@@ -200,13 +200,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
             min-width: 0;
             white-space: nowrap;
+            letter-spacing: -0.4px;
         }
 
         .fellow-tab-pill i {
-            font-size: 0.8rem;
+            font-size: 0.76rem;
+            flex-shrink: 0;
         }
 
         .fellow-tab-pill.active {
@@ -218,29 +220,22 @@
 
         @media (max-width: 480px) {
             .fellow-sticky-nav {
-                padding: 0.45rem 0.4rem;
+                padding: 0.35rem 0.25rem;
             }
             .fellow-tabs-list {
-                display: flex;
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                gap: 0.4rem;
-                padding-bottom: 4px;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
-            }
-            .fellow-tabs-list::-webkit-scrollbar {
-                display: none;
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 2.5px;
             }
             .fellow-tab-pill {
-                flex: 0 0 auto;
-                padding: 0.55rem 0.85rem;
-                font-size: 0.95rem;
-                border-radius: 8px;
-                gap: 4px;
+                padding: 0.45rem 0.1rem;
+                font-size: 0.92rem;
+                border-radius: 7px;
+                gap: 2.5px;
+                letter-spacing: -0.5px;
             }
             .fellow-tab-pill i {
-                font-size: 0.82rem;
+                font-size: 0.72rem;
             }
         }
 
