@@ -1027,12 +1027,12 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   }
   
   .attend-btn-container {
-    width: 95px;
-    height: 34px;
+    width: 105px;
+    height: 44px;
   }
   
   .attend-btn-pill {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
   
   .avatar {
@@ -1111,8 +1111,8 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     position: sticky !important;
     z-index: 20 !important;
     background-color: #f8fafc !important;
-    min-width: 66px !important;
-    max-width: 78px !important;
+    min-width: 90px !important;
+    max-width: 115px !important;
     border-right: 2px solid #cbd5e1 !important;
     box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.1) !important;
     padding: 0.45rem 0.15rem !important;
@@ -1122,8 +1122,8 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     position: sticky !important;
     z-index: 15 !important;
     background-color: #ffffff !important;
-    min-width: 66px !important;
-    max-width: 78px !important;
+    min-width: 90px !important;
+    max-width: 115px !important;
     border-right: 2px solid #cbd5e1 !important;
     box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.1) !important;
     padding: 0.45rem 0.15rem !important;
