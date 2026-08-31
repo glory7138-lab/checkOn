@@ -23,17 +23,17 @@
 
         /* Theme Variables & Dynamic Classes */
         :root {
-            /* Sunday (주일): 차분하고 고급스러운 소프트 크림슨/로즈 레드 (눈부시지 않고 우아한 레드) */
-            --sunday-primary: #dc2626;
-            --sunday-gradient: linear-gradient(135deg, #b91c1c 0%, #e11d48 100%);
-            --sunday-light: rgba(220, 38, 38, 0.08);
-            --sunday-glow: rgba(220, 38, 38, 0.22);
+            /* Sunday (주일): 삼성 CI 대표 컬러 - 딥 로열 블루 & 코발트 (#1428A0) */
+            --sunday-primary: #1428A0;
+            --sunday-gradient: linear-gradient(135deg, #1428A0 0%, #2563eb 100%);
+            --sunday-light: rgba(20, 40, 160, 0.08);
+            --sunday-glow: rgba(20, 40, 160, 0.25);
             
-            /* Wednesday (수요): 단정하고 신뢰감 있는 클래식 네이비/코발트 블루 */
-            --wednesday-primary: #1428A0;
-            --wednesday-gradient: linear-gradient(135deg, #1428A0 0%, #2563eb 100%);
-            --wednesday-light: rgba(20, 40, 160, 0.08);
-            --wednesday-glow: rgba(20, 40, 160, 0.22);
+            /* Wednesday (수요): 평안하고 신뢰감 있는 딥 에메랄드/포레스트 그린 (#059669) */
+            --wednesday-primary: #059669;
+            --wednesday-gradient: linear-gradient(135deg, #047857 0%, #10b981 100%);
+            --wednesday-light: rgba(5, 150, 105, 0.08);
+            --wednesday-glow: rgba(5, 150, 105, 0.25);
         }
 
         /* Sunday Theme Mode */
@@ -80,13 +80,13 @@
         .session-tab-btn.tab-sunday.active {
             background: #ffffff;
             color: var(--sunday-primary);
-            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.18);
+            box-shadow: 0 2px 6px rgba(20, 40, 160, 0.18);
         }
 
         .session-tab-btn.tab-wednesday.active {
             background: #ffffff;
             color: var(--wednesday-primary);
-            box-shadow: 0 2px 6px rgba(20, 40, 160, 0.18);
+            box-shadow: 0 2px 6px rgba(5, 150, 105, 0.18);
         }
 
         /* 2. Recent 4 Weeks Date Buttons Group */
@@ -952,8 +952,8 @@
             }
 
             const badgeStyle = isSunday
-                ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;'
-                : 'background: #eff6ff; color: #1428A0; border: 1px solid #bfdbfe;';
+                ? 'background: rgba(20, 40, 160, 0.1); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.25);'
+                : 'background: rgba(5, 150, 105, 0.1); color: #059669; border: 1px solid rgba(5, 150, 105, 0.25);';
 
             const mobUserDisplay = document.getElementById('mobileUserDisplay');
             if (mobUserDisplay) {
