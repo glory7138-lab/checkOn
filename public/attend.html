@@ -582,6 +582,64 @@
             margin-bottom: 0.75rem;
         }
 
+        /* ==========================================================================
+           Hybrid Swipe Animations (View Transitions API & JS Fallback)
+           ========================================================================== */
+        
+        /* 1. View Transitions API (Modern Devices) */
+        #membersContainer {
+            view-transition-name: members-list;
+        }
+
+        ::view-transition-group(members-list) {
+            animation-duration: 0.35s;
+        }
+
+        /* Prevent root from animating */
+        html.swipe-next ::view-transition-old(root),
+        html.swipe-next ::view-transition-new(root),
+        html.swipe-prev ::view-transition-old(root),
+        html.swipe-prev ::view-transition-new(root) {
+            animation: none;
+        }
+
+        /* Swipe Left (Next) */
+        html.swipe-next ::view-transition-old(members-list) {
+            animation: slide-out-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+        html.swipe-next ::view-transition-new(members-list) {
+            animation: slide-in-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+
+        /* Swipe Right (Prev) */
+        html.swipe-prev ::view-transition-old(members-list) {
+            animation: slide-out-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+        html.swipe-prev ::view-transition-new(members-list) {
+            animation: slide-in-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+
+        @keyframes slide-out-left { to { transform: translateX(-100%); } }
+        @keyframes slide-in-right { from { transform: translateX(100%); } }
+        @keyframes slide-out-right { to { transform: translateX(100%); } }
+        @keyframes slide-in-left { from { transform: translateX(-100%); } }
+
+        /* 2. JS Fallback Animation (Older Devices) */
+        .js-swipe-transition {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+        }
+        .js-swipe-out-left { transform: translateX(-30px); opacity: 0; }
+        .js-swipe-out-right { transform: translateX(30px); opacity: 0; }
+        .js-swipe-in-right { transform: translateX(30px); opacity: 0; }
+        .js-swipe-in-left { transform: translateX(-30px); opacity: 0; }
+        
+        .js-swipe-reset {
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease !important;
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+
     </style>
 </head>
 <body>
@@ -1573,15 +1631,16 @@
         let isManualScrolling = false;
         let manualScrollTimer = null;
 
-        // Scroll to Section on Tab Click or Swipe
-        function scrollToSection(key) {
+        let isAnimating = false;
+
+        // Scroll to Section on Tab Click or Swipe (with Hybrid Animation)
+        function scrollToSection(key, direction = 'next') {
+            if (isAnimating) return;
             const target = document.getElementById(`section-fellow-${key}`);
             if (!target) return;
 
             isManualScrolling = true;
             if (manualScrollTimer) clearTimeout(manualScrollTimer);
-
-            updateActiveTab(key);
 
             // Calculate precise offset position accounting for sticky headers
             const stickyNav = document.getElementById('fellowStickyNav');
@@ -1595,17 +1654,60 @@
             }
 
             const elementPosition = target.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset - offset;
+            const targetPosition = elementPosition + window.pageYOffset - offset;
 
-            window.scrollTo({
-                top: Math.max(0, offsetPosition),
-                behavior: 'smooth'
-            });
+            // If View Transitions API is supported (iOS 18+, Chrome 111+)
+            if (document.startViewTransition) {
+                isAnimating = true;
+                
+                // Set animation direction classes
+                document.documentElement.classList.remove('swipe-next', 'swipe-prev');
+                document.documentElement.classList.add(direction === 'next' ? 'swipe-next' : 'swipe-prev');
 
-            // Unlock scroll observer after animation finishes
-            manualScrollTimer = setTimeout(() => {
-                isManualScrolling = false;
-            }, 600);
+                document.startViewTransition(() => {
+                    updateActiveTab(key);
+                    window.scrollTo({
+                        top: Math.max(0, targetPosition),
+                        behavior: 'instant'
+                    });
+                }).finished.finally(() => {
+                    document.documentElement.classList.remove('swipe-next', 'swipe-prev');
+                    isAnimating = false;
+                    manualScrollTimer = setTimeout(() => { isManualScrolling = false; }, 100);
+                });
+                
+            } else {
+                // JS Fallback for older devices (Cross-fade & slight slide)
+                isAnimating = true;
+                const container = document.getElementById('membersContainer');
+                
+                // Phase 1: Slide out
+                container.classList.add('js-swipe-transition');
+                container.classList.add(direction === 'next' ? 'js-swipe-out-left' : 'js-swipe-out-right');
+                
+                setTimeout(() => {
+                    // Phase 2: Instant jump & reposition for slide in
+                    updateActiveTab(key);
+                    window.scrollTo({ top: Math.max(0, targetPosition), behavior: 'instant' });
+                    
+                    container.classList.remove('js-swipe-transition', 'js-swipe-out-left', 'js-swipe-out-right');
+                    container.classList.add(direction === 'next' ? 'js-swipe-in-right' : 'js-swipe-in-left');
+                    
+                    // Force reflow
+                    void container.offsetWidth;
+                    
+                    // Phase 3: Slide in
+                    container.classList.add('js-swipe-reset');
+                    container.classList.remove('js-swipe-in-right', 'js-swipe-in-left');
+                    
+                    setTimeout(() => {
+                        container.classList.remove('js-swipe-reset');
+                        isAnimating = false;
+                        manualScrollTimer = setTimeout(() => { isManualScrolling = false; }, 100);
+                    }, 250);
+                    
+                }, 200);
+            }
         }
 
         function updateActiveTab(activeKey) {
@@ -1717,7 +1819,7 @@
             if (targetIndex !== currentIndex) {
                 const nextKey = renderedSections[targetIndex].getAttribute('data-fellow-key');
                 if (nextKey) {
-                    scrollToSection(nextKey);
+                    scrollToSection(nextKey, direction);
                 }
             }
         }
