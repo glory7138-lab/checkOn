@@ -583,57 +583,43 @@
         }
 
         /* ==========================================================================
-           Edge Scrolling + Snap Carousel UI
+           Continuous Vertical List + Sticky Headers + Horizontal Swipe Navigation
            ========================================================================== */
         
-        /* 1. Horizontal Snap Container */
+        /* 1. Vertical Scroll Container */
         #membersContainer {
-            display: flex;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scroll-snap-type: x mandatory;
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; 
-            -ms-overflow-style: none;
-            width: 100%;
-            height: calc(100vh - 210px);
-            padding: 0 !important;
-            box-sizing: border-box;
-        }
-        #membersContainer::-webkit-scrollbar {
-            display: none;
-        }
-
-        /* 2. Independent Vertical Scrolling Sections */
-        .fellow-section {
-            flex: 0 0 100%;
-            min-width: 100%;
-            width: 100%;
-            max-width: 100%;
-            scroll-snap-align: start;
-            scroll-snap-stop: always;
-            
+            display: block;
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
-            
-            height: 100%;
-            padding: 0.75rem 0.75rem 3rem 0.75rem;
+            width: 100%;
+            height: calc(100vh - 210px);
+            padding: 0 0 65vh 0 !important; /* Allow the last section to scroll all the way to top */
             box-sizing: border-box;
-            margin: 0 !important;
+            scroll-behavior: smooth;
         }
 
-        /* Sticky Section Header (봉사회, 어머니회 등) */
+        /* 2. Vertically Stacked Sections */
+        .fellow-section {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 2rem;
+            padding: 0 0.75rem;
+        }
+
+        /* 3. Sticky Section Header (봉사회, 어머니회 등) */
         .fellow-header {
             position: sticky;
-            top: -0.75rem;
-            z-index: 10;
-            background: rgba(255, 255, 255, 0.95);
+            top: 0;
+            z-index: 15;
+            background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(8px);
-            margin: -0.75rem -0.75rem 0.75rem -0.75rem;
-            padding: 0.75rem;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            -webkit-backdrop-filter: blur(8px);
+            margin: 0 -0.75rem 0.75rem -0.75rem;
+            padding: 0.65rem 0.75rem;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
         }
 
     </style>
@@ -1582,10 +1568,10 @@
                 membersContainer.appendChild(section);
             });
 
-            // Ensure first tab and initial scroll starts at leftmost (0)
+            // Ensure first tab and initial scroll starts at top (0)
             if (firstRenderedSectionKey) {
                 activeFellowKey = firstRenderedSectionKey;
-                membersContainer.scrollLeft = 0;
+                membersContainer.scrollTop = 0;
                 updateActiveTab(firstRenderedSectionKey);
             }
 
@@ -1597,12 +1583,27 @@
         }
 
         let activeFellowKey = '';
+        let isManualScrolling = false;
+        let manualScrollTimer = null;
+
         function scrollToSection(key) {
             const container = document.getElementById('membersContainer');
             const target = document.getElementById(`section-fellow-${key}`);
             if (!container || !target) return;
+
+            isManualScrolling = true;
+            if (manualScrollTimer) clearTimeout(manualScrollTimer);
+
             updateActiveTab(key);
-            container.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
+
+            container.scrollTo({
+                top: target.offsetTop,
+                behavior: 'smooth'
+            });
+
+            manualScrollTimer = setTimeout(() => {
+                isManualScrolling = false;
+            }, 600);
         }
 
         function updateActiveTab(activeKey) {
@@ -1634,12 +1635,14 @@
             
             const options = {
                 root: container,
-                threshold: 0.6
+                rootMargin: '0px 0px -70% 0px',
+                threshold: 0
             };
 
             sectionObserver = new IntersectionObserver((entries) => {
+                if (isManualScrolling) return;
                 entries.forEach(entry => {
-                    if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+                    if (entry.isIntersecting) {
                         const key = entry.target.getAttribute('data-fellow-key');
                         if (key) {
                             updateActiveTab(key);
@@ -1651,78 +1654,52 @@
             sections.forEach(sec => sectionObserver.observe(sec));
         }
 
+        let touchStartX = 0;
         let touchStartY = 0;
-        let activeSectionAtTouchStart = null;
-        let edgeScrollTriggered = false;
+        let touchStartTime = 0;
 
-        // EDGE SCROLLING: Vertical scroll boundaries trigger horizontal tab change
+        // HORIZONTAL SWIPE GESTURES: Swipe anywhere to jump between sections
         function setupSwipeGestures() {
-            const sections = document.querySelectorAll('.fellow-section');
-            
-            sections.forEach(sec => {
-                sec.addEventListener('touchstart', (e) => {
-                    if (e.touches.length !== 1) return;
-                    touchStartY = e.touches[0].clientY;
-                    activeSectionAtTouchStart = sec;
-                    edgeScrollTriggered = false;
-                }, { passive: true });
+            const container = document.getElementById('membersContainer');
+            if (!container) return;
 
-                sec.addEventListener('touchmove', (e) => {
-                    if (!activeSectionAtTouchStart || e.touches.length !== 1) return;
-                    
-                    const currentY = e.touches[0].clientY;
-                    const deltaY = currentY - touchStartY;
-                    
-                    const scrollTop = sec.scrollTop;
-                    const maxScrollTop = sec.scrollHeight - sec.clientHeight;
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+            }, { passive: true });
 
-                    // Pulling down at the top (go to prev tab)
-                    if (scrollTop <= 0 && deltaY > 40) {
-                        edgeScrollTriggered = 'prev';
-                    } 
-                    // Pushing up at the bottom (go to next tab)
-                    else if (scrollTop >= maxScrollTop - 1 && deltaY < -40) {
-                        edgeScrollTriggered = 'next';
-                    } else {
-                        edgeScrollTriggered = false;
-                    }
-                }, { passive: true });
+            container.addEventListener('touchend', (e) => {
+                if (e.changedTouches.length !== 1) return;
+                const deltaX = e.changedTouches[0].clientX - touchStartX;
+                const deltaY = e.changedTouches[0].clientY - touchStartY;
+                const elapsedTime = Date.now() - touchStartTime;
 
-                sec.addEventListener('touchend', (e) => {
-                    if (!edgeScrollTriggered || !activeSectionAtTouchStart) return;
-
+                // Horizontal swipe: |deltaX| > 45px, clearly horizontal (> 1.2 * |deltaY|), under 450ms
+                if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && elapsedTime < 450) {
                     const renderedSections = Array.from(document.querySelectorAll('.fellow-section'));
-                    const currentIndex = renderedSections.indexOf(activeSectionAtTouchStart);
+                    if (renderedSections.length <= 1) return;
+
+                    const currentKey = activeFellowKey || renderedSections[0].getAttribute('data-fellow-key');
+                    const currentIndex = renderedSections.findIndex(sec => sec.getAttribute('data-fellow-key') === currentKey);
                     if (currentIndex === -1) return;
 
                     let targetIndex = currentIndex;
-                    if (edgeScrollTriggered === 'next' && currentIndex < renderedSections.length - 1) {
-                        targetIndex = currentIndex + 1;
-                    } else if (edgeScrollTriggered === 'prev' && currentIndex > 0) {
-                        targetIndex = currentIndex - 1;
+                    if (deltaX < 0 && currentIndex < renderedSections.length - 1) {
+                        targetIndex = currentIndex + 1; // Left swipe -> Next section
+                    } else if (deltaX > 0 && currentIndex > 0) {
+                        targetIndex = currentIndex - 1; // Right swipe -> Prev section
                     }
 
                     if (targetIndex !== currentIndex) {
-                        const nextSection = renderedSections[targetIndex];
-                        const nextKey = nextSection.getAttribute('data-fellow-key');
-                        
-                        if (nextKey) {
-                            scrollToSection(nextKey);
-                            
-                            // Adjust vertical scroll of target section for continuous feel
-                            setTimeout(() => {
-                                if (edgeScrollTriggered === 'prev') {
-                                    nextSection.scrollTop = nextSection.scrollHeight;
-                                } else {
-                                    nextSection.scrollTop = 0;
-                                }
-                            }, 50);
+                        const targetKey = renderedSections[targetIndex].getAttribute('data-fellow-key');
+                        if (targetKey) {
+                            scrollToSection(targetKey);
                         }
                     }
-                    
-                    edgeScrollTriggered = false;
-                }, { passive: true });
-            });
+                }
+            }, { passive: true });
         }
 
         // 실시간 출석 체크 즉시 저장
