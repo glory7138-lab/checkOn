@@ -134,6 +134,13 @@ button {
   font-weight: bold;
   font-size: 1.1rem;
   box-shadow: 0 4px 10px rgba(20, 40, 160, 0.25);
+  overflow: hidden;
+}
+
+.brand-img-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brand-text {
@@ -193,55 +200,108 @@ button {
   display: none;
   background: var(--surface-color);
   border-bottom: 1px solid var(--border-color);
-  padding: 0.85rem 1.25rem;
-  align-items: center;
-  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  flex-direction: column;
+  gap: 0.5rem;
   position: sticky;
   top: 0;
   z-index: 99;
 }
 
-/* Mobile Bottom Navigation Bar (Hidden on Desktop) */
+.mobile-quick-nav {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-quick-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-quick-item {
+  flex: 1;
+  min-width: fit-content;
+  text-align: center;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 7px;
+  color: #64748b;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mobile-quick-item.active {
+  background: #ffffff;
+  color: var(--accent-color);
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Mobile Bottom Navigation Bar */
 .mobile-bottom-nav {
   display: none;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--surface-color);
-  border-top: 1px solid var(--border-color);
-  padding: 0.5rem 0.25rem calc(0.5rem + env(safe-area-inset-bottom));
-  z-index: 1000;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  background: #ffffff;
+  border-top: 1.5px solid #e2e8f0;
+  padding: 0.5rem 0.5rem calc(0.6rem + env(safe-area-inset-bottom));
+  z-index: 99999;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .mobile-bottom-nav-inner {
   display: flex;
   justify-content: space-around;
   align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .mobile-nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.35rem 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 8px;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.6rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 10px;
   flex: 1;
   text-align: center;
+  transition: all 0.15s ease;
+  text-decoration: none;
 }
 
 .mobile-nav-item i {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+}
+
+.mobile-nav-item:hover {
+  color: var(--accent-color);
+  background: rgba(20, 40, 160, 0.04);
 }
 
 .mobile-nav-item.active {
   color: var(--accent-color);
-  font-weight: 700;
+  font-weight: 800;
+  background: rgba(20, 40, 160, 0.08);
 }
 
 /* ==========================================================================
@@ -808,21 +868,34 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
 
 /* Mobile Phones (768px down) */
 @media (max-width: 768px) {
+  body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-container {
+    display: block !important;
+    min-height: 100vh;
+    height: auto !important;
+  }
+
   .sidebar {
-    display: none; /* Replaced by mobile top bar & bottom nav */
+    display: none; /* Replaced by mobile top bar */
   }
   
   .mobile-top-bar {
     display: flex;
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
   }
   
   .mobile-bottom-nav {
-    display: block;
+    display: none !important; /* 모바일 상단 퀵 메뉴바로 완벽 일원화 */
   }
   
   .main-content {
-    padding: 0.85rem 0.85rem 5.5rem 0.85rem;
+    padding: 0.85rem 0.85rem 2.5rem 0.85rem !important;
+    overflow-y: visible !important;
+    height: auto !important;
   }
   
   .page-header {
@@ -859,25 +932,42 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   }
   
   .stats-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.65rem;
-    margin-bottom: 1rem;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.5rem !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .stats-grid::-webkit-scrollbar {
+    display: none;
   }
   
   .stat-card {
-    padding: 0.85rem 1rem;
+    flex: 1 0 auto;
+    min-width: 100px;
+    padding: 0.55rem 0.65rem !important;
+    border-left: 3px solid var(--accent-color) !important;
+    border-radius: 8px !important;
+    gap: 0.15rem !important;
   }
   
   .stat-title {
-    font-size: 0.78rem;
+    font-size: 0.72rem !important;
+    white-space: nowrap;
   }
   
   .stat-value {
-    font-size: 1.45rem;
+    font-size: 1.25rem !important;
+    font-weight: 800;
   }
   
   .stat-desc {
-    font-size: 0.75rem;
+    font-size: 0.68rem !important;
+    white-space: nowrap;
   }
   
   .chart-container {
@@ -917,37 +1007,103 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     font-size: 0.8rem;
   }
 
-  /* Matrix Navigation Buttons & Tabs on Mobile */
-  .matrix-nav-btn.visible {
-    opacity: 0.92;
-    pointer-events: auto;
-  }
-  
-  .matrix-nav-btn {
-    width: 38px;
-    height: 68px;
-    font-size: 1.25rem;
-    border-radius: 34px;
-    box-shadow: 0 6px 18px rgba(20, 40, 160, 0.35);
+  /* Matrix table on mobile: Keep Seq, Area, and Member Info Sticky while Date columns scroll smoothly */
+  .matrix-scroll-wrapper {
+    position: relative;
+    width: 100%;
   }
 
-  .matrix-nav-btn.btn-prev {
-    left: 180px;
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
   }
 
-  .matrix-nav-btn.btn-next {
-    right: 165px;
+  /* 1. 순번 컬럼 (0px ~ 45px) */
+  .data-table th.sticky-col-seq {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 20 !important;
+    background-color: #f8fafc !important;
+    width: 45px !important;
+    min-width: 45px !important;
+    max-width: 45px !important;
+    text-align: center;
+    padding: 0.6rem 0.2rem !important;
+  }
+  .data-table td.sticky-col-seq {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 15 !important;
+    background-color: #ffffff !important;
+    width: 45px !important;
+    min-width: 45px !important;
+    max-width: 45px !important;
+    text-align: center;
+    padding: 0.6rem 0.2rem !important;
+  }
+
+  /* 2. 구역 컬럼 (전체 조회 시에만 45px ~ 105px) */
+  .data-table th.sticky-col-area {
+    position: sticky !important;
+    left: 45px !important;
+    z-index: 20 !important;
+    background-color: #f8fafc !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    text-align: center;
+    padding: 0.6rem 0.2rem !important;
+  }
+  .data-table td.sticky-col-area {
+    position: sticky !important;
+    left: 45px !important;
+    z-index: 15 !important;
+    background-color: #ffffff !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    text-align: center;
+    padding: 0.6rem 0.2rem !important;
+  }
+
+  /* 3. 이름(성도정보) 컬럼 (구역별 접속 시 left: 45px, 전체 조회 시 left: 105px) */
+  .data-table th.sticky-col-info {
+    position: sticky !important;
+    z-index: 20 !important;
+    background-color: #f8fafc !important;
+    min-width: 115px !important;
+    border-right: 2px solid #cbd5e1 !important;
+    box-shadow: 4px 0 8px -3px rgba(0, 0, 0, 0.12) !important;
+    padding: 0.6rem 0.5rem !important;
+  }
+  .data-table td.sticky-col-info {
+    position: sticky !important;
+    z-index: 15 !important;
+    background-color: #ffffff !important;
+    min-width: 115px !important;
+    border-right: 2px solid #cbd5e1 !important;
+    box-shadow: 4px 0 8px -3px rgba(0, 0, 0, 0.12) !important;
+    padding: 0.6rem 0.5rem !important;
+  }
+
+  .data-table tr:hover td.sticky-col-seq,
+  .data-table tr:hover td.sticky-col-area,
+  .data-table tr:hover td.sticky-col-info {
+    background-color: #f1f5f9 !important;
   }
 
   .data-table th.sticky-col-rate, 
   .data-table td.sticky-col-rate {
-    width: 165px;
-    min-width: 165px;
+    position: static !important;
+    right: auto !important;
+    min-width: 150px !important;
+    border-left: none !important;
+    box-shadow: none !important;
   }
 
-  .data-table th.sticky-col-info, 
-  .data-table td.sticky-col-info {
-    min-width: 105px;
+  .matrix-nav-btn {
+    display: none !important; /* Swipe is natural on mobile */
   }
 
   .matrix-tab-group {

@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대시보드 | FaithOn</title>
+    <title>대시보드 | FaithOn출첵</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/jpeg" href="/images/logo.jpg">
+    <link rel="apple-touch-icon" href="/images/logo.jpg">
+    <meta name="apple-mobile-web-app-title" content="FaithOn출첵">
+    <meta name="application-name" content="FaithOn출첵">
+    <meta name="theme-color" content="#1428A0">
     <meta name="description" content="창원교회 출석체크 관리 대시보드">
     <link rel="stylesheet" href="/css/style.css">
     <!-- FontAwesome for icons -->
@@ -16,20 +22,27 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-    <!-- Mobile Top Bar -->
-    <header class="mobile-top-bar">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <div class="brand-icon" style="width: 30px; height: 30px; font-size: 0.9rem;">
-                <i class="fa-solid fa-church"></i>
+    <!-- Mobile Top Bar with Quick Navigation -->
+    <header class="mobile-top-bar" style="flex-direction: column; gap: 0.5rem; padding: 0.65rem 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="brand-icon" style="width: 28px; height: 28px; border-radius: 6px;">
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
+                </div>
+                <span style="font-weight: 800; color: var(--accent-color); font-size: 1.1rem;">FaithOn</span>
             </div>
-            <span style="font-weight: 800; color: var(--accent-color); font-size: 1.15rem;">FaithOn</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-color); background: var(--accent-light); padding: 3px 8px; border-radius: 6px;">31구역</span>
+                <button onclick="logout()" style="color: var(--danger-color); font-size: 0.9rem; padding: 4px;" title="로그아웃">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">31구역</span>
-            <button onclick="logout()" style="color: var(--danger-color); font-size: 0.95rem; padding: 4px;">
-                <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
-        </div>
+        
+        <!-- Mobile Quick Menu Pills -->
+        <nav class="mobile-quick-nav" id="mobileQuickNav" aria-label="모바일 메뉴">
+            <!-- Dynamically populated in initPage() based on role -->
+        </nav>
     </header>
 
     <div class="app-container">
@@ -37,7 +50,7 @@
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon">
-                    <i class="fa-solid fa-church"></i>
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
                 </div>
                 <div class="brand-text">FaithOn</div>
             </div>
@@ -46,7 +59,7 @@
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>대시보드</span>
                 </a>
-                <a href="/attend.html" class="nav-item" id="navAttend" style="display: none;">
+                <a href="/attend.html" class="nav-item" id="navAttend">
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
@@ -103,7 +116,26 @@
                 </div>
             </div>
 
-            <!-- Category Selector (대시보드 메뉴 아래 성도 참석현황 / 새참자 참석현황 탭) -->
+            <!-- Stats Overview (금주 주일, 금주 수요, 새참자) -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="card stat-card">
+                    <span class="stat-title">금주 주일</span>
+                    <span class="stat-value" id="valSundayAttend">-</span>
+                    <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
+                </div>
+                <div class="card stat-card">
+                    <span class="stat-title">금주 수요</span>
+                    <span class="stat-value" id="valWednesdayAttend">-</span>
+                    <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
+                </div>
+                <div class="card stat-card">
+                    <span class="stat-title">새참자</span>
+                    <span class="stat-value" id="valNewcomerCount">-</span>
+                    <span class="stat-desc badge badge-success" style="width:fit-content; margin-top:2px;">구역 연동</span>
+                </div>
+            </div>
+
+            <!-- Category Selector (성도 참석현황 / 새참자 참석현황 탭) -->
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
                 <button class="matrix-tab active" id="catTabMember" onclick="switchCategoryTab('member')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
                     <i class="fa-solid fa-users"></i> 성도 참석현황
@@ -111,31 +143,6 @@
                 <button class="matrix-tab" id="catTabNewcomer" onclick="switchCategoryTab('newcomer')" style="font-size: 0.98rem; padding: 0.55rem 1.25rem; font-weight: 700;">
                     <i class="fa-solid fa-user-plus"></i> 새참자 참석현황
                 </button>
-            </div>
-
-            <!-- Stats Overview -->
-            <div class="stats-grid" id="statsGrid">
-                <div class="card stat-card">
-                    <span class="stat-title">금주 주일 출석</span>
-                    <span class="stat-value" id="valSundayAttend">-</span>
-                    <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
-                </div>
-                <div class="card stat-card">
-                    <span class="stat-title">금주 수요 출석</span>
-                    <span class="stat-value" id="valWednesdayAttend">-</span>
-                    <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
-                </div>
-                <div class="card stat-card">
-                    <span class="stat-title">새참자</span>
-                    <span class="stat-value" id="valNewcomerCount">-</span>
-                    <span class="stat-desc badge badge-success" style="width:fit-content; margin-top:5px;">구역 연동</span>
-                </div>
-                <!-- 예비명단 카드는 관리자(Admin)에게만 노출 -->
-                <div class="card stat-card" id="cardReserveStat" style="display: none;">
-                    <span class="stat-title">예비명단 누적</span>
-                    <span class="stat-value" id="valReserveCount">-</span>
-                    <span class="stat-desc" style="color:var(--text-secondary)">관리자 전용</span>
-                </div>
             </div>
 
             <!-- Charts Section -->
@@ -231,7 +238,7 @@
                             <thead>
                                 <tr id="matrixHeaderRow">
                                     <th class="sticky-col-seq">순번</th>
-                                    <th>성도 정보</th>
+                                    <th>이름</th>
                                     <th style="width: 90px; text-align: center;">직분</th>
                                     <!-- Dynamic Date Headers will be appended here -->
                                     <th class="sticky-col-rate" style="text-align: center;">누적 출석률 (가로 막대)</th>
@@ -275,12 +282,21 @@
 
     <!-- Chart Logic & Live Data Fetching -->
     <script>
+        // 0. Auth check & Mobile Routing
         const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
         if (!currentUser) {
             window.location.href = '/login.html';
         }
 
+        // 모바일 접속(화면 폭 768px 이하 또는 모바일 기기)이거나 구역 임원인 경우 기본 출석부(/attend.html)로 자동 이동
+        const isMobileScreen = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+        
+        // URL에 ?view=dashboard 파라미터가 없으면 모바일에서는 기본 출석부로 이동
+        const urlParams = new URLSearchParams(window.location.search);
+        if (isMobileScreen && !urlParams.has('view') && !isAdmin) {
+            window.location.replace('/attend.html');
+        }
         const userArea = currentUser.scope_code || currentUser.area_code || '11';
 
         // Elements
@@ -291,7 +307,6 @@
         const navReserve = document.getElementById('navReserve');
         const navAdminUsers = document.getElementById('navAdminUsers');
         const mobNavAdminUsers = document.getElementById('mobNavAdminUsers');
-        const cardReserveStat = document.getElementById('cardReserveStat');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
         const memberSearchInput = document.getElementById('memberSearchInput');
@@ -304,13 +319,13 @@
         const valWednesdayAttend = document.getElementById('valWednesdayAttend');
         const diffWednesdayDesc = document.getElementById('diffWednesdayDesc');
         const valNewcomerCount = document.getElementById('valNewcomerCount');
-        const valReserveCount = document.getElementById('valReserveCount');
         const trendChartTitle = document.getElementById('trendChartTitle');
 
         let trendChartInstance = null;
         let ratioChartInstance = null;
         let cachedMembersMatrix = [];
         let cachedSessions = [];
+        let cachedSchoolAttendance = null;
         let cachedTrend = null;
         let currentCategoryTab = 'member'; // 'member' | 'newcomer'
         let currentMatrixTab = 'sunday'; // 'sunday' | 'wednesday' | 'all'
@@ -318,10 +333,18 @@
         async function initPage() {
             // 1. Sidebar & Mobile Nav
             const navAttend = document.getElementById('navAttend');
-            if (navAttend) navAttend.style.display = isAdmin ? 'none' : 'flex';
+            if (navAttend) {
+                navAttend.style.display = 'flex';
+                const label = navAttend.querySelector('span');
+                if (label) label.textContent = isAdmin ? '출석체크현황' : '출석체크';
+            }
 
             const mobNavAttend = document.getElementById('mobNavAttend');
-            if (mobNavAttend) mobNavAttend.style.display = isAdmin ? 'none' : 'flex';
+            if (mobNavAttend) {
+                mobNavAttend.style.display = 'flex';
+                const label = mobNavAttend.querySelector('span');
+                if (label) label.textContent = isAdmin ? '출석체크현황' : '출석체크';
+            }
 
             const mobNavReserve = document.getElementById('mobNavReserve');
             if (navReserve) {
@@ -336,15 +359,32 @@
             if (mobNavAdminUsers) {
                 mobNavAdminUsers.style.display = isAdmin ? 'flex' : 'none';
             }
-            if (cardReserveStat) {
-                cardReserveStat.style.display = isAdmin ? 'flex' : 'none';
+
+            // Render Mobile Quick Top Menu dynamically
+            const quickNav = document.getElementById('mobileQuickNav');
+            if (quickNav) {
+                if (isAdmin) {
+                    quickNav.innerHTML = `
+                        <a href="/?view=dashboard" class="mobile-quick-item active"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+                        <a href="/attend.html" class="mobile-quick-item"><i class="fa-solid fa-clipboard-user"></i> 출석체크현황</a>
+                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="/reserve.html" class="mobile-quick-item"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
+                        <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
+                    `;
+                } else {
+                    quickNav.innerHTML = `
+                        <a href="/attend.html" class="mobile-quick-item"><i class="fa-solid fa-clipboard-user"></i> 출석체크</a>
+                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="/?view=dashboard" class="mobile-quick-item active"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+                    `;
+                }
             }
 
             userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-            document.getElementById('mobileUserDisplay').textContent = isAdmin ? '총괄 관리자' : `${userArea}구역`;
+            document.getElementById('mobileUserDisplay').textContent = isAdmin ? (currentUser.name || '관리자') : `${userArea}구역`;
             
             if (isAdmin) {
-                userRoleDisplay.textContent = '총괄 관리자 권한';
+                userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
                 pageSubTitle.textContent = '창원교회 전체 및 구역별 실시간 출석 현황과 트렌드를 확인하세요.';
                 await loadAllAreas();
             } else {
@@ -456,10 +496,11 @@
                 }
 
                 valNewcomerCount.textContent = `${m.newcomer_count}명`;
-                valReserveCount.textContent = `${m.reserve_count}명`;
 
                 updateChartsWithCategory();
                 updateRatioChart(m);
+
+                cachedSchoolAttendance = data.school_attendance || null;
 
                 if (data.member_matrix) {
                     cachedSessions = data.member_matrix.sessions || [];
@@ -608,7 +649,7 @@
             if (!matrixHeaderRow || !memberMatrixBody) return;
 
             const isAllAreas = !areaFilter.value;
-            const infoLeft = isAllAreas ? '113px' : '45px';
+            const infoLeft = isAllAreas ? '105px' : '45px';
             const activeSessions = cachedSessions.filter(s => {
                 if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
                 if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
@@ -617,7 +658,7 @@
 
             let headerHtml = `<th class="sticky-col-seq">순번</th>`;
             if (isAllAreas) headerHtml += `<th class="sticky-col-area">구역</th>`;
-            const infoTitle = currentCategoryTab === 'newcomer' ? '새참자 & 인도자' : '성도 정보 & 직분';
+            const infoTitle = currentCategoryTab === 'newcomer' ? '새참자' : '이름';
             headerHtml += `<th class="sticky-col-info" style="left: ${infoLeft};">${infoTitle}</th>`;
             matrixHeaderRow.innerHTML = headerHtml;
 
@@ -658,15 +699,15 @@
 
                 let badgeHtml = '';
                 if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">새참자</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">새참자</span>`;
                 } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success" style="padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">${pos}</span>`;
+                    badgeHtml = `<span class="badge badge-success" style="padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
                 } else if (pos.includes('목사') || pos.includes('전도사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
                 } else if (pos.includes('집사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">집사</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">집사</span>`;
                 } else if (pos && pos !== '성도') {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.18rem 0.5rem; margin-left: 6px; font-size: 0.75rem;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.1rem 0.35rem; margin-left: 4px; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
                 }
 
                 const areaNum = parseInt(m.area, 10);
@@ -707,7 +748,7 @@
                 let areaBadgeStyle = 'background: rgba(20, 40, 160, 0.08); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.2);';
                 if (isEvenArea) areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
 
-                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: wrap;"><span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.78rem; color: var(--text-secondary); margin-left: 6px;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
+                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;"><span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); white-space: nowrap;">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 4px; white-space: nowrap;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
                 memberMatrixBody.appendChild(tr);
             });
             updateDateScrollButtons();
@@ -1012,27 +1053,63 @@
                 });
             });
 
-            // 1-5. 교회학교 안내 행
-            const schRow1 = worksheet.addRow(['교회학교', '유초', ...sundaySessions.map(() => '-'), '-']);
+            // 1-5. 교회학교 (유초등부, 중고등부) 실제 출석 데이터 행
+            const elemCounts = [];
+            let elemSum = 0;
+            const youthCounts = [];
+            let youthSum = 0;
+
+            sundaySessions.forEach(s => {
+                const elemCnt = (cachedSchoolAttendance && cachedSchoolAttendance.elementary && cachedSchoolAttendance.elementary[s.date]) || 0;
+                const youthCnt = (cachedSchoolAttendance && cachedSchoolAttendance.youth && cachedSchoolAttendance.youth[s.date]) || 0;
+                elemCounts.push(elemCnt);
+                elemSum += elemCnt;
+                youthCounts.push(youthCnt);
+                youthSum += youthCnt;
+            });
+
+            const elemAvg = sundaySessions.length > 0 ? Math.round(elemSum / sundaySessions.length) : 0;
+            const youthAvg = sundaySessions.length > 0 ? Math.round(youthSum / sundaySessions.length) : 0;
+
+            const schRow1 = worksheet.addRow(['교회학교', '유초', ...elemCounts, elemAvg]);
             schRow1.alignment = { horizontal: 'center', vertical: 'middle' };
-            schRow1.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
+            schRow1.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
 
-            const schRow2 = worksheet.addRow(['', '중고', ...sundaySessions.map(() => '-'), '-']);
+            const schRow2 = worksheet.addRow(['', '중고', ...youthCounts, youthAvg]);
             schRow2.alignment = { horizontal: 'center', vertical: 'middle' };
-            schRow2.eachCell(c => c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } });
+            schRow2.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
 
-            // 1-6. 최하단 합계 행
-            const finalAdultSumRow = ['합계', regularList.length, ...weekAdultTotals, adultAvg];
-            const rSum = worksheet.addRow(finalAdultSumRow);
-            rSum.font = { bold: true };
+            // 1-6. 성인 합계 행
+            const adultSumRow = ['성인합계', regularList.length, ...weekAdultTotals, adultAvg];
+            const rAdultSum = worksheet.addRow(adultSumRow);
+            rAdultSum.font = { bold: true };
+            rAdultSum.alignment = { horizontal: 'center', vertical: 'middle' };
+            rAdultSum.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+                c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            // 1-7. 총 합계 행 (성인 + 유초등부 + 중고등부)
+            const grandTotalPerWeek = sundaySessions.map((s, idx) => {
+                return (weekAdultTotals[idx] || 0) + (elemCounts[idx] || 0) + (youthCounts[idx] || 0);
+            });
+            const grandTotalSum = allWeeksAdultSum + elemSum + youthSum;
+            const grandTotalAvg = sundaySessions.length > 0 ? Math.round(grandTotalSum / sundaySessions.length) : 0;
+
+            const finalSumRow = ['총합계', '-', ...grandTotalPerWeek, grandTotalAvg];
+            const rSum = worksheet.addRow(finalSumRow);
+            rSum.font = { bold: true, size: 11 };
             rSum.alignment = { horizontal: 'center', vertical: 'middle' };
             rSum.eachCell(c => {
                 c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE047' } }; // 진한 노랑 강조
                 c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
-
-            const note1 = worksheet.addRow(['※ 유초등부, 중고등부는 별도 파악하여 입력']);
-            note1.font = { size: 9, color: { argb: 'FF64748B' } };
 
             worksheet.addRow([]); // 빈 줄
             worksheet.addRow([]); // 빈 줄

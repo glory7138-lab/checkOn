@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>예비명단 관리 | FaithOn</title>
+    <title>예비명단 관리 | FaithOn출첵</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/jpeg" href="/images/logo.jpg">
+    <link rel="apple-touch-icon" href="/images/logo.jpg">
+    <meta name="apple-mobile-web-app-title" content="FaithOn출첵">
+    <meta name="application-name" content="FaithOn출첵">
+    <meta name="theme-color" content="#1428A0">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -13,11 +19,32 @@
             gap: 2rem;
             margin-top: 1rem;
         }
-        
-        @media (max-width: 1024px) {
-            .split-layout {
-                grid-template-columns: 1fr;
-            }
+
+        .reserve-mobile-tabs {
+            display: none;
+            gap: 8px;
+            margin-bottom: 1.25rem;
+            background: #e2e8f0;
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .reserve-mobile-tab {
+            flex: 1;
+            padding: 0.6rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+            border-radius: 7px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reserve-mobile-tab.active {
+            background: #ffffff;
+            color: var(--accent-color);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
         }
         
         .search-box {
@@ -58,7 +85,7 @@
             padding: 1rem;
             background: var(--surface-color);
             border-radius: 8px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.65rem;
             border: 1px solid var(--border-color);
             transition: var(--transition-fast);
         }
@@ -87,26 +114,78 @@
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
         }
+
+        .list-container {
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        @media (max-width: 900px) {
+            .split-layout {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .reserve-mobile-tabs {
+                display: flex;
+            }
+            .list-container {
+                max-height: 380px !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .list-item {
+                padding: 0.8rem 0.85rem;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Mobile Top Bar with Quick Navigation -->
+    <header class="mobile-top-bar" style="flex-direction: column; gap: 0.5rem; padding: 0.65rem 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="brand-icon" style="width: 28px; height: 28px; border-radius: 6px;">
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
+                </div>
+                <span style="font-weight: 800; color: var(--accent-color); font-size: 1.1rem;">FaithOn</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-color); background: var(--accent-light); padding: 3px 8px; border-radius: 6px;">관리자</span>
+                <button onclick="logout()" style="color: var(--danger-color); font-size: 0.9rem; padding: 4px;" title="로그아웃">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Quick Menu Pills -->
+        <nav class="mobile-quick-nav" id="mobileQuickNav" aria-label="모바일 메뉴">
+            <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+            <a href="/attend.html" class="mobile-quick-item"><i class="fa-solid fa-clipboard-user"></i> 출석체크현황</a>
+            <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+            <a href="/reserve.html" class="mobile-quick-item active"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
+            <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
+        </nav>
+    </header>
+
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon">
-                    <i class="fa-solid fa-church"></i>
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
                 </div>
                 <div class="brand-text">FaithOn</div>
             </div>
+
             <nav class="nav-menu">
                 <a href="/" class="nav-item" id="navDashboard">
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>대시보드</span>
                 </a>
-                <a href="/attend.html" class="nav-item" id="navAttend" style="display: none;">
+                <a href="/attend.html" class="nav-item" id="navAttend">
                     <i class="fa-solid fa-clipboard-user"></i>
-                    <span>출석체크</span>
+                    <span>출석체크현황</span>
                 </a>
                 <a href="/newcomer.html" class="nav-item" id="navNewcomer">
                     <i class="fa-solid fa-user-plus"></i>
@@ -125,7 +204,7 @@
             <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
                 <div id="userProfile" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
                     <div style="font-weight: 600; color: var(--text-primary);" id="userNameDisplay">접속자 정보</div>
-                    <div style="color: var(--text-secondary); font-size: 0.8rem;" id="userRoleDisplay">총괄 관리자</div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;" id="userRoleDisplay">관리자</div>
                 </div>
                 <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; padding: 0.4rem;" onclick="logout()">
                     <i class="fa-solid fa-right-from-bracket"></i> 로그아웃
@@ -142,7 +221,7 @@
                 </a>
                 <a href="/attend.html" class="mobile-nav-item" id="mobNavAttend" style="display: none;">
                     <i class="fa-solid fa-clipboard-user"></i>
-                    <span>출석체크</span>
+                    <span>출석체크현황</span>
                 </a>
                 <a href="/newcomer.html" class="mobile-nav-item">
                     <i class="fa-solid fa-user-plus"></i>
@@ -168,9 +247,19 @@
                 </div>
             </div>
 
+            <!-- Mobile Tab Switcher (일반 성도 검색 / 예비명단) -->
+            <div class="reserve-mobile-tabs" id="reserveMobileTabs">
+                <div class="reserve-mobile-tab active" id="tabNormalView" onclick="switchReserveTab('normal')">
+                    <i class="fa-solid fa-users"></i> 일반 성도 검색
+                </div>
+                <div class="reserve-mobile-tab" id="tabReserveView" onclick="switchReserveTab('reserve')">
+                    <i class="fa-solid fa-user-clock"></i> 예비명단 (<span id="mobileReserveCount">0</span>)
+                </div>
+            </div>
+
             <div class="split-layout">
                 <!-- Left: Normal Members -->
-                <div class="card">
+                <div class="card" id="cardNormalSection">
                     <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                         <i class="fa-solid fa-users text-primary"></i> 일반 성도 검색
                     </h3>
@@ -180,13 +269,13 @@
                         <input type="text" class="search-input" id="normalSearchInput" placeholder="이름 또는 구역으로 검색...">
                     </div>
                     
-                    <div class="list-container" id="normalList" style="max-height: 500px; overflow-y: auto;">
+                    <div class="list-container" id="normalList">
                         <!-- Normal Members List -->
                     </div>
                 </div>
 
                 <!-- Right: Reserve Members -->
-                <div class="card" style="border-color: rgba(224, 122, 0, 0.3);">
+                <div class="card" id="cardReserveSection" style="border-color: rgba(224, 122, 0, 0.3);">
                     <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--warning-color);">
                         <i class="fa-solid fa-user-clock"></i> 예비명단 (<span id="reserveCount">0</span>명)
                     </h3>
@@ -196,7 +285,7 @@
                         <input type="text" class="search-input" id="reserveSearchInput" placeholder="예비명단 내 검색...">
                     </div>
                     
-                    <div class="list-container" id="reserveList" style="max-height: 500px; overflow-y: auto;">
+                    <div class="list-container" id="reserveList">
                         <!-- Reserve List -->
                     </div>
                 </div>
@@ -218,8 +307,10 @@
         }
 
         // Set sidebar user display
-        document.getElementById('userNameDisplay').textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
-        document.getElementById('userRoleDisplay').textContent = '총괄 관리자 권한';
+        document.getElementById('userNameDisplay').textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
+        document.getElementById('userRoleDisplay').textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+        const mobUser = document.getElementById('mobileUserDisplay');
+        if (mobUser) mobUser.textContent = currentUser.name || '관리자';
 
         let normalMembers = [];
         let reserveMembers = [];
@@ -309,6 +400,8 @@
             );
 
             reserveCountEl.textContent = reserveMembers.length;
+            const mobCnt = document.getElementById('mobileReserveCount');
+            if (mobCnt) mobCnt.textContent = reserveMembers.length;
             reserveListEl.innerHTML = '';
 
             if (filtered.length === 0) {
@@ -383,14 +476,41 @@
         normalSearchInput.addEventListener('input', renderNormalList);
         reserveSearchInput.addEventListener('input', renderReserveList);
 
-        function logout() {
-            if (confirm('로그아웃 하시겠습니까?')) {
-                localStorage.removeItem('faithon_user');
-                window.location.href = '/login.html';
+        function switchReserveTab(tab) {
+            const isNormal = tab === 'normal';
+            document.getElementById('tabNormalView').classList.toggle('active', isNormal);
+            document.getElementById('tabReserveView').classList.toggle('active', !isNormal);
+
+            const cardNormal = document.getElementById('cardNormalSection');
+            const cardReserve = document.getElementById('cardReserveSection');
+            
+            if (window.innerWidth <= 900) {
+                if (cardNormal) cardNormal.style.display = isNormal ? 'block' : 'none';
+                if (cardReserve) cardReserve.style.display = isNormal ? 'none' : 'block';
+            } else {
+                if (cardNormal) cardNormal.style.display = 'block';
+                if (cardReserve) cardReserve.style.display = 'block';
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadData);
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 900) {
+                const cardNormal = document.getElementById('cardNormalSection');
+                const cardReserve = document.getElementById('cardReserveSection');
+                if (cardNormal) cardNormal.style.display = 'block';
+                if (cardReserve) cardReserve.style.display = 'block';
+            } else {
+                const isNormal = document.getElementById('tabNormalView').classList.contains('active');
+                switchReserveTab(isNormal ? 'normal' : 'reserve');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            if (window.innerWidth <= 900) {
+                switchReserveTab('normal');
+            }
+        });
     </script>
 </body>
 </html>

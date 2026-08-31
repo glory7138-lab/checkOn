@@ -91,24 +91,9 @@ app.post('/api/auth/login', async (req, res) => {
     if (!phone) {
         return res.status(400).json({ success: false, error: '휴대폰 번호를 입력해주세요.' });
     }
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
     if (!cleanPhone) {
         return res.status(400).json({ success: false, error: '올바른 휴대폰 번호를 입력해주세요.' });
-    }
-
-    // 마스터 최고 관리자 번호
-    if (cleanPhone === '01077074222') {
-        return res.json({
-            success: true,
-            user: {
-                name: '최고 관리자',
-                phone: cleanPhone,
-                role: 'admin',
-                scope_type: 'all',
-                scope_code: null,
-                position: '총괄관리자'
-            }
-        });
     }
 
     let conn;
@@ -220,6 +205,152 @@ app.get('/api/areas', async (req, res) => {
     }
 });
 
+// 1-1. [관리자 전용] 구역별 출석체크 현황(체크 여부 및 출석률) 실시간 조회
+app.get('/api/admin/area-attendance-status', async (req, res) => {
+    const { date, type } = req.query; // date: '2026-08-30', type: 'sunday' or 'wednesday'
+    if (!date || !type) {
+        return res.status(400).json({ success: false, error: '날짜(date)와 예배 구분(type)이 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. 전체 구역 목록
+        const areaRows = await conn.query(`
+            SELECT DISTINCT AREA_CODE 
+            FROM CWTB_USER 
+            WHERE YEAR = ? AND AREA_CODE IS NOT NULL AND AREA_CODE != '' AND DEL_YN = 'N'
+            ORDER BY CAST(AREA_CODE AS UNSIGNED) ASC, AREA_CODE ASC
+        `, [activeYear]);
+        const areaCodes = areaRows.map(r => r.AREA_CODE.trim()).filter(Boolean);
+
+        // 2. 구역별 총원 (예비명단 제외 정규 성도 수)
+        const totalRows = await conn.query(`
+            SELECT u.AREA_CODE, COUNT(u.CODE_NO) as total_cnt
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL AND u.AREA_CODE IS NOT NULL
+            GROUP BY u.AREA_CODE
+        `, [activeYear]);
+        const totalMap = {};
+        totalRows.forEach(r => {
+            totalMap[r.AREA_CODE.trim()] = Number(r.total_cnt || 0);
+        });
+
+        // 3. 구역별 새참자 수
+        const ncRows = await conn.query(`
+            SELECT COALESCE(area_code, temp_area) as area_code, COUNT(id) as nc_cnt
+            FROM faithon_newcomer
+            GROUP BY COALESCE(area_code, temp_area)
+        `);
+        const ncMap = {};
+        ncRows.forEach(r => {
+            if (r.area_code) ncMap[r.area_code.trim()] = Number(r.nc_cnt || 0);
+        });
+
+        // 4. 해당 날짜/예배 구역별 실제 출석 체크된 인원 수
+        const attendRows = await conn.query(`
+            SELECT u.AREA_CODE, COUNT(DISTINCT a.member_code) as attend_cnt
+            FROM faithon_attendance a
+            JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE a.service_date = ? 
+              AND a.service_type = ? 
+              AND a.is_attended = TRUE
+              AND u.YEAR = ?
+              AND u.DEL_YN = 'N'
+              AND r.member_code IS NULL
+            GROUP BY u.AREA_CODE
+        `, [date, type, activeYear]);
+        const attendMap = {};
+        attendRows.forEach(r => {
+            attendMap[r.AREA_CODE.trim()] = Number(r.attend_cnt || 0);
+        });
+
+        // 4-1. 해당 날짜 새참자 출석 수
+        const ncAttendRows = await conn.query(`
+            SELECT COALESCE(nc.area_code, nc.temp_area) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
+            FROM faithon_attendance a
+            JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+            WHERE a.service_date = ?
+              AND a.service_type = ?
+              AND a.is_attended = TRUE
+            GROUP BY COALESCE(nc.area_code, nc.temp_area)
+        `, [date, type]);
+        const ncAttendMap = {};
+        ncAttendRows.forEach(r => {
+            if (r.area_code) ncAttendMap[r.area_code.trim()] = Number(r.nc_attend_cnt || 0);
+        });
+
+        // 5. 구역장/부구역장 정보
+        const leaderRows = await conn.query(`
+            SELECT u.AREA_CODE, u.NAME, pa.POSITION, u.PHONE
+            FROM CWTB_USER u
+            JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' 
+              AND (pa.POSITION LIKE '%구역장%' OR pa.POSITION LIKE '%부구역장%')
+            ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, 
+                     CASE WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1 ELSE 2 END
+        `, [activeYear, activeYear]);
+
+        const leaderMap = {};
+        leaderRows.forEach(r => {
+            const a = r.AREA_CODE.trim();
+            if (!leaderMap[a]) leaderMap[a] = [];
+            leaderMap[a].push({ name: r.NAME, position: r.POSITION, phone: r.PHONE });
+        });
+
+        // 6. 종합 구역별 출석체크 현황 데이터 생성
+        let totalCompletedAreas = 0;
+        const list = areaCodes.map(area => {
+            const regularTotal = totalMap[area] || 0;
+            const ncTotal = ncMap[area] || 0;
+            const grandTotal = regularTotal + ncTotal;
+
+            const regularAttend = attendMap[area] || 0;
+            const ncAttend = ncAttendMap[area] || 0;
+            const grandAttend = regularAttend + ncAttend;
+
+            // 출석체크 완료 여부: 해당 구역에 1명 이상 출석체크 기록이 있는 경우 '완료'
+            const isCompleted = grandAttend > 0;
+            if (isCompleted) totalCompletedAreas++;
+
+            const rate = grandTotal > 0 ? Math.round((grandAttend / grandTotal) * 100) : 0;
+
+            return {
+                area_code: area,
+                is_completed: isCompleted,
+                total_members: regularTotal,
+                newcomer_members: ncTotal,
+                grand_total: grandTotal,
+                attended_count: regularAttend,
+                newcomer_attended_count: ncAttend,
+                grand_attended_count: grandAttend,
+                rate,
+                leaders: leaderMap[area] || []
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                total_areas: areaCodes.length,
+                completed_areas: totalCompletedAreas,
+                pending_areas: areaCodes.length - totalCompletedAreas,
+                completion_rate: areaCodes.length > 0 ? Math.round((totalCompletedAreas / areaCodes.length) * 100) : 0,
+                list
+            }
+        });
+    } catch (err) {
+        console.error("Error fetching area attendance status:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // 2. 최신 활성 연도 구역별 성도 목록 조회 (직분순 및 이름순 정렬 + 해당 구역 새참자 포함)
 app.get('/api/members', async (req, res) => {
     const areaCode = req.query.areaCode;
@@ -233,7 +364,7 @@ app.get('/api/members', async (req, res) => {
 
         // 2-1. 정규 성도 조회 (구역 임원 및 집사/목사/부목사/전도사 직분 연동, 예비명단 제외)
         let query = `
-            SELECT u.CODE_NO, u.NAME, 
+            SELECT u.CODE_NO, u.NAME, u.FELLOW_DEPT,
                    COALESCE(
                        pa.POSITION,
                        CASE 
@@ -545,6 +676,75 @@ app.delete('/api/reserve/:member_code', async (req, res) => {
 });
 
 // ==========================================
+// 교회학교 (유초등부, 중고등부) 출석(인원수) API Routes
+// ==========================================
+
+// 1. 특정 일자의 교회학교 부서별 출석 인원 조회
+app.get('/api/admin/school-attendance', async (req, res) => {
+    const { date } = req.query; // e.g. '2026-08-30'
+    if (!date) {
+        return res.status(400).json({ success: false, error: '날짜(date) 파라미터가 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`
+            SELECT dept_code, dept_name, service_date, attend_count 
+            FROM faithon_school_attendance 
+            WHERE service_date = ?
+        `, [date]);
+
+        const depts = [
+            { dept_code: 'elementary', dept_name: '유초등부', count: 0 },
+            { dept_code: 'youth', dept_name: '중고등부', count: 0 }
+        ];
+
+        rows.forEach(r => {
+            const found = depts.find(d => d.dept_code === r.dept_code);
+            if (found) {
+                found.count = Number(r.attend_count || 0);
+            }
+        });
+
+        res.json({ success: true, data: depts });
+    } catch (err) {
+        console.error("Error fetching school attendance:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 2. 교회학교 부서별 출석 인원수 저장/업데이트 (+ / - 버튼 또는 직접 입력)
+app.post('/api/admin/school-attendance', async (req, res) => {
+    const { date, dept_code, dept_name, count } = req.body;
+    if (!date || !dept_code) {
+        return res.status(400).json({ success: false, error: '날짜와 부서 코드가 필요합니다.' });
+    }
+
+    const safeCount = Math.max(0, parseInt(count, 10) || 0);
+    const safeDeptName = dept_name || (dept_code === 'elementary' ? '유초등부' : '중고등부');
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_school_attendance (dept_code, dept_name, service_date, attend_count)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE attend_count = ?, dept_name = ?
+        `, [dept_code, safeDeptName, date, safeCount, safeCount, safeDeptName]);
+
+        res.json({ success: true, message: '교회학교 출석 인원이 저장되었습니다.', count: safeCount });
+    } catch (err) {
+        console.error("Error saving school attendance:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// ==========================================
 // 관리자(Admin) 권한 설정 전용 API Routes
 // ==========================================
 
@@ -627,7 +827,7 @@ app.get('/api/admin/candidates', async (req, res) => {
               AND u.IS_HIDDEN = 'N'
               AND a.NAME IS NULL
         `;
-        const params = [activeYear, activeYear, activeYear, activeYear];
+        const params = [activeYear, activeYear, activeYear];
 
         if (areaCode) {
             sql += ` AND u.AREA_CODE = ?`;
@@ -1137,6 +1337,24 @@ app.get('/api/dashboard/stats', async (req, res) => {
             };
         });
 
+        // 4. 교회학교 (유초등부, 중고등부) 해당 기간 내 주별 출석 데이터 조회
+        const schoolRows = await conn.query(`
+            SELECT dept_code, dept_name, DATE_FORMAT(service_date, '%Y-%m-%d') as s_date, attend_count
+            FROM faithon_school_attendance
+            WHERE DATE_FORMAT(service_date, '%Y-%m-%d') >= ?
+              AND DATE_FORMAT(service_date, '%Y-%m-%d') <= ?
+        `, [fromDateStr, toDateStr]);
+
+        const schoolAttendanceMap = {
+            elementary: {},
+            youth: {}
+        };
+        schoolRows.forEach(r => {
+            if (schoolAttendanceMap[r.dept_code]) {
+                schoolAttendanceMap[r.dept_code][r.s_date] = Number(r.attend_count || 0);
+            }
+        });
+
         res.json({
             success: true,
             data: {
@@ -1170,6 +1388,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     })),
                     members: memberAttendanceList
                 },
+                school_attendance: schoolAttendanceMap,
                 range: {
                     from: fromDateStr,
                     to: toDateStr

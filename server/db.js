@@ -89,6 +89,19 @@ async function initializeTables() {
             await conn.query(`ALTER TABLE faithon_newcomer ADD UNIQUE KEY unique_newcomer (name, area_code)`);
         } catch (e) {}
 
+        // 4. 교회학교 출석(인원수) 테이블 (유초등부, 중고등부 등)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_school_attendance (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                dept_code VARCHAR(50) NOT NULL, -- 'elementary'(유초등부), 'youth'(중고등부)
+                dept_name VARCHAR(100) NOT NULL,
+                service_date DATE NOT NULL,
+                attend_count INT DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_school_att (dept_code, service_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
         console.log("[FaithOn DB] Initialized custom tables successfully.");
     } catch (err) {
         console.error("[FaithOn DB] Error initializing tables:", err);

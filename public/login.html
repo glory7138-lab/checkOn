@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로그인 | FaithOn</title>
+    <title>로그인 | FaithOn출첵</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/jpeg" href="/images/logo.jpg">
+    <link rel="apple-touch-icon" href="/images/logo.jpg">
+    <meta name="apple-mobile-web-app-title" content="FaithOn출첵">
+    <meta name="application-name" content="FaithOn출첵">
+    <meta name="theme-color" content="#1428A0">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -147,9 +153,13 @@
         const submitBtn = document.getElementById('submitBtn');
 
         // 이미 로그인되어 있으면 바로 이동
-        if (localStorage.getItem('faithon_user')) {
-            window.location.href = '/attend.html';
-        }
+        try {
+            const savedUser = JSON.parse(localStorage.getItem('faithon_user'));
+            if (savedUser) {
+                const isAdmin = savedUser.role === 'admin' || savedUser.scope_type === 'all';
+                window.location.href = isAdmin ? '/' : '/attend.html';
+            }
+        } catch(e) {}
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -171,8 +181,14 @@
                 if (data.success && data.user) {
                     // 사용자 정보 저장
                     localStorage.setItem('faithon_user', JSON.stringify(data.user));
-                    // 출석체크 페이지로 이동
-                    window.location.href = '/attend.html';
+                    const isAdmin = data.user.role === 'admin' || data.user.scope_type === 'all';
+                    if (isAdmin) {
+                        // 관리자는 통계 대시보드로 이동
+                        window.location.href = '/';
+                    } else {
+                        // 구역 임원은 출석체크 페이지로 이동
+                        window.location.href = '/attend.html';
+                    }
                 } else {
                     errorMsg.textContent = data.error || '로그인에 실패했습니다.';
                     errorMsg.style.display = 'block';

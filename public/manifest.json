@@ -1,0 +1,21 @@
+{
+  "name": "FaithOn출첵",
+  "short_name": "FaithOn출첵",
+  "description": "창원교회 출석체크 관리 시스템",
+  "start_url": "/attend.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1428A0",
+  "icons": [
+    {
+      "src": "/images/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/images/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

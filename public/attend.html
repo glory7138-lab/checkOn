@@ -3,193 +3,544 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>출석체크 | FaithOn</title>
+    <title>출석체크 | FaithOn출첵</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/jpeg" href="/images/logo.jpg">
+    <link rel="apple-touch-icon" href="/images/logo.jpg">
+    <meta name="apple-mobile-web-app-title" content="FaithOn출첵">
+    <meta name="application-name" content="FaithOn출첵">
+    <meta name="theme-color" content="#1428A0">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .filter-bar {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-        
-        .select-group {
+        /* Mobile-first Header Controls */
+        .controls-wrapper {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        .select-label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-        
-        .form-select, .form-input {
-            width: 100%;
-            padding: 0.6rem 1rem;
-            border-radius: 6px;
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            font-family: inherit;
-            outline: none;
-            transition: var(--transition-fast);
-        }
-        
-        .form-select:focus, .form-input:focus {
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 2px var(--accent-light);
-        }
-        
-        /* Table Styles */
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .data-table th {
-            text-align: left;
-            padding: 1rem;
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.85rem;
-            background: var(--bg-color);
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .data-table td {
-            padding: 1rem;
-            background: var(--surface-color);
-            border-bottom: 1px solid var(--border-color);
-            transition: var(--transition-fast);
-        }
-        
-        .data-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .data-table tr:hover td {
-            background: var(--surface-hover);
-        }
-        
-        /* Custom Checkbox */
-        .check-container {
-            display: block;
-            position: relative;
-            padding-left: 35px;
-            margin-bottom: 0;
-            cursor: pointer;
-            font-size: 22px;
-            user-select: none;
-            height: 25px;
-        }
-
-        .check-container input {
-            position: absolute;
-            opacity: 0;
-            cursor: pointer;
-            height: 0;
-            width: 0;
-        }
-
-        .checkmark {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 24px;
-            width: 24px;
-            background-color: #fff;
-            border-radius: 6px;
-            border: 2px solid var(--border-color);
-            transition: var(--transition-fast);
-        }
-
-        .check-container:hover input ~ .checkmark {
-            border-color: var(--accent-color);
-        }
-
-        .check-container input:checked ~ .checkmark {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        .checkmark:after {
-            content: "";
-            position: absolute;
-            display: none;
-        }
-
-        .check-container input:checked ~ .checkmark:after {
-            display: block;
-        }
-
-        .check-container .checkmark:after {
-            left: 7px;
-            top: 3px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
             gap: 1rem;
+            margin-bottom: 1.25rem;
         }
-        
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
+
+        /* 1. Session Type Tab Segment */
+        .session-tab-segment {
+            display: flex;
+            background: #e2e8f0;
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        .session-tab-btn {
+            flex: 1;
+            padding: 0.65rem 1rem;
+            border-radius: 9px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            background: transparent;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 500;
-            font-size: 1rem;
+            gap: 6px;
+        }
+
+        .session-tab-btn.active {
+            background: #ffffff;
             color: var(--accent-color);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        /* 2. Recent 4 Weeks Date Buttons Group */
+        .date-buttons-scroll {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 540px) {
+            .date-buttons-scroll {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .date-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.6rem 0.4rem;
+            border-radius: 10px;
+            border: 1.5px solid var(--border-color);
+            background: var(--surface-color);
+            color: var(--text-secondary);
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+
+        .date-btn .date-main {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .date-btn .date-sub {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .date-btn:hover {
+            border-color: var(--accent-color);
+            background: var(--surface-hover);
+        }
+
+        .date-btn.active {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(20, 40, 160, 0.25);
+        }
+
+        .date-btn.active .date-main,
+        .date-btn.active .date-sub {
+            color: #ffffff;
+        }
+
+        /* 3. Sticky Fellow Tabs (봉사회/어머니회/청년회/은장회/새참자) */
+        .fellow-sticky-nav {
+            position: sticky;
+            top: 56px;
+            z-index: 40;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            margin: 0 -1rem 1rem -1rem;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .fellow-sticky-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .fellow-tabs-list {
+            display: inline-flex;
+            gap: 0.4rem;
+        }
+
+        .fellow-tab-pill {
+            padding: 0.45rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .fellow-tab-pill .pill-badge {
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.06);
+            font-weight: 600;
+        }
+
+        .fellow-tab-pill.active {
+            background: var(--text-primary);
+            color: #ffffff;
+            border-color: var(--text-primary);
+        }
+
+        .fellow-tab-pill.active .pill-badge {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+        }
+
+        /* Fellow Section Styles */
+        .fellow-section {
+            margin-bottom: 1.75rem;
+            scroll-margin-top: 110px;
+        }
+
+        .fellow-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0.75rem;
+            background: var(--bg-color);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .fellow-section-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .fellow-section-count {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Admin Area Status Cards Grid & Progress */
+        .admin-status-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.65rem;
+            margin-bottom: 1.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .admin-status-summary {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+        }
+
+        .admin-summary-card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .area-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .area-grid-container {
+                grid-template-columns: 1fr;
+                gap: 0.65rem;
+            }
+        }
+
+        .area-status-card {
+            background: #ffffff;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            position: relative;
+        }
+
+        .area-status-card.completed {
+            border-color: #86efac;
+            background: #fcfdfc;
+        }
+
+        .area-status-card.pending {
+            border-color: #fca5a5;
+            background: #fffafa;
+        }
+
+        .status-badge-done {
+            background: #dcfce7;
+            color: #166534;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-badge-pending {
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .area-progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0.5rem 0 0.65rem 0;
+        }
+
+        .area-progress-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .btn-call-leader {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0.35rem 0.65rem;
+            background: #eff6ff;
+            color: var(--accent-color);
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        /* Admin Mode Sub-Tabs (구역 출석현황 vs 교회학교 출석) */
+        .admin-view-nav-tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .admin-view-nav-tab {
+            flex: 1;
+            padding: 0.65rem 1rem;
+            border-radius: 9px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .admin-view-nav-tab.active {
+            background: #ffffff;
+            color: var(--accent-color);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            font-weight: 800;
+        }
+
+        /* Church School Counter Cards */
+        .school-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .school-card {
+            background: #ffffff;
+            border: 1.5px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1.25rem 1.25rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .school-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .school-card-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .school-stepper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: #f8fafc;
+            padding: 0.85rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stepper-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .stepper-btn:active {
+            transform: scale(0.92);
+            background: #e2e8f0;
+        }
+
+        .stepper-input {
+            width: 90px;
+            height: 44px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-color);
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        /* Member Row Styles */
+        .member-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .member-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0.85rem;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.15s ease;
+        }
+
+        .member-card:hover {
+            border-color: #cbd5e1;
+            background: var(--surface-hover);
+        }
+
+        .member-info-col {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .member-seq {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            width: 22px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .member-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .member-name-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .member-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.2px;
+        }
+
+        .member-subtext {
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+        }
+
+        .attend-check-col {
+            flex-shrink: 0;
+            margin-left: 0.5rem;
+        }
+
+        /* Admin area select container */
+        #adminAreaSelectBox {
+            background: rgba(20, 40, 160, 0.04);
+            border: 1px dashed var(--accent-color);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
         }
     </style>
 </head>
 <body>
-    <!-- Mobile Top Bar -->
-    <header class="mobile-top-bar">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <div class="brand-icon" style="width: 30px; height: 30px; font-size: 0.9rem;">
-                <i class="fa-solid fa-church"></i>
+    <!-- Mobile Top Bar with Quick Navigation -->
+    <header class="mobile-top-bar" style="flex-direction: column; gap: 0.5rem; padding: 0.65rem 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="brand-icon" style="width: 28px; height: 28px; border-radius: 6px;">
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
+                </div>
+                <span style="font-weight: 800; color: var(--accent-color); font-size: 1.1rem;">FaithOn</span>
             </div>
-            <span style="font-weight: 800; color: var(--accent-color); font-size: 1.15rem;">FaithOn</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-color); background: var(--accent-light); padding: 3px 8px; border-radius: 6px;">31구역</span>
+                <button onclick="logout()" style="color: var(--danger-color); font-size: 0.9rem; padding: 4px;" title="로그아웃">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">31구역</span>
-            <button onclick="logout()" style="color: var(--danger-color); font-size: 0.95rem; padding: 4px;">
-                <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
-        </div>
+        
+        <!-- Mobile Quick Menu Pills -->
+        <nav class="mobile-quick-nav" id="mobileQuickNav" aria-label="모바일 메뉴">
+            <!-- Dynamically populated in initPage() based on role -->
+        </nav>
     </header>
 
     <div class="app-container">
-        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation (Desktop) -->
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon">
-                    <i class="fa-solid fa-church"></i>
+                    <img src="/images/logo.jpg" alt="FaithOn" class="brand-img-logo">
                 </div>
                 <div class="brand-text">FaithOn</div>
             </div>
@@ -228,55 +579,177 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <div class="page-header">
+        <main class="main-content" style="padding-bottom: 5rem;">
+            <div class="page-header" style="margin-bottom: 1rem;">
                 <div>
-                    <h1 class="page-title">출석 체크</h1>
-                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하세요. (클릭 시 실시간 자동 저장)</p>
+                    <h1 class="page-title" id="pageTitle">출석 체크</h1>
+                    <p class="page-subtitle" id="pageSubTitle">구역 성도들의 출석을 확인하세요.</p>
                 </div>
                 <div class="header-actions">
-                    <div id="saveStatusIndicator" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--success-color); background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 600;">
-                        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--success-color);"></i> 실시간 자동 저장
+                    <div id="saveStatusIndicator" style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--success-color); background: rgba(16, 185, 129, 0.08); padding: 0.4rem 0.85rem; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 700;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> 실시간 자동 저장
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="filter-bar">
-                    <div class="select-group">
-                        <label class="select-label">출석유형</label>
-                        <select class="form-select" id="sessionType">
-                            <option value="sunday">주일말씀</option>
-                            <option value="wednesday">수요말씀</option>
-                        </select>
+            <!-- Controls Wrapper (Session Type & Recent Dates) -->
+            <div class="controls-wrapper">
+                <!-- 1. 출석유형 탭 (주일 / 수요일) -->
+                <div class="session-tab-segment" role="tablist">
+                    <button type="button" class="session-tab-btn active" id="tabSunday" onclick="setSessionType('sunday')">
+                        <i class="fa-solid fa-sun"></i> 주일말씀
+                    </button>
+                    <button type="button" class="session-tab-btn" id="tabWednesday" onclick="setSessionType('wednesday')">
+                        <i class="fa-solid fa-book-bible"></i> 수요말씀
+                    </button>
+                </div>
+
+                <!-- 2. 출석일자 (최근 4주 버튼 그룹) -->
+                <div>
+                    <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-regular fa-calendar-check"></i> 출석일자 선택 (최근 4주)
                     </div>
-                    <div class="select-group">
-                        <label class="select-label">출석일자 (최근 4주)</label>
-                        <select class="form-select" id="attendDate">
-                            <!-- JS Will Render 4 Valid Dates -->
-                        </select>
+                    <div class="date-buttons-scroll" id="recentDatesContainer">
+                        <!-- JS Will Render 4 Date Buttons -->
                     </div>
-                    <div class="select-group">
-                        <label class="select-label" id="areaSelectLabel">구역 선택</label>
-                        <select class="form-select" id="areaCode">
-                            <!-- JS Will Populate Based on Role -->
-                        </select>
+                </div>
+            </div>
+
+            <!-- VIEW 1: [관리자 전용] 출석체크현황 모니터링 & 교회학교 관리 뷰 -->
+            <div id="adminStatusView" style="display: none;">
+                <!-- Admin Mode Sub-Tabs (1. 구역 출석현황 vs 2. 교회학교출석) -->
+                <div class="admin-view-nav-tabs">
+                    <button type="button" class="admin-view-nav-tab active" id="subTabDistrict" onclick="switchAdminMainSubTab('district')">
+                        <i class="fa-solid fa-users"></i> 구역 출석체크 현황
+                    </button>
+                    <button type="button" class="admin-view-nav-tab" id="subTabSchool" onclick="switchAdminMainSubTab('school')">
+                        <i class="fa-solid fa-graduation-cap"></i> 교회학교출석
+                    </button>
+                </div>
+
+                <!-- SUB-PANEL 1: 구역별 출석체크 현황 -->
+                <div id="adminDistrictPanel">
+                    <!-- Summary KPI Cards -->
+                    <div class="admin-status-summary">
+                        <div class="admin-summary-card" style="border-left: 4px solid var(--accent-color);">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">전체 구역</span>
+                            <strong style="font-size: 1.35rem; color: var(--text-primary);" id="adminKpiTotalAreas">0구역</strong>
+                        </div>
+                        <div class="admin-summary-card" style="border-left: 4px solid #16a34a; background: #f0fdf4;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #166534;">체크 완료 구역</span>
+                            <strong style="font-size: 1.35rem; color: #16a34a;" id="adminKpiDoneAreas">0구역</strong>
+                        </div>
+                        <div class="admin-summary-card" style="border-left: 4px solid #dc2626; background: #fef2f2;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #991b1b;">미체크 구역 (독려)</span>
+                            <strong style="font-size: 1.35rem; color: #dc2626;" id="adminKpiPendingAreas">0구역</strong>
+                        </div>
+                        <div class="admin-summary-card" style="border-left: 4px solid #f59e0b; background: #fffbeb;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #b45309;">체크 진행률</span>
+                            <strong style="font-size: 1.35rem; color: #d97706;" id="adminKpiDoneRate">0%</strong>
+                        </div>
+                    </div>
+
+                    <!-- Filter Pills: 전체 / 미체크 구역만 / 완료 구역만 -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 8px; gap: 3px;">
+                            <button class="matrix-tab active" id="btnFilterAll" onclick="filterAdminAreaList('all')" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">전체보기</button>
+                            <button class="matrix-tab" id="btnFilterPending" onclick="filterAdminAreaList('pending')" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: #dc2626;">미체크 구역만</button>
+                            <button class="matrix-tab" id="btnFilterCompleted" onclick="filterAdminAreaList('completed')" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: #16a34a;">완료 구역만</button>
+                        </div>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);" id="adminAreaListCount">10개 구역</span>
+                    </div>
+
+                    <!-- Area Grid List -->
+                    <div class="area-grid-container" id="adminAreaGridContainer">
+                        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary); grid-column: 1 / -1;">
+                            <i class="fa-solid fa-spinner fa-spin fa-2x" style="color: var(--accent-color); margin-bottom: 0.75rem;"></i>
+                            <div>구역별 출석체크 현황을 집계하는 중...</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px; text-align: center;">순번</th>
-                                <th>성도 정보 & 직분</th>
-                                <th style="text-align: center; width: 140px;">출석 체크</th>
-                            </tr>
-                        </thead>
-                        <tbody id="memberList">
-                            <!-- JS Will Render Here -->
-                        </tbody>
-                    </table>
+                <!-- SUB-PANEL 2: 교회학교 출석 인원수 간편 등록 (+ / - 카운터) -->
+                <div id="adminSchoolPanel" style="display: none;">
+                    <div class="card" style="padding: 1.25rem; margin-bottom: 1.25rem; border-left: 4px solid var(--accent-color);">
+                        <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 4px;">
+                            <i class="fa-solid fa-school"></i> 교회학교 주일 출석 인원 등록
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            선택된 일자(<strong id="schoolSelectedDateText">-</strong>)의 유초등부와 중고등부 출석 인원수를 입력하세요. <strong>[+]</strong>, <strong>[-]</strong> 버튼을 누르면 실시간으로 저장됩니다.
+                        </div>
+                    </div>
+
+                    <div class="school-grid-container">
+                        <!-- 1. 유초등부 -->
+                        <div class="school-card">
+                            <div class="school-card-header">
+                                <div class="school-card-title">
+                                    <span style="font-size: 1.5rem;">🧒</span>
+                                    <span>유초등부</span>
+                                </div>
+                                <span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700;">교회학교</span>
+                            </div>
+                            <div class="school-stepper">
+                                <button type="button" class="stepper-btn" onclick="adjustSchoolCount('elementary', -1)">
+                                    <i class="fa-solid fa-minus"></i>
+                                </button>
+                                <input type="number" class="stepper-input" id="inputElementaryCount" value="0" min="0" onchange="onSchoolInputChange('elementary', this.value)">
+                                <button type="button" class="stepper-btn" onclick="adjustSchoolCount('elementary', 1)" style="background:var(--accent-color); color:#fff; border-color:var(--accent-color);">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size: 0.78rem; color: var(--text-muted);">직접 숫자 입력 후 엔터 가능</span>
+                                <span id="saveStatusElementary" style="font-size: 0.78rem; color: var(--success-color); font-weight: 700; display: none;">
+                                    <i class="fa-solid fa-check"></i> 저장됨
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- 2. 중고등부 -->
+                        <div class="school-card">
+                            <div class="school-card-header">
+                                <div class="school-card-title">
+                                    <span style="font-size: 1.5rem;">🧑‍🎓</span>
+                                    <span>중고등부</span>
+                                </div>
+                                <span class="badge" style="background:#fdf2f8; color:#be185d; font-weight:700;">교회학교</span>
+                            </div>
+                            <div class="school-stepper">
+                                <button type="button" class="stepper-btn" onclick="adjustSchoolCount('youth', -1)">
+                                    <i class="fa-solid fa-minus"></i>
+                                </button>
+                                <input type="number" class="stepper-input" id="inputYouthCount" value="0" min="0" onchange="onSchoolInputChange('youth', this.value)">
+                                <button type="button" class="stepper-btn" onclick="adjustSchoolCount('youth', 1)" style="background:var(--accent-color); color:#fff; border-color:var(--accent-color);">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size: 0.78rem; color: var(--text-muted);">직접 숫자 입력 후 엔터 가능</span>
+                                <span id="saveStatusYouth" style="font-size: 0.78rem; color: var(--success-color); font-weight: 700; display: none;">
+                                    <i class="fa-solid fa-check"></i> 저장됨
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: [구역 임원 전용 & 관리자 구역 상세 확인] 성도별 출석체크 리스트 뷰 -->
+            <div class="card" id="memberAttendanceCard" style="padding: 1rem 1.25rem;">
+                <!-- 3. 회별 Sticky 탭 바 (봉사회 / 어머니회 / 청년회 / 은장회 / 새참자) -->
+                <nav class="fellow-sticky-nav" id="fellowStickyNav" aria-label="회별 바로가기">
+                    <div class="fellow-tabs-list" id="fellowTabsContainer">
+                        <!-- JS Will Populate Tabs -->
+                    </div>
+                </nav>
+
+                <!-- 4. Member List Container (Grouped by Fellow Section) -->
+                <div id="membersContainer">
+                    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x" style="color: var(--accent-color); margin-bottom: 0.75rem;"></i>
+                        <div>성도 명단을 불러오는 중...</div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -315,22 +788,45 @@
             window.location.href = '/login.html';
         }
 
+        // State Variables
+        // 현재 요일 기준으로 가장 최근에 있었던 집회(주일 vs 수요)를 기본 탭으로 자동 선정
+        const todayDay = new Date().getDay(); // 0: 일, 1: 월, 2: 화, 3: 수, 4: 목, 5: 금, 6: 토
+        // 수(3), 목(4), 금(5), 토(6)요일은 수요일 집회가 가장 최신, 일(0), 월(1), 화(2)요일은 주일 집회가 가장 최신
+        const initialSessionType = (todayDay >= 3) ? 'wednesday' : 'sunday';
+
+        let currentSessionType = initialSessionType; // 'sunday' | 'wednesday'
+        let currentSelectedDate = '';
+        let currentAreaCode = '';
+        let membersData = [];
+        let sectionObserver = null;
+
+        // Group Definitions & Order
+        const FELLOW_GROUPS = [
+            { key: 'bong', label: '봉사회', code: '봉', icon: 'fa-user-tie' },
+            { key: 'mother', label: '어머니회', code: '어', icon: 'fa-person-dress' },
+            { key: 'youth', label: '청년회', code: '청', icon: 'fa-user-graduate' },
+            { key: 'silver', label: '은장회', code: '은', icon: 'fa-person-cane' },
+            { key: 'newcomer', label: '새참자', code: 'NC', icon: 'fa-seedling' },
+            { key: 'etc', label: '기타/학생', code: 'ETC', icon: 'fa-user-group' }
+        ];
+
         // DOM Elements
-        const memberListEl = document.getElementById('memberList');
-        const sessionTypeEl = document.getElementById('sessionType');
-        const attendDateEl = document.getElementById('attendDate');
+        const membersContainer = document.getElementById('membersContainer');
+        const recentDatesContainer = document.getElementById('recentDatesContainer');
+        const fellowTabsContainer = document.getElementById('fellowTabsContainer');
+        const tabSunday = document.getElementById('tabSunday');
+        const tabWednesday = document.getElementById('tabWednesday');
+        const adminAreaSelectBox = document.getElementById('adminAreaSelectBox');
         const areaCodeEl = document.getElementById('areaCode');
         const userNameDisplay = document.getElementById('userNameDisplay');
         const userRoleDisplay = document.getElementById('userRoleDisplay');
         const pageSubTitle = document.getElementById('pageSubTitle');
-        const areaSelectLabel = document.getElementById('areaSelectLabel');
         const navReserve = document.getElementById('navReserve');
         const navAdminUsers = document.getElementById('navAdminUsers');
+        const mobNavReserve = document.getElementById('mobNavReserve');
         const mobNavAdminUsers = document.getElementById('mobNavAdminUsers');
 
-        let membersData = [];
-
-        // Calculate the last 4 valid dates up to today (excludes all future dates)
+        // Calculate the last 4 valid dates up to today
         function getRecentServiceDates(serviceType) {
             const targetDay = serviceType === 'sunday' ? 0 : 3;
             const dates = [];
@@ -344,94 +840,415 @@
                     const dd = String(curr.getDate()).padStart(2, '0');
                     const iso = `${yyyy}-${mm}-${dd}`;
                     
-                    const month = curr.getMonth() + 1;
-                    const day = curr.getDate();
+                    const m = curr.getMonth() + 1;
+                    const d = curr.getDate();
                     const dayName = serviceType === 'sunday' ? '주일' : '수요';
-                    const label = `${yyyy}년 ${month}월 ${day}일 (${dayName})`;
+                    const mainText = `${m}월 ${d}일`;
+                    const subText = `${dayName} (${iso})`;
                     
-                    dates.push({ value: iso, label });
+                    dates.push({ value: iso, mainText, subText });
                 }
                 curr.setDate(curr.getDate() - 1);
             }
             return dates;
         }
 
-        // Update the date dropdown based on selected 출석유형
-        function updateDateOptions() {
-            const type = sessionTypeEl.value;
-            const dates = getRecentServiceDates(type);
-            const currentSelected = attendDateEl.value;
+        // Render Recent 4 Dates as Buttons
+        function renderDateButtons() {
+            const dates = getRecentServiceDates(currentSessionType);
+            if (!currentSelectedDate || !dates.some(d => d.value === currentSelectedDate)) {
+                currentSelectedDate = dates[0].value;
+            }
 
-            attendDateEl.innerHTML = '';
-            dates.forEach((d, idx) => {
-                const opt = document.createElement('option');
-                opt.value = d.value;
-                opt.textContent = d.label;
-                if (idx === 0) opt.selected = true;
-                attendDateEl.appendChild(opt);
+            recentDatesContainer.innerHTML = '';
+            dates.forEach(d => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `date-btn ${d.value === currentSelectedDate ? 'active' : ''}`;
+                btn.onclick = () => selectDate(d.value);
+                btn.innerHTML = `
+                    <span class="date-main">${d.mainText}</span>
+                    <span class="date-sub">${d.subText}</span>
+                `;
+                recentDatesContainer.appendChild(btn);
             });
         }
 
-        // Initialize User Info & Area Options based on Role
+        // Change Session Type (주일 / 수요)
+        function setSessionType(type) {
+            if (currentSessionType === type) return;
+            currentSessionType = type;
+
+            if (type === 'sunday') {
+                tabSunday.classList.add('active');
+                tabWednesday.classList.remove('active');
+            } else {
+                tabWednesday.classList.add('active');
+                tabSunday.classList.remove('active');
+            }
+
+            // Update 4 recent date buttons and select first
+            const dates = getRecentServiceDates(type);
+            currentSelectedDate = dates[0].value;
+            renderDateButtons();
+
+            fetchMembersAndAttendance();
+        }
+
+        let adminAreaStatusList = [];
+        let currentAdminFilter = 'all';
+
+        // Select Date Button
+        function selectDate(dateIso) {
+            if (currentSelectedDate === dateIso) return;
+            currentSelectedDate = dateIso;
+            renderDateButtons();
+            
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            if (isAdmin) {
+                if (currentAdminMainSubTab === 'school') {
+                    fetchSchoolAttendance();
+                } else {
+                    fetchAdminAreaStatus();
+                }
+            } else {
+                fetchMembersAndAttendance();
+            }
+        }
+
+        // Change Session Type (주일 / 수요)
+        function setSessionType(type) {
+            if (currentSessionType === type) return;
+            currentSessionType = type;
+
+            if (type === 'sunday') {
+                tabSunday.classList.add('active');
+                tabWednesday.classList.remove('active');
+            } else {
+                tabWednesday.classList.add('active');
+                tabSunday.classList.remove('active');
+            }
+
+            // Update 4 recent date buttons and select first
+            const dates = getRecentServiceDates(type);
+            currentSelectedDate = dates[0].value;
+            renderDateButtons();
+
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            if (isAdmin) {
+                if (currentAdminMainSubTab === 'school') {
+                    fetchSchoolAttendance();
+                } else {
+                    fetchAdminAreaStatus();
+                }
+            } else {
+                fetchMembersAndAttendance();
+            }
+        }
+
+        // Initialize Page
         async function initPage() {
             if (!currentUser) return;
 
-            // 1. Check admin vs officer for Sidebar menu visibility
             const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
-            const navAttend = document.getElementById('navAttend');
-            const mobNavAttend = document.getElementById('mobNavAttend');
-            const mobNavReserve = document.getElementById('mobNavReserve');
-            if (navAttend) navAttend.style.display = isAdmin ? 'none' : 'flex';
-            if (mobNavAttend) mobNavAttend.style.display = isAdmin ? 'none' : 'flex';
-            if (navReserve) {
-                navReserve.style.display = isAdmin ? 'flex' : 'none';
-            }
-            if (navAdminUsers) {
-                navAdminUsers.style.display = isAdmin ? 'flex' : 'none';
-            }
-            if (mobNavReserve) {
-                mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
-            }
-            if (mobNavAdminUsers) {
-                mobNavAdminUsers.style.display = isAdmin ? 'flex' : 'none';
-            }
-
-            // Display user info in sidebar & mobile header
-            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
             const userArea = currentUser.scope_code || currentUser.area_code || '11';
-            document.getElementById('mobileUserDisplay').textContent = isAdmin ? '총괄 관리자' : `${userArea}구역`;
-            
-            if (isAdmin) {
-                userRoleDisplay.textContent = '총괄 관리자 권한 (전체 구역)';
-                pageSubTitle.innerHTML = `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 700; margin-right: 6px;">관리자 조회 전용</span> 전체 구역 성도 출석을 실시간 조회합니다. (출석 체크 수정은 각 구역 담당자만 가능)`;
-                areaSelectLabel.innerHTML = `구역 선택 <span class="badge badge-info" style="font-size:0.75rem;">관리자 전체 조회</span>`;
-                await loadAllAreas();
-            } else {
-                userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
-                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 출석을 확인하세요. (클릭 시 실시간 자동 저장)`;
-                areaSelectLabel.innerHTML = `담당 구역 <span class="badge badge-success" style="font-size:0.75rem;">권한 고정</span>`;
-                
-                // Only populate their assigned area and lock
-                areaCodeEl.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
-                areaCodeEl.disabled = true;
+            currentAreaCode = userArea;
+
+            // Nav item visibility
+            const navAttend = document.getElementById('navAttend');
+            if (navAttend) {
+                navAttend.style.display = 'flex';
+                const label = navAttend.querySelector('span');
+                if (label) label.textContent = isAdmin ? '출석체크현황' : '출석체크';
             }
 
-            // Populate recent 4 dates
-            updateDateOptions();
+            const mobNavAttend = document.getElementById('mobNavAttend');
+            if (mobNavAttend) {
+                mobNavAttend.style.display = 'flex';
+                const label = mobNavAttend.querySelector('span');
+                if (label) label.textContent = isAdmin ? '출석체크현황' : '출석체크';
+            }
 
-            // Event Listeners
-            sessionTypeEl.addEventListener('change', () => {
-                updateDateOptions();
-                fetchMembersAndAttendance();
-            });
-            attendDateEl.addEventListener('change', fetchMembersAndAttendance);
-            areaCodeEl.addEventListener('change', fetchMembersAndAttendance);
+            if (navReserve) navReserve.style.display = isAdmin ? 'flex' : 'none';
+            if (navAdminUsers) navAdminUsers.style.display = isAdmin ? 'flex' : 'none';
+            if (mobNavReserve) mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
+            if (mobNavAdminUsers) mobNavAdminUsers.style.display = isAdmin ? 'flex' : 'none';
 
-            // Fetch initial data
-            await fetchMembersAndAttendance();
+            // Render Mobile Quick Top Menu dynamically
+            const quickNav = document.getElementById('mobileQuickNav');
+            if (quickNav) {
+                if (isAdmin) {
+                    quickNav.innerHTML = `
+                        <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+                        <a href="/attend.html" class="mobile-quick-item active"><i class="fa-solid fa-clipboard-user"></i> 출석체크현황</a>
+                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="/reserve.html" class="mobile-quick-item"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
+                        <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
+                    `;
+                } else {
+                    quickNav.innerHTML = `
+                        <a href="/attend.html" class="mobile-quick-item active"><i class="fa-solid fa-clipboard-user"></i> 출석체크</a>
+                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+                    `;
+                }
+            }
+
+            // User Info Displays
+            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
+            document.getElementById('mobileUserDisplay').textContent = isAdmin ? (currentUser.name || '관리자') : `${userArea}구역`;
+
+            // Initial Session Type Tab Styling
+            if (currentSessionType === 'wednesday') {
+                tabWednesday.classList.add('active');
+                tabSunday.classList.remove('active');
+            } else {
+                tabSunday.classList.add('active');
+                tabWednesday.classList.remove('active');
+            }
+
+            renderDateButtons();
+
+            if (isAdmin) {
+                document.getElementById('pageTitle').textContent = '구역별 출석체크 현황';
+                userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+                pageSubTitle.innerHTML = `각 구역별 <strong>출석체크 완료 여부</strong>를 실시간 확인하고 미체크 구역을 독려할 수 있습니다.`;
+                
+                document.getElementById('adminStatusView').style.display = 'block';
+                document.getElementById('memberAttendanceCard').style.display = 'none';
+                document.getElementById('saveStatusIndicator').style.display = 'none';
+                
+                await fetchAdminAreaStatus();
+            } else {
+                document.getElementById('pageTitle').textContent = '출석 체크';
+                userRoleDisplay.textContent = `${userArea}구역 담당`;
+                pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 출석을 확인하세요. (체크 시 실시간 자동 저장)`;
+                
+                document.getElementById('adminStatusView').style.display = 'none';
+                document.getElementById('memberAttendanceCard').style.display = 'block';
+                document.getElementById('saveStatusIndicator').style.display = 'flex';
+                
+                await fetchMembersAndAttendance();
+            }
         }
 
-        // Load all available areas from DB for Admins
+        // [Admin] Fetch Area Attendance Status
+        async function fetchAdminAreaStatus() {
+            const container = document.getElementById('adminAreaGridContainer');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary); grid-column: 1 / -1;">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x" style="color: var(--accent-color); margin-bottom: 0.75rem;"></i>
+                    <div>구역별 출석체크 현황을 집계하는 중...</div>
+                </div>
+            `;
+
+            try {
+                const res = await fetch(`/api/admin/area-attendance-status?date=${currentSelectedDate}&type=${currentSessionType}`);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                const data = json.data;
+                document.getElementById('adminKpiTotalAreas').textContent = `${data.total_areas}구역`;
+                document.getElementById('adminKpiDoneAreas').textContent = `${data.completed_areas}구역`;
+                document.getElementById('adminKpiPendingAreas').textContent = `${data.pending_areas}구역`;
+                document.getElementById('adminKpiDoneRate').textContent = `${data.completion_rate}%`;
+
+                adminAreaStatusList = data.list || [];
+                renderAdminAreaGrid();
+            } catch (err) {
+                console.error("Error fetching admin area status:", err);
+                container.innerHTML = `<div style="color: var(--danger-color); padding: 2rem; text-align: center; grid-column: 1 / -1;">현황 조회 중 오류가 발생했습니다: ${err.message}</div>`;
+            }
+        }
+
+        // [Admin] Filter Area Cards
+        function filterAdminAreaList(filter) {
+            currentAdminFilter = filter;
+            document.getElementById('btnFilterAll').classList.toggle('active', filter === 'all');
+            document.getElementById('btnFilterPending').classList.toggle('active', filter === 'pending');
+            document.getElementById('btnFilterCompleted').classList.toggle('active', filter === 'completed');
+            renderAdminAreaGrid();
+        }
+
+        // [Admin] Render Area Cards Grid
+        function renderAdminAreaGrid() {
+            const container = document.getElementById('adminAreaGridContainer');
+            if (!container) return;
+
+            const filtered = adminAreaStatusList.filter(item => {
+                if (currentAdminFilter === 'pending') return !item.is_completed;
+                if (currentAdminFilter === 'completed') return item.is_completed;
+                return true;
+            });
+
+            document.getElementById('adminAreaListCount').textContent = `${filtered.length}개 구역`;
+            container.innerHTML = '';
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-secondary); grid-column: 1 / -1; background: #ffffff; border-radius: 12px; border: 1px dashed var(--border-color);">
+                        <i class="fa-solid fa-circle-check fa-2x" style="color: var(--success-color); margin-bottom: 0.5rem;"></i>
+                        <div>조건에 해당하는 구역이 없습니다.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(area => {
+                const card = document.createElement('div');
+                card.className = `area-status-card ${area.is_completed ? 'completed' : 'pending'}`;
+
+                const statusBadge = area.is_completed 
+                    ? `<span class="status-badge-done"><i class="fa-solid fa-check"></i> 체크완료</span>`
+                    : `<span class="status-badge-pending"><i class="fa-solid fa-clock"></i> 미체크 (독려 필요)</span>`;
+
+                const progressColor = area.is_completed ? '#16a34a' : '#ef4444';
+
+                // Leader phone links for urging attendance
+                let leaderHtml = '';
+                if (area.leaders && area.leaders.length > 0) {
+                    leaderHtml = area.leaders.map(l => {
+                        const cleanPhone = (l.phone || '').replace(/[^0-9]/g, '');
+                        const callBtn = cleanPhone 
+                            ? `<a href="tel:${cleanPhone}" class="btn-call-leader" title="전화걸기"><i class="fa-solid fa-phone"></i> 통화</a>
+                               <a href="sms:${cleanPhone}?body=${encodeURIComponent(`[FaithOn] ${area.area_code}구역 ${currentSelectedDate} 출석체크를 확인 및 완료해 주세요.`)}" class="btn-call-leader" style="background:#fef3c7; color:#b45309; border-color:#fde68a;" title="문자보내기"><i class="fa-solid fa-comment-sms"></i> 문자</a>`
+                            : '';
+                        return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #f1f5f9;">
+                                <div>
+                                    <span class="badge" style="font-size: 0.7rem; padding: 1px 5px; margin-right: 4px;">${l.position}</span>
+                                    <strong>${l.name}</strong>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    ${callBtn}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    leaderHtml = `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">구역장 미등록</div>`;
+                }
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">${area.area_code}구역</span>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);">총원 ${area.grand_total}명</span>
+                        </div>
+                        ${statusBadge}
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="area-progress-bar-bg">
+                        <div class="area-progress-bar-fill" style="width: ${area.rate}%; background: ${progressColor};"></div>
+                    </div>
+
+                    <!-- Details Stats -->
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.65rem;">
+                        <span style="color: var(--text-secondary);">
+                            성도 <strong>${area.attended_count}</strong> / ${area.total_members}명
+                            ${area.newcomer_members > 0 ? `· 새참자 <strong>${area.newcomer_attended_count}</strong> / ${area.newcomer_members}명` : ''}
+                        </span>
+                        <strong style="color: ${progressColor}; font-size: 0.9rem;">${area.rate}%</strong>
+                    </div>
+
+                    <!-- Leader Contacts Section -->
+                    <div style="background: #f8fafc; padding: 0.5rem 0.65rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 2px;">
+                            <i class="fa-solid fa-id-badge"></i> 구역 임원 연락처 (출석 독려):
+                        </div>
+                        ${leaderHtml}
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // [Admin] Switch between District Attendance Status & Church School Attendance
+        let currentAdminMainSubTab = 'district'; // 'district' | 'school'
+
+        function switchAdminMainSubTab(tab) {
+            currentAdminMainSubTab = tab;
+            document.getElementById('subTabDistrict').classList.toggle('active', tab === 'district');
+            document.getElementById('subTabSchool').classList.toggle('active', tab === 'school');
+
+            document.getElementById('adminDistrictPanel').style.display = tab === 'district' ? 'block' : 'none';
+            document.getElementById('adminSchoolPanel').style.display = tab === 'school' ? 'block' : 'none';
+
+            if (tab === 'school') {
+                fetchSchoolAttendance();
+            } else {
+                fetchAdminAreaStatus();
+            }
+        }
+
+        // [Admin - Church School] Fetch Attendance Counts
+        async function fetchSchoolAttendance() {
+            document.getElementById('schoolSelectedDateText').textContent = currentSelectedDate || '선택된 일자';
+            try {
+                const res = await fetch(`/api/admin/school-attendance?date=${encodeURIComponent(currentSelectedDate)}`);
+                const json = await res.json();
+                if (json.success && json.data) {
+                    json.data.forEach(item => {
+                        if (item.dept_code === 'elementary') {
+                            document.getElementById('inputElementaryCount').value = item.count || 0;
+                        } else if (item.dept_code === 'youth') {
+                            document.getElementById('inputYouthCount').value = item.count || 0;
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching school attendance:", err);
+            }
+        }
+
+        // [Admin - Church School] Step Count (+ / -) & Save
+        async function adjustSchoolCount(deptCode, delta) {
+            const inputId = deptCode === 'elementary' ? 'inputElementaryCount' : 'inputYouthCount';
+            const inputEl = document.getElementById(inputId);
+            let currentVal = parseInt(inputEl.value, 10) || 0;
+            currentVal = Math.max(0, currentVal + delta);
+            inputEl.value = currentVal;
+
+            await saveSchoolCount(deptCode, currentVal);
+        }
+
+        // [Admin - Church School] Direct Input Change & Save
+        async function onSchoolInputChange(deptCode, value) {
+            const safeVal = Math.max(0, parseInt(value, 10) || 0);
+            await saveSchoolCount(deptCode, safeVal);
+        }
+
+        // [Admin - Church School] Save Count to Server
+        async function saveSchoolCount(deptCode, count) {
+            const statusEl = document.getElementById(deptCode === 'elementary' ? 'saveStatusElementary' : 'saveStatusYouth');
+            try {
+                const res = await fetch('/api/admin/school-attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: currentSelectedDate,
+                        dept_code: deptCode,
+                        dept_name: deptCode === 'elementary' ? '유초등부' : '중고등부',
+                        count: count
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    if (statusEl) {
+                        statusEl.style.display = 'inline';
+                        setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+                    }
+                }
+            } catch (err) {
+                console.error("Error saving school count:", err);
+            }
+        }
+
+        // Load Areas for Admin
         async function loadAllAreas() {
             try {
                 const res = await fetch('/api/areas');
@@ -442,130 +1259,328 @@
                         const opt = document.createElement('option');
                         opt.value = area;
                         opt.textContent = `${area}구역`;
+                        if (area === currentAreaCode) opt.selected = true;
                         areaCodeEl.appendChild(opt);
                     });
+                    if (json.data.length > 0 && !currentAreaCode) {
+                        currentAreaCode = json.data[0];
+                    }
                 }
             } catch (err) {
                 console.error("Areas load error:", err);
             }
         }
 
+        // Fetch Data from Server
         async function fetchMembersAndAttendance() {
-            const areaCode = areaCodeEl.value;
-            const date = attendDateEl.value;
-            const type = sessionTypeEl.value;
+            if (!currentAreaCode || !currentSelectedDate) return;
 
-            if (!areaCode || !date) return;
-
-            memberListEl.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 성도 명단을 불러오는 중...</td></tr>';
+            membersContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x" style="color: var(--accent-color); margin-bottom: 0.75rem;"></i>
+                    <div>성도 명단을 불러오는 중...</div>
+                </div>
+            `;
 
             try {
-                // 1. Fetch Members in Area (includes newcomers)
-                const membersRes = await fetch(`/api/members?areaCode=${encodeURIComponent(areaCode)}`);
+                // 1. Fetch Members
+                const membersRes = await fetch(`/api/members?areaCode=${encodeURIComponent(currentAreaCode)}`);
                 const membersJson = await membersRes.json();
                 if (!membersJson.success) throw new Error(membersJson.error);
-                
-                // 2. Fetch Attendance for specific date and type
-                const attendRes = await fetch(`/api/attendance?areaCode=${encodeURIComponent(areaCode)}&date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`);
+
+                // 2. Fetch Attendance
+                const attendRes = await fetch(`/api/attendance?areaCode=${encodeURIComponent(currentAreaCode)}&date=${encodeURIComponent(currentSelectedDate)}&type=${encodeURIComponent(currentSessionType)}`);
                 const attendJson = await attendRes.json();
                 if (!attendJson.success) throw new Error(attendJson.error);
-                
+
                 const attendedCodes = attendJson.data || [];
-                
+
                 membersData = (membersJson.data || []).map(m => ({
                     ...m,
                     checked: attendedCodes.includes(m.CODE_NO)
                 }));
-                
-                renderMembers();
+
+                renderGroupedMembers();
             } catch (err) {
                 console.error("Data load error:", err);
-                memberListEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--danger-color); padding: 1.5rem;">데이터를 불러오는 중 오류가 발생했습니다. (${err.message})</td></tr>`;
+                membersContainer.innerHTML = `
+                    <div style="text-align: center; color: var(--danger-color); padding: 2rem 1rem;">
+                        <i class="fa-solid fa-triangle-exclamation fa-2x" style="margin-bottom: 0.5rem;"></i>
+                        <div>데이터를 불러오지 못했습니다.</div>
+                        <div style="font-size: 0.8rem; margin-top: 4px; color: var(--text-muted);">${err.message}</div>
+                    </div>
+                `;
             }
         }
 
-        function renderMembers() {
-            memberListEl.innerHTML = '';
-            
-            if (membersData.length === 0) {
-                memberListEl.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-secondary);">해당 구역에 등록된 성도가 없습니다.</td></tr>';
-                return;
-            }
-            
-            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+        // Categorize Members by Fellowship Group
+        function groupMembers(members) {
+            const groups = {
+                bong: [],
+                mother: [],
+                youth: [],
+                silver: [],
+                newcomer: [],
+                etc: []
+            };
 
-            membersData.forEach((member, index) => {
-                const tr = document.createElement('tr');
-                const pos = (member.POSITION || '').trim();
-                const isNewcomer = !!member.is_newcomer;
-                const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장') || pos.includes('조총무') || pos.includes('서기');
-                
-                let badgeHtml = '';
-                if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">새참자</span>`;
-                } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success" style="padding: 0.2rem 0.5rem;">${member.POSITION}</span>`;
-                } else if (pos.includes('목사') || pos.includes('전도사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.2rem 0.5rem;">${pos}</span>`;
-                } else if (pos.includes('집사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.2rem 0.5rem;">집사</span>`;
-                } else if (pos && pos !== '성도') {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.2rem 0.5rem;">${pos}</span>`;
-                } else {
-                    badgeHtml = ''; // '성도'는 뱃지 미표시
+            members.forEach(m => {
+                if (m.is_newcomer) {
+                    groups.newcomer.push(m);
+                    return;
                 }
 
-                const initial = (member.NAME || '성').charAt(0);
-                const avatarBg = isNewcomer ? 'background: rgba(6, 182, 212, 0.15); color: #0891b2;' : '';
-                
-                const disabledAttr = isAdmin ? 'disabled' : '';
-                const btnCursorStyle = isAdmin ? 'cursor: not-allowed; opacity: 0.85;' : '';
-                const btnTitle = isAdmin ? '관리자는 조회만 가능하며 출석 체크를 수정할 수 없습니다.' : '';
+                const dept = (m.FELLOW_DEPT || '').trim();
+                if (dept === '봉' || dept.includes('봉사')) {
+                    groups.bong.push(m);
+                } else if (dept === '어' || dept.includes('어머니')) {
+                    groups.mother.push(m);
+                } else if (dept === '청' || dept.includes('청년')) {
+                    groups.youth.push(m);
+                } else if (dept === '은' || dept.includes('은장')) {
+                    groups.silver.push(m);
+                } else {
+                    groups.etc.push(m);
+                }
+            });
 
-                tr.innerHTML = `
-                    <td style="color: var(--text-secondary); text-align: center; font-weight: 600;">${index + 1}</td>
-                    <td>
-                        <div class="user-info" style="gap: 0.75rem;">
-                            <div class="avatar" style="${avatarBg}">${initial}</div>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <span style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary);">
-                                    ${member.NAME}
-                                </span>
-                                ${badgeHtml}
-                                ${isNewcomer ? `<span style="font-size:0.8rem; color:var(--text-secondary); margin-left: 2px;">(인도: ${member.guide_name || '-'})</span>` : ''}
+            return groups;
+        }
+
+        // Render Grouped Members & Fellow Tabs
+        function renderGroupedMembers() {
+            const grouped = groupMembers(membersData);
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+
+            // 1. Build Fellow Tabs List
+            fellowTabsContainer.innerHTML = '';
+            let firstRenderedSectionKey = null;
+
+            FELLOW_GROUPS.forEach(g => {
+                const list = grouped[g.key] || [];
+                if (list.length === 0 && g.key === 'etc') return; // 기타가 비어있으면 숨김
+
+                if (!firstRenderedSectionKey) firstRenderedSectionKey = g.key;
+
+                const attendedCount = list.filter(m => m.checked).length;
+                const tabBtn = document.createElement('button');
+                tabBtn.type = 'button';
+                tabBtn.className = `fellow-tab-pill ${g.key === firstRenderedSectionKey ? 'active' : ''}`;
+                tabBtn.id = `tab-fellow-${g.key}`;
+                tabBtn.onclick = () => scrollToSection(g.key);
+                tabBtn.innerHTML = `
+                    <i class="fa-solid ${g.icon}" style="font-size: 0.75rem;"></i>
+                    <span>${g.label}</span>
+                    <span class="pill-badge" id="tab-count-${g.key}">${attendedCount}/${list.length}</span>
+                `;
+                fellowTabsContainer.appendChild(tabBtn);
+            });
+
+            // 2. Build Sections with Member Cards (No Avatar Circles!)
+            membersContainer.innerHTML = '';
+
+            if (membersData.length === 0) {
+                membersContainer.innerHTML = `
+                    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                        <i class="fa-solid fa-users fa-2x" style="color: var(--text-muted); margin-bottom: 0.5rem;"></i>
+                        <div>해당 구역에 등록된 성도가 없습니다.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let globalIndex = 1;
+
+            FELLOW_GROUPS.forEach(g => {
+                const list = grouped[g.key] || [];
+                if (list.length === 0) return;
+
+                const section = document.createElement('section');
+                section.className = 'fellow-section';
+                section.id = `section-fellow-${g.key}`;
+                section.setAttribute('data-fellow-key', g.key);
+
+                const attendedCount = list.filter(m => m.checked).length;
+
+                // Section Header
+                section.innerHTML = `
+                    <div class="fellow-section-header">
+                        <div class="fellow-section-title">
+                            <i class="fa-solid ${g.icon}" style="color: var(--accent-color);"></i>
+                            <span>${g.label}</span>
+                        </div>
+                        <div class="fellow-section-count" id="section-count-${g.key}">
+                            출석 <strong style="color: var(--accent-color);">${attendedCount}</strong> / ${list.length}명
+                        </div>
+                    </div>
+                    <div class="member-list-container" id="list-fellow-${g.key}">
+                    </div>
+                `;
+
+                const listContainer = section.querySelector(`#list-fellow-${g.key}`);
+
+                list.forEach((member) => {
+                    const pos = (member.POSITION || '').trim();
+                    const isNewcomer = !!member.is_newcomer;
+                    const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장') || pos.includes('조총무') || pos.includes('서기');
+
+                    let badgeHtml = '';
+                    if (isNewcomer) {
+                        badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.12); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">새참자</span>`;
+                    } else if (isLeader) {
+                        badgeHtml = `<span class="badge badge-success" style="padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    } else if (pos.includes('목사') || pos.includes('전도사')) {
+                        badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    } else if (pos.includes('집사')) {
+                        badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">집사</span>`;
+                    } else if (pos && pos !== '성도') {
+                        badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    }
+
+                    const disabledAttr = isAdmin ? 'disabled' : '';
+                    const btnCursorStyle = isAdmin ? 'cursor: not-allowed; opacity: 0.85;' : '';
+                    const btnTitle = isAdmin ? '관리자는 조회만 가능하며 출석 체크를 수정할 수 없습니다.' : '';
+
+                    const card = document.createElement('div');
+                    card.className = 'member-card';
+                    card.innerHTML = `
+                        <div class="member-info-col">
+                            <div class="member-seq">${globalIndex++}</div>
+                            <div class="member-details">
+                                <div class="member-name-row">
+                                    <span class="member-name">${member.NAME}</span>
+                                    ${badgeHtml}
+                                </div>
+                                ${isNewcomer && member.guide_name ? `<span class="member-subtext"><i class="fa-solid fa-person-chalkboard" style="font-size: 0.7rem;"></i> 인도: ${member.guide_name}</span>` : ''}
                             </div>
                         </div>
-                    </td>
-                    <td style="text-align: center;">
-                        <label class="attend-btn-container" style="${btnCursorStyle}" title="${btnTitle}">
-                            <input type="checkbox" ${member.checked ? 'checked' : ''} ${disabledAttr} onchange="toggleCheck('${member.CODE_NO}', this.checked)">
-                            <div class="attend-btn-pill">
-                                <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
-                                <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
-                            </div>
-                        </label>
-                    </td>
-                `;
-                memberListEl.appendChild(tr);
+                        <div class="attend-check-col">
+                            <label class="attend-btn-container" style="${btnCursorStyle}" title="${btnTitle}">
+                                <input type="checkbox" ${member.checked ? 'checked' : ''} ${disabledAttr} onchange="toggleCheck('${member.CODE_NO}', this.checked, '${g.key}')">
+                                <div class="attend-btn-pill">
+                                    <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
+                                    <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
+                                </div>
+                            </label>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+
+                membersContainer.appendChild(section);
             });
+
+            // 3. Setup IntersectionObserver for scroll spy
+            setupScrollSpy();
+        }
+
+        let isManualScrolling = false;
+        let manualScrollTimer = null;
+
+        // Scroll to Section on Tab Click
+        function scrollToSection(key) {
+            const target = document.getElementById(`section-fellow-${key}`);
+            if (!target) return;
+
+            isManualScrolling = true;
+            if (manualScrollTimer) clearTimeout(manualScrollTimer);
+
+            updateActiveTab(key);
+
+            // Calculate precise offset position accounting for sticky headers
+            const stickyNav = document.getElementById('fellowStickyNav');
+            const topBar = document.querySelector('.mobile-top-bar');
+            
+            let offset = 120;
+            if (stickyNav) {
+                const navHeight = stickyNav.offsetHeight || 48;
+                const topBarHeight = (topBar && window.getComputedStyle(topBar).display !== 'none') ? topBar.offsetHeight : 0;
+                offset = navHeight + topBarHeight + 16;
+            }
+
+            const elementPosition = target.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+            window.scrollTo({
+                top: Math.max(0, offsetPosition),
+                behavior: 'smooth'
+            });
+
+            // Unlock scroll observer after animation finishes
+            manualScrollTimer = setTimeout(() => {
+                isManualScrolling = false;
+            }, 800);
+        }
+
+        function updateActiveTab(activeKey) {
+            document.querySelectorAll('.fellow-tab-pill').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = document.getElementById(`tab-fellow-${activeKey}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                
+                // Keep the active tab visible within the horizontal scroll bar without triggering window scroll
+                const nav = document.getElementById('fellowStickyNav');
+                if (nav) {
+                    const navRect = nav.getBoundingClientRect();
+                    const btnRect = activeBtn.getBoundingClientRect();
+                    
+                    if (btnRect.left < navRect.left || btnRect.right > navRect.right) {
+                        nav.scrollTo({
+                            left: activeBtn.offsetLeft - (nav.clientWidth / 2) + (activeBtn.clientWidth / 2),
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }
+        }
+
+        // Scroll Spy setup
+        function setupScrollSpy() {
+            if (sectionObserver) {
+                sectionObserver.disconnect();
+            }
+
+            const sections = document.querySelectorAll('.fellow-section');
+            if (sections.length === 0) return;
+
+            const options = {
+                root: null,
+                rootMargin: '-100px 0px -60% 0px',
+                threshold: 0
+            };
+
+            sectionObserver = new IntersectionObserver((entries) => {
+                if (isManualScrolling) return; // Don't trigger while clicking tab
+                
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const key = entry.target.getAttribute('data-fellow-key');
+                        if (key) updateActiveTab(key);
+                    }
+                });
+            }, options);
+
+            sections.forEach(sec => sectionObserver.observe(sec));
         }
 
         // 실시간 출석 체크 즉시 저장
-        async function toggleCheck(codeNo, isChecked) {
+        async function toggleCheck(codeNo, isChecked, groupKey) {
             const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
             if (isAdmin) {
                 alert('관리자는 구역 출석을 조회만 할 수 있으며, 출석 체크 수정 권한이 없습니다.');
-                fetchMembersAndAttendance(); // Re-render to revert any accidental client toggle
+                fetchMembersAndAttendance();
                 return;
             }
 
             const member = membersData.find(m => m.CODE_NO === codeNo);
             if (member) member.checked = isChecked;
 
-            const date = attendDateEl.value;
-            const type = sessionTypeEl.value;
-            const indicator = document.getElementById('saveStatusIndicator');
+            // Update Counts in UI dynamically
+            updateSectionCounts(groupKey);
 
+            const indicator = document.getElementById('saveStatusIndicator');
             if (indicator) {
                 indicator.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-color);"></i> 저장 중...';
                 indicator.style.color = 'var(--text-primary)';
@@ -576,8 +1591,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        date,
-                        type,
+                        date: currentSelectedDate,
+                        type: currentSessionType,
                         member_code: codeNo,
                         is_attended: isChecked
                     })
@@ -595,6 +1610,23 @@
                     indicator.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: var(--danger-color);"></i> 저장 실패';
                     indicator.style.color = 'var(--danger-color)';
                 }
+            }
+        }
+
+        // Update group count labels
+        function updateSectionCounts(groupKey) {
+            const grouped = groupMembers(membersData);
+            const list = grouped[groupKey] || [];
+            const attendedCount = list.filter(m => m.checked).length;
+
+            const tabCountEl = document.getElementById(`tab-count-${groupKey}`);
+            if (tabCountEl) {
+                tabCountEl.textContent = `${attendedCount}/${list.length}`;
+            }
+
+            const secCountEl = document.getElementById(`section-count-${groupKey}`);
+            if (secCountEl) {
+                secCountEl.innerHTML = `출석 <strong style="color: var(--accent-color);">${attendedCount}</strong> / ${list.length}명`;
             }
         }
 
