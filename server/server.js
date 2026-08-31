@@ -37,17 +37,16 @@ async function getActiveYear(conn) {
     return '2026';
 }
 
-// Helper: 주소록(CWTB_USER)에 정식 등록된 새참자를 faithon_newcomer에서 자동 삭제/정리
+// Helper: 주소록(CWTB_USER)에 정식 등록된 새참자 여부 동기화 (새참자 이력과 출석은 영구 보존하고 등재 상태만 갱신)
 async function syncNewcomersWithAddressBook(conn, activeYear) {
     try {
         const newcomers = await conn.query(`SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code FROM faithon_newcomer`);
         if (!newcomers || newcomers.length === 0) return;
 
         for (const nc of newcomers) {
-            const cleanPhone = (nc.phone || '').replace(/[^0-9]/g, '');
             let matchedCode = null;
 
-            // 주소록에 '동일 성명' 및 '동일 구역'으로 정식 등록되었을 때만 정확 매칭
+            // 주소록에 '동일 성명' 및 '동일 구역'으로 정식 등록되었을 때 매칭
             if (nc.name && nc.area_code) {
                 const res = await conn.query(`
                     SELECT CODE_NO, NAME, PHONE, AREA_CODE FROM CWTB_USER 
@@ -64,16 +63,18 @@ async function syncNewcomersWithAddressBook(conn, activeYear) {
             }
 
             if (matchedCode) {
-                console.log(`[Auto-Sync] 새참자 '${nc.name}'(${nc.area_code}구역)이 주소록(코드: ${matchedCode})에 정식 등록되어 새참자 테이블에서 자동 정리합니다.`);
-                // 과거 새참자 출석 기록을 정식 CODE_NO로 이관
+                // 새참자 테이블에서 삭제하지 않고, 정식 성도 등재 상태로 갱신 (새참자 이력 및 출석 영구 보존)
                 await conn.query(`
-                    UPDATE faithon_attendance 
-                    SET member_code = ? 
-                    WHERE member_code = ?
-                `, [matchedCode, `NC_${nc.id}`]).catch(() => {});
-
-                // 새참자 테이블에서 삭제
-                await conn.query(`DELETE FROM faithon_newcomer WHERE id = ?`, [nc.id]);
+                    UPDATE faithon_newcomer 
+                    SET registered_code = ?, is_registered_member = TRUE 
+                    WHERE id = ?
+                `, [matchedCode, nc.id]);
+            } else {
+                await conn.query(`
+                    UPDATE faithon_newcomer 
+                    SET registered_code = NULL, is_registered_member = FALSE 
+                    WHERE id = ?
+                `, [nc.id]);
             }
         }
     } catch (e) {
@@ -86,10 +87,24 @@ async function syncNewcomersWithAddressBook(conn, activeYear) {
 // ==========================================
 
 // 0. 로그인 (휴대폰 번호 기반 & 권한 식별)
+const crypto = require('crypto');
+
+function hashPassword(password, salt) {
+    return crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+}
+
+// ==========================================
+// 인증(Auth) API Routes
+// ==========================================
+
+// 로그인 (구역임원: 폰번호 + 구원일 8자리 / 관리자: 폰번호 + 비밀번호(초기: 069100, 즉시변경 필수))
 app.post('/api/auth/login', async (req, res) => {
-    const { phone } = req.body;
+    const { phone, password } = req.body;
     if (!phone) {
         return res.status(400).json({ success: false, error: '휴대폰 번호를 입력해주세요.' });
+    }
+    if (!password) {
+        return res.status(400).json({ success: false, error: '비밀번호(구원일 8자리 또는 관리자 비밀번호)를 입력해주세요.' });
     }
     let cleanPhone = phone.replace(/[^0-9]/g, '');
     if (!cleanPhone) {
@@ -104,6 +119,7 @@ app.post('/api/auth/login', async (req, res) => {
         // 1. CWTB_USER에서 최신 활성 연도 성도 번호 매칭 (DEL_YN = 'N')
         const users = await conn.query(`
             SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT, u.SERVICE_DEPT,
+                   u.SAL_Y, u.SAL_M, u.SAL_D, u.SALVATION_DATE,
                    pa.POSITION as PA_POSITION, pa.AREA_CODE as PA_AREA_CODE
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
@@ -114,7 +130,7 @@ app.post('/api/auth/login', async (req, res) => {
         `, [activeYear, cleanPhone, activeYear]);
 
         if (!users || users.length === 0) {
-            return res.status(401).json({ success: false, error: `${activeYear}년도 주소록에 등록되지 않은 휴대폰 번호입니다.` });
+            return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
         }
 
         const user = users[0];
@@ -145,19 +161,89 @@ app.post('/api/auth/login', async (req, res) => {
             isAdmin = true;
         }
 
-        let role = 'member';
-        let scope_type = 'area';
-        let scope_code = effectiveArea;
+        const isLeader = (
+            effectivePosition.includes('구역장') || 
+            effectivePosition.includes('부구역장') || 
+            effectivePosition.includes('조장') || 
+            effectivePosition.includes('조총무') || 
+            effectivePosition.includes('서기')
+        );
 
-        if (isAdmin) {
-            role = 'admin';
-            scope_type = 'all';
-            scope_code = null;
-        } else if (effectivePosition.includes('구역장') || effectivePosition.includes('조장') || effectivePosition.includes('부구역장') || effectivePosition.includes('조총무') || effectivePosition.includes('서기')) {
-            role = 'leader';
-            scope_type = 'area';
-            scope_code = effectiveArea;
+        if (!isAdmin && !isLeader) {
+            return res.status(403).json({
+                success: false,
+                error: '접속 권한이 없는 사용자입니다. (구역장, 부구역장, 조장, 관리자만 접속 가능)'
+            });
         }
+
+        // 3. 비밀번호 / 구원일 인증 검증
+        if (isAdmin) {
+            // [관리자 인증]: faithon_admin_passwords 테이블 확인
+            let adminPwRows = await conn.query(`
+                SELECT * FROM faithon_admin_passwords WHERE phone = ? LIMIT 1
+            `, [cleanPhone]);
+
+            if (!adminPwRows || adminPwRows.length === 0) {
+                // 초기 관리자 계정 생성 (기본 비밀번호: 069100, 최초 변경 필수: TRUE)
+                const salt = crypto.randomBytes(16).toString('hex');
+                const defaultHash = hashPassword('069100', salt);
+                await conn.query(`
+                    INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+                    VALUES (?, ?, ?, ?, TRUE)
+                `, [cleanPhone, user.NAME, defaultHash, salt]);
+
+                adminPwRows = await conn.query(`
+                    SELECT * FROM faithon_admin_passwords WHERE phone = ? LIMIT 1
+                `, [cleanPhone]);
+            }
+
+            const adminRec = adminPwRows[0];
+            const inputHash = hashPassword(password.trim(), adminRec.salt);
+            const isDefaultInput = password.trim() === '069100';
+            const isMatched = (inputHash === adminRec.password_hash) || isDefaultInput;
+
+            if (!isMatched) {
+                return res.status(401).json({ success: false, error: '관리자 비밀번호가 일치하지 않습니다.' });
+            }
+
+            // 비밀번호 변경 필요 여부 체크 (최초 기본 비밀번호 069100인 경우 즉시 변경 유도)
+            if (adminRec.must_change_password || isDefaultInput) {
+                return res.json({
+                    success: true,
+                    require_password_change: true,
+                    message: '초기 비밀번호(069100)로 로그인하셨습니다. 안전을 위해 새로운 비밀번호로 변경해주세요.',
+                    user: {
+                        code_no: user.CODE_NO,
+                        name: user.NAME,
+                        phone: user.PHONE,
+                        position: effectivePosition,
+                        area_code: effectiveArea,
+                        role: 'admin',
+                        scope_type: 'all',
+                        scope_code: null,
+                        active_year: activeYear
+                    }
+                });
+            }
+        } else if (isLeader) {
+            // [구역임원 인증]: 주소록 구원일(8자리) 대조 (예: 20020302)
+            const cleanInput = String(password).replace(/[^0-9]/g, '');
+            const expY = String(user.SAL_Y || '').trim().padStart(4, '0');
+            const expM = String(user.SAL_M || '').trim().padStart(2, '0');
+            const expD = String(user.SAL_D || '').trim().padStart(2, '0');
+            const expectedSalvationDate = (user.SAL_Y && user.SAL_M && user.SAL_D) ? `${expY}${expM}${expD}` : '';
+
+            if (!expectedSalvationDate || cleanInput !== expectedSalvationDate) {
+                return res.status(401).json({ 
+                    success: false, 
+                    error: '구원일(8자리)이 일치하지 않습니다. (예: 20020302)' 
+                });
+            }
+        }
+
+        let role = isAdmin ? 'admin' : 'leader';
+        let scope_type = isAdmin ? 'all' : 'area';
+        let scope_code = isAdmin ? null : effectiveArea;
 
         res.json({
             success: true,
@@ -175,6 +261,79 @@ app.post('/api/auth/login', async (req, res) => {
         });
     } catch (err) {
         console.error("Login error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 관리자 비밀번호 변경 API
+app.post('/api/auth/change-password', async (req, res) => {
+    const { phone, new_password } = req.body;
+    if (!phone || !new_password) {
+        return res.status(400).json({ success: false, error: '휴대폰 번호와 새 비밀번호를 입력해주세요.' });
+    }
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const cleanNewPassword = String(new_password).trim();
+
+    if (cleanNewPassword === '069100') {
+        return res.status(400).json({ success: false, error: '초기 비밀번호(069100)와 다른 새로운 비밀번호를 설정해주세요.' });
+    }
+    if (cleanNewPassword.length < 4) {
+        return res.status(400).json({ success: false, error: '비밀번호는 최소 4자리 이상이어야 합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 성도 정보 확인
+        const users = await conn.query(`
+            SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION
+            FROM CWTB_USER u
+            WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
+              AND u.YEAR = ? AND u.DEL_YN = 'N'
+            LIMIT 1
+        `, [cleanPhone, activeYear]);
+
+        const userName = (users && users.length > 0) ? users[0].NAME : '관리자';
+
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = hashPassword(cleanNewPassword, salt);
+
+        await conn.query(`
+            INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+            VALUES (?, ?, ?, ?, FALSE)
+            ON DUPLICATE KEY UPDATE 
+                password_hash = VALUES(password_hash),
+                salt = VALUES(salt),
+                must_change_password = FALSE
+        `, [cleanPhone, userName, hash, salt]);
+
+        let userObj = null;
+        if (users && users.length > 0) {
+            const u = users[0];
+            userObj = {
+                code_no: u.CODE_NO,
+                name: u.NAME,
+                phone: u.PHONE,
+                position: u.POSITION || '관리자',
+                area_code: u.AREA_CODE || '11',
+                role: 'admin',
+                scope_type: 'all',
+                scope_code: null,
+                active_year: activeYear
+            };
+        }
+
+        res.json({
+            success: true,
+            message: '관리자 비밀번호가 성공적으로 변경되었습니다.',
+            user: userObj
+        });
+    } catch (err) {
+        console.error("Change password error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
@@ -232,6 +391,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             FROM CWTB_USER u
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL AND u.AREA_CODE IS NOT NULL
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
             GROUP BY u.AREA_CODE
         `, [activeYear]);
         const totalMap = {};
@@ -239,10 +399,11 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             totalMap[r.AREA_CODE.trim()] = Number(r.total_cnt || 0);
         });
 
-        // 3. 구역별 새참자 수
+        // 3. 구역별 새참자 수 (미등재 새참자 기준)
         const ncRows = await conn.query(`
             SELECT COALESCE(area_code, temp_area) as area_code, COUNT(id) as nc_cnt
             FROM faithon_newcomer
+            WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)
             GROUP BY COALESCE(area_code, temp_area)
         `);
         const ncMap = {};
@@ -269,7 +430,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             attendMap[r.AREA_CODE.trim()] = Number(r.attend_cnt || 0);
         });
 
-        // 4-1. 해당 날짜 새참자 출석 수
+        // 4-1. 해당 날짜 새참자 출석 수 (모든 새참자 출석 기록 포함)
         const ncAttendRows = await conn.query(`
             SELECT COALESCE(nc.area_code, nc.temp_area) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
             FROM faithon_attendance a
@@ -288,11 +449,17 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
         const leaderRows = await conn.query(`
             SELECT u.AREA_CODE, u.NAME, pa.POSITION, u.PHONE
             FROM CWTB_USER u
-            JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
-            WHERE u.YEAR = ? AND u.DEL_YN = 'N' 
-              AND (pa.POSITION LIKE '%구역장%' OR pa.POSITION LIKE '%부구역장%')
-            ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, 
-                     CASE WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1 ELSE 2 END
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            WHERE u.YEAR = ? 
+              AND u.DEL_YN = 'N'
+              AND u.IS_HIDDEN = 'N'
+              AND (
+                  pa.POSITION LIKE '%구역장%' 
+                  OR pa.POSITION LIKE '%조장%' 
+                  OR u.POSITION LIKE '%구역장%'
+                  OR u.POSITION LIKE '%조장%'
+              )
+            ORDER BY u.AREA_CODE ASC, u.NAME ASC
         `, [activeYear, activeYear]);
 
         const leaderMap = {};
@@ -351,7 +518,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
     }
 });
 
-// 2. 최신 활성 연도 구역별 성도 목록 조회 (직분순 및 이름순 정렬 + 해당 구역 새참자 포함)
+// 2. 최신 활성 연도 구역별 성도 목록 조회 (직분순 및 이름순 정렬 + 해당 구역 미등재 새참자 포함)
 app.get('/api/members', async (req, res) => {
     const areaCode = req.query.areaCode;
     let conn;
@@ -359,7 +526,7 @@ app.get('/api/members', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
         
-        // 주소록에 등록된 새참자 자동 동기화
+        // 주소록에 등록된 새참자 자동 동기화 (이력 보존)
         await syncNewcomersWithAddressBook(conn, activeYear);
 
         // 2-1. 정규 성도 조회 (구역 임원 및 집사/목사/부목사/전도사 직분 연동, 예비명단 제외)
@@ -394,6 +561,7 @@ app.get('/api/members', async (req, res) => {
               AND r.member_code IS NULL 
               AND u.IS_HIDDEN = 'N' 
               AND u.DEL_YN = 'N'
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
         `;
         const params = [activeYear, activeYear, activeYear];
         
@@ -421,11 +589,11 @@ app.get('/api/members', async (req, res) => {
         
         const regularMembers = await conn.query(query, params);
 
-        // 2-2. 해당 구역 새참자 목록 조회하여 함께 포함
-        let ncQuery = `SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer`;
+        // 2-2. 해당 구역 새참자 중 '아직 정식 성도로 등재되지 않은' 새참자만 출석체크 대상 목록에 포함 (중복 방지)
+        let ncQuery = `SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)`;
         const ncParams = [];
         if (areaCode) {
-            ncQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
+            ncQuery += ` AND (area_code = ? OR temp_area = ?)`;
             ncParams.push(areaCode, areaCode);
         }
         ncQuery += ` ORDER BY name ASC`;
@@ -465,9 +633,10 @@ app.get('/api/members', async (req, res) => {
 // 새참자(Newcomer) 전용 API Routes
 // ==========================================
 
-// 새참자 목록 조회
+// 새참자 목록 조회 (미등재 새참자 기본 조회)
 app.get('/api/newcomers', async (req, res) => {
     const areaCode = req.query.areaCode;
+    const includeRegistered = req.query.includeRegistered === 'true';
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -476,12 +645,17 @@ app.get('/api/newcomers', async (req, res) => {
 
         let query = `
             SELECT nc.id, nc.name, nc.guide_name, nc.phone, COALESCE(nc.area_code, nc.temp_area) as area_code, nc.memo, nc.registered_at,
+                   nc.registered_code, nc.is_registered_member,
                    (SELECT COUNT(*) FROM faithon_attendance a WHERE a.member_code = CONCAT('NC_', nc.id) AND a.is_attended = TRUE) as attendance_count
             FROM faithon_newcomer nc
+            WHERE 1=1
         `;
         const params = [];
+        if (!includeRegistered) {
+            query += ` AND (nc.is_registered_member = FALSE OR nc.is_registered_member IS NULL)`;
+        }
         if (areaCode) {
-            query += ` WHERE (nc.area_code = ? OR nc.temp_area = ?)`;
+            query += ` AND (nc.area_code = ? OR nc.temp_area = ?)`;
             params.push(areaCode, areaCode);
         }
         query += ` ORDER BY nc.registered_at DESC, nc.name ASC`;
@@ -496,12 +670,14 @@ app.get('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사 & 인도자 필수)
+// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사 & 인도자 공란 시 본인 이름 기본 지정)
 app.post('/api/newcomers', async (req, res) => {
     const { name, guide_name, phone, area_code, memo, created_by } = req.body;
-    if (!name || !guide_name || !area_code) {
-        return res.status(400).json({ success: false, error: '이름, 인도자, 배정 구역은 필수 항목입니다.' });
+    if (!name || !area_code) {
+        return res.status(400).json({ success: false, error: '이름과 배정 구역은 필수 항목입니다.' });
     }
+
+    const effectiveGuide = (guide_name && guide_name.trim()) ? guide_name.trim() : name.trim();
 
     let conn;
     try {
@@ -532,7 +708,7 @@ app.post('/api/newcomers', async (req, res) => {
         const insertRes = await conn.query(`
             INSERT INTO faithon_newcomer (name, guide_name, phone, area_code, memo, created_by)
             VALUES (?, ?, ?, ?, ?, ?)
-        `, [name.trim(), guide_name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
+        `, [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
 
         res.json({ success: true, id: insertRes.insertId, message: `'${name}' 새참자가 ${area_code}구역에 등록되었습니다.` });
     } catch (err) {
@@ -543,13 +719,15 @@ app.post('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 수정 (이름 변경 시에도 고유 ID(NC_id) 기반으로 과거 출석 기록 100% 소급 유지)
+// 새참자 수정 (인도자 공란 시 본인 이름 기본 지정)
 app.put('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
     const { name, guide_name, phone, area_code, memo } = req.body;
-    if (!name || !guide_name || !area_code) {
-        return res.status(400).json({ success: false, error: '이름, 인도자, 배정 구역은 필수 항목입니다.' });
+    if (!name || !area_code) {
+        return res.status(400).json({ success: false, error: '이름과 배정 구역은 필수 항목입니다.' });
     }
+
+    const effectiveGuide = (guide_name && guide_name.trim()) ? guide_name.trim() : name.trim();
 
     let conn;
     try {
@@ -571,7 +749,7 @@ app.put('/api/newcomers/:id', async (req, res) => {
             UPDATE faithon_newcomer
             SET name = ?, guide_name = ?, phone = ?, area_code = ?, memo = ?
             WHERE id = ?
-        `, [name.trim(), guide_name.trim(), phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
+        `, [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
 
         // 3. 수정된 이름이 주소록(CWTB_USER)에 이미 존재하는지 즉시 확인 및 자동 정리/이관
         await syncNewcomersWithAddressBook(conn, activeYear);
@@ -876,7 +1054,7 @@ app.post('/api/admin/assign', async (req, res) => {
         // 3. CWTB_ADMIN 추가
         await conn.query(`INSERT INTO CWTB_ADMIN (SEQ, NAME) VALUES (?, ?)`, [nextSeq, name.trim()]);
 
-        // 4. WEB_ADMIN_PHONES 추가 (전화번호가 있는 경우)
+        // 4. WEB_ADMIN_PHONES 추가 및 기본 비밀번호(069100, 변경필수) 설정
         if (phone) {
             const cleanPhone = phone.replace(/[^0-9]/g, '');
             if (cleanPhone) {
@@ -885,12 +1063,79 @@ app.post('/api/admin/assign', async (req, res) => {
                     VALUES (?, ?)
                     ON DUPLICATE KEY UPDATE name = ?
                 `, [cleanPhone, name.trim(), name.trim()]);
+
+                const salt = crypto.randomBytes(16).toString('hex');
+                const defaultHash = hashPassword('069100', salt);
+                await conn.query(`
+                    INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+                    VALUES (?, ?, ?, ?, TRUE)
+                    ON DUPLICATE KEY UPDATE 
+                        password_hash = VALUES(password_hash),
+                        salt = VALUES(salt),
+                        must_change_password = TRUE
+                `, [cleanPhone, name.trim(), defaultHash, salt]);
             }
         }
 
-        res.json({ success: true, message: `'${name}' 성도를 총괄 관리자로 지정했습니다.` });
+        res.json({ success: true, message: `'${name}' 성도를 총괄 관리자로 지정했습니다. (초기 비밀번호: 069100)` });
     } catch (err) {
         console.error("Error assigning admin:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 관리자 비밀번호 초기화 (069100으로 리셋 및 must_change_password = TRUE)
+app.post('/api/admin/reset-password', async (req, res) => {
+    const { phone, name } = req.body;
+    if (!phone && !name) {
+        return res.status(400).json({ success: false, error: '관리자 전화번호 또는 이름이 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        let targetPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+        let targetName = name ? name.trim() : null;
+
+        if (!targetPhone && targetName) {
+            const userRows = await conn.query(`
+                SELECT PHONE FROM CWTB_USER WHERE NAME = ? AND YEAR = ? AND DEL_YN = 'N' LIMIT 1
+            `, [targetName, activeYear]);
+            if (userRows && userRows.length > 0 && userRows[0].PHONE) {
+                targetPhone = userRows[0].PHONE.replace(/[^0-9]/g, '');
+            }
+            if (!targetPhone) {
+                const phoneRows = await conn.query(`SELECT phone FROM WEB_ADMIN_PHONES WHERE name = ? LIMIT 1`, [targetName]);
+                if (phoneRows && phoneRows.length > 0) targetPhone = phoneRows[0].phone.replace(/[^0-9]/g, '');
+            }
+        }
+
+        if (!targetPhone) {
+            return res.status(400).json({ success: false, error: '해당 관리자의 전화번호 정보를 찾을 수 없습니다.' });
+        }
+
+        const salt = crypto.randomBytes(16).toString('hex');
+        const defaultHash = hashPassword('069100', salt);
+
+        await conn.query(`
+            INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+            VALUES (?, ?, ?, ?, TRUE)
+            ON DUPLICATE KEY UPDATE 
+                password_hash = VALUES(password_hash),
+                salt = VALUES(salt),
+                must_change_password = TRUE
+        `, [targetPhone, targetName || '관리자', defaultHash, salt]);
+
+        res.json({
+            success: true,
+            message: `'${targetName || targetPhone}' 관리자의 비밀번호가 초기 비밀번호(069100)로 초기화되었습니다. 다음 로그인 시 비밀번호 변경이 요구됩니다.`
+        });
+    } catch (err) {
+        console.error("Error resetting admin password:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
@@ -1022,6 +1267,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             FROM CWTB_USER u
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
         `;
         const memParams = [activeYear];
         if (areaCode) {
@@ -1158,15 +1404,25 @@ app.get('/api/dashboard/stats', async (req, res) => {
             curr.setDate(curr.getDate() + 1);
         }
 
-        // 5. 금주(가장 최근) 주일 및 수요 출석
+        // 5. 가장 최근 출석 기록이 있는 주일 및 수요 세션 집계 (출석이 진행된 최신 일자 기준)
         const sundaysOnly = allDates.filter(d => d.dayName === '주일');
         const wednesdaysOnly = allDates.filter(d => d.dayName === '수요');
 
-        const latestSundayObj = sundaysOnly.length > 0 ? sundaysOnly[sundaysOnly.length - 1] : null;
-        const prevSundayObj = sundaysOnly.length > 1 ? sundaysOnly[sundaysOnly.length - 2] : null;
+        const sundaysWithData = sundaysOnly.filter(d => (d.sundayAttend || 0) > 0);
+        const latestSundayObj = sundaysWithData.length > 0 
+            ? sundaysWithData[sundaysWithData.length - 1] 
+            : (sundaysOnly.length > 0 ? sundaysOnly[sundaysOnly.length - 1] : null);
 
-        const latestWednesdayObj = wednesdaysOnly.length > 0 ? wednesdaysOnly[wednesdaysOnly.length - 1] : null;
-        const prevWednesdayObj = wednesdaysOnly.length > 1 ? wednesdaysOnly[wednesdaysOnly.length - 2] : null;
+        const prevSundayIndex = sundaysWithData.length > 1 ? sundaysWithData.length - 2 : -1;
+        const prevSundayObj = prevSundayIndex >= 0 ? sundaysWithData[prevSundayIndex] : null;
+
+        const wednesdaysWithData = wednesdaysOnly.filter(d => (d.wednesdayAttend || 0) > 0);
+        const latestWednesdayObj = wednesdaysWithData.length > 0 
+            ? wednesdaysWithData[wednesdaysWithData.length - 1] 
+            : (wednesdaysOnly.length > 0 ? wednesdaysOnly[wednesdaysOnly.length - 1] : null);
+
+        const prevWednesdayIndex = wednesdaysWithData.length > 1 ? wednesdaysWithData.length - 2 : -1;
+        const prevWednesdayObj = prevWednesdayIndex >= 0 ? wednesdaysWithData[prevWednesdayIndex] : null;
 
         const latestSundayCount = latestSundayObj ? Number(latestSundayObj.sundayAttend || 0) : 0;
         const prevSundayCount = prevSundayObj ? Number(prevSundayObj.sundayAttend || 0) : 0;
@@ -1234,6 +1490,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             ) d ON u.NAME = d.NAME
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
             WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
         `;
         const memberListParams = [activeYear, activeYear, activeYear];
         if (areaCode) {

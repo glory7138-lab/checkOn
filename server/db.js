@@ -67,8 +67,9 @@ async function initializeTables() {
                 area_code VARCHAR(100) NOT NULL,
                 memo VARCHAR(255),
                 created_by VARCHAR(100),
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_newcomer (name, area_code)
+                registered_code VARCHAR(255) NULL,
+                is_registered_member BOOLEAN DEFAULT FALSE,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 
@@ -86,7 +87,13 @@ async function initializeTables() {
             await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN created_by VARCHAR(100) NULL AFTER memo`);
         } catch (e) {}
         try {
-            await conn.query(`ALTER TABLE faithon_newcomer ADD UNIQUE KEY unique_newcomer (name, area_code)`);
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN registered_code VARCHAR(255) NULL AFTER created_by`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN is_registered_member BOOLEAN DEFAULT FALSE AFTER registered_code`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer DROP INDEX unique_newcomer`);
         } catch (e) {}
 
         // 4. 교회학교 출석(인원수) 테이블 (유초등부, 중고등부 등)
@@ -99,6 +106,18 @@ async function initializeTables() {
                 attend_count INT DEFAULT 0,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_school_att (dept_code, service_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 5. 관리자 비밀번호 및 최초 변경 여부 관리 테이블
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_admin_passwords (
+                phone VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                salt VARCHAR(100) NOT NULL,
+                must_change_password BOOLEAN DEFAULT TRUE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 

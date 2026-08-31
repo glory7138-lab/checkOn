@@ -317,7 +317,8 @@
                 <i class="fa-solid fa-circle-info" style="color: var(--accent-color); font-size: 1.1rem;"></i>
                 <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
                     <strong>안내:</strong> 등록된 새참자는 [출석체크] 화면에서 함께 출석을 체크할 수 있습니다. 
-                    향후 주소록 관리자가 본인 구역에 정식 등록을 완료하면 새참자 명단에서 <strong>자동으로 정리(삭제)</strong>됩니다.
+                    새로 오신 분의 이름과 인도자를 등록하면 출석체크 대상에 즉시 포함됩니다.<br>
+                    향후 주소록에 정식 등록되면 새참자 메뉴에서 자동 정리되며, 과거 새참자 출석 기록은 <strong>관리자 대시보드</strong>에 영구 보존됩니다.
                 </div>
             </div>
 
@@ -509,6 +510,10 @@
                 modalArea.disabled = true;
             }
 
+            const statusFilter = document.getElementById('statusFilter');
+            if (statusFilter) {
+                statusFilter.addEventListener('change', renderNewcomers);
+            }
             areaFilter.addEventListener('change', fetchNewcomers);
             searchInput.addEventListener('input', renderNewcomers);
 
@@ -562,30 +567,44 @@
 
         function renderNewcomers() {
             const query = searchInput.value.trim().toLowerCase();
-            const filtered = newcomersList.filter(nc => 
-                (nc.name && nc.name.toLowerCase().includes(query)) ||
-                (nc.guide_name && nc.guide_name.toLowerCase().includes(query)) ||
-                (nc.phone && nc.phone.includes(query)) ||
-                (nc.memo && nc.memo.toLowerCase().includes(query))
-            );
+            const statusVal = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'all';
+
+            const filtered = newcomersList.filter(nc => {
+                const isReg = !!(nc.is_registered_member || nc.registered_code);
+                if (statusVal === 'active' && isReg) return false;
+                if (statusVal === 'registered' && !isReg) return false;
+
+                const matchQuery = !query || (
+                    (nc.name && nc.name.toLowerCase().includes(query)) ||
+                    (nc.guide_name && nc.guide_name.toLowerCase().includes(query)) ||
+                    (nc.phone && nc.phone.includes(query)) ||
+                    (nc.memo && nc.memo.toLowerCase().includes(query))
+                );
+                return matchQuery;
+            });
 
             newcomerList.innerHTML = '';
             if (filtered.length === 0) {
-                newcomerList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 3rem; color:var(--text-secondary);">등록된 새참자가 없습니다.</td></tr>';
+                newcomerList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 3rem; color:var(--text-secondary);">해당 조건의 새참자가 없습니다.</td></tr>';
                 return;
             }
 
             filtered.forEach((nc, idx) => {
                 const tr = document.createElement('tr');
                 const regDate = nc.registered_at ? nc.registered_at.split('T')[0] : '';
+                const isReg = !!(nc.is_registered_member || nc.registered_code);
+
+                const badgeHtml = isReg
+                    ? `<span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.72rem; padding: 0.12rem 0.45rem; font-weight: 700;" title="주소록 정식 성도 등재 완료"><i class="fa-solid fa-check-circle" style="font-size:0.65rem;"></i> 성도등재</span>`
+                    : `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.72rem; padding: 0.12rem 0.4rem; font-weight: 700;">새참자</span>`;
 
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600; width: 42px;">${idx + 1}</td>
                     <td class="nc-main-cell">
-                        <!-- 1번째 줄: 이름 + 새참자 뱃지 + 전화번호 -->
+                        <!-- 1번째 줄: 이름 + 새참자/성도등재 뱃지 + 전화번호 -->
                         <div class="nc-row-line1">
                             <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">${nc.name}</span>
-                            <span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.72rem; padding: 0.12rem 0.4rem; font-weight: 700;">새참자</span>
+                            ${badgeHtml}
                             ${nc.phone ? `<span style="font-size: 0.78rem; color: var(--text-secondary); margin-left: 2px;"><i class="fa-solid fa-phone" style="font-size: 0.7rem; color: var(--accent-color);"></i> ${nc.phone}</span>` : ''}
                         </div>
                         <!-- 2번째 줄(모바일용 1회 개행): 인도자 + 구역 + 누적출석 -->
@@ -680,8 +699,8 @@
             const errorDiv = document.getElementById('modalError');
             const submitBtn = document.getElementById('saveSubmitBtn');
 
-            if (!name || !guide_name || !area_code) {
-                errorDiv.textContent = '이름, 인도자, 배정 구역은 필수 항목입니다.';
+            if (!name || !area_code) {
+                errorDiv.textContent = '이름과 배정 구역은 필수 항목입니다.';
                 errorDiv.style.display = 'block';
                 return;
             }
@@ -691,7 +710,7 @@
 
             const payload = {
                 name,
-                guide_name,
+                guide_name: guide_name || name,
                 phone,
                 area_code,
                 memo,

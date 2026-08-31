@@ -134,6 +134,28 @@
             box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
         }
 
+        .btn-reset-pw {
+            background: rgba(234, 179, 8, 0.1);
+            color: #b45309;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .btn-reset-pw:hover {
+            background: #eab308;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+        }
+
         @media (max-width: 900px) {
             .transfer-grid {
                 grid-template-columns: 1fr;
@@ -476,7 +498,10 @@
                             </div>
                         </div>
                     </div>
-                    <div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button class="btn-reset-pw" onclick="resetAdminPassword('${admin.name}', '${admin.phone || ''}')" title="비밀번호 069100으로 초기화">
+                            <i class="fa-solid fa-key"></i> 비번 초기화
+                        </button>
                         <button class="btn-revoke" onclick="revokeAdmin('${admin.name}')" title="관리자 권한 해제">
                             <i class="fa-solid fa-user-minus"></i> 해제
                         </button>
@@ -567,6 +592,26 @@
                 await loadCandidates();
             } catch (err) {
                 alert(`관리자 지정 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        async function resetAdminPassword(name, phone) {
+            if (!confirm(`'${name}' 관리자의 비밀번호를 초기 비밀번호(069100)로 초기화하시겠습니까?\n\n* 초기화 시 해당 관리자가 다음 로그인할 때 비밀번호 변경 화면이 다시 나타납니다.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                alert(json.message || `'${name}' 관리자 비밀번호가 069100으로 초기화되었습니다.`);
+            } catch (err) {
+                alert(`비밀번호 초기화 중 오류가 발생했습니다: ${err.message}`);
             }
         }
 

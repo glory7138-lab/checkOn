@@ -1006,14 +1006,13 @@
         let membersData = [];
         let sectionObserver = null;
 
-        // Group Definitions & Order
+        // Group Definitions & Order (오직 4대 자치회 및 새참자만 표시)
         const FELLOW_GROUPS = [
             { key: 'bong', label: '봉사회', code: '봉', icon: 'fa-user-tie' },
             { key: 'mother', label: '어머니회', code: '어', icon: 'fa-person-dress' },
             { key: 'youth', label: '청년회', code: '청', icon: 'fa-user-graduate' },
             { key: 'silver', label: '은장회', code: '은', icon: 'fa-person-cane' },
-            { key: 'newcomer', label: '새참자', code: 'NC', icon: 'fa-seedling' },
-            { key: 'etc', label: '기타/학생', code: 'ETC', icon: 'fa-user-group' }
+            { key: 'newcomer', label: '새참자', code: 'NC', icon: 'fa-seedling' }
         ];
 
         // DOM Elements
@@ -1519,15 +1518,14 @@
             }
         }
 
-        // Categorize Members by Fellowship Group
+        // Categorize Members by Fellowship Group (오직 4대 자치회 및 새참자만 분류)
         function groupMembers(members) {
             const groups = {
                 bong: [],
                 mother: [],
                 youth: [],
                 silver: [],
-                newcomer: [],
-                etc: []
+                newcomer: []
             };
 
             members.forEach(m => {
@@ -1545,9 +1543,8 @@
                     groups.youth.push(m);
                 } else if (dept === '은' || dept.includes('은장')) {
                     groups.silver.push(m);
-                } else {
-                    groups.etc.push(m);
                 }
+                // 어머니회, 봉사회, 청년회, 은장회가 아닌 학생/기타는 표시 제외
             });
 
             return groups;

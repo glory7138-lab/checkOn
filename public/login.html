@@ -23,11 +23,12 @@
             margin: 0;
             padding: 1.5rem;
             box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         
         .login-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             background: #ffffff;
             border-radius: 16px;
             padding: 2.5rem 2rem;
@@ -35,6 +36,7 @@
             box-shadow: 0 12px 30px -5px rgba(20, 40, 160, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             border: 1px solid #e2e8f0;
             box-sizing: border-box;
+            position: relative;
         }
         
         .brand-img {
@@ -56,7 +58,7 @@
         
         .login-subtitle {
             color: var(--text-secondary);
-            margin-bottom: 2rem;
+            margin-bottom: 1.8rem;
             font-size: 0.9rem;
             font-weight: 500;
         }
@@ -66,12 +68,12 @@
         }
         
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.2rem;
         }
         
         .form-label {
             display: block;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.45rem;
             color: var(--text-primary);
             font-size: 0.88rem;
             font-weight: 600;
@@ -81,23 +83,24 @@
             position: relative;
         }
         
-        .input-with-icon i {
+        .input-with-icon > i.icon-prefix {
             position: absolute;
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--accent-color);
             font-size: 1rem;
+            pointer-events: none;
         }
         
         .input-with-icon input {
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.6rem;
+            padding: 0.85rem 2.6rem 0.85rem 2.6rem;
             border-radius: 10px;
             background: #f8fafc;
             border: 1.5px solid #cbd5e1;
             color: var(--text-primary);
-            font-size: 1rem;
+            font-size: 0.95rem;
             box-sizing: border-box;
             transition: all 0.2s ease;
         }
@@ -108,15 +111,95 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(20, 40, 160, 0.15);
         }
+
+        .toggle-pw-btn {
+            position: absolute;
+            right: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0.25rem;
+            font-size: 0.95rem;
+        }
+        .toggle-pw-btn:hover {
+            color: var(--accent-color);
+        }
         
         .btn-block {
             width: 100%;
-            padding: 0.85rem;
+            padding: 0.9rem;
             font-size: 1rem;
             font-weight: 700;
             border-radius: 10px;
             margin-top: 0.75rem;
             box-shadow: 0 4px 12px rgba(20, 40, 160, 0.25);
+            cursor: pointer;
+        }
+
+        /* Modal for Admin Password Change */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            z-index: 1000;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            text-align: left;
+            animation: modalPop 0.2s ease-out;
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-desc {
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        .alert-warning-box {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+            margin-bottom: 1.2rem;
+            font-size: 0.82rem;
+            color: #92400e;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
         }
     </style>
 </head>
@@ -128,37 +211,143 @@
         
         <form class="login-form" id="loginForm">
             <div class="form-group">
-                <label class="form-label">휴대폰 번호</label>
+                <label class="form-label" for="phoneInput">휴대폰 번호</label>
                 <div class="input-with-icon">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
-                    <input type="tel" id="phoneInput" placeholder="010-0000-0000" autofocus required>
+                    <i class="fa-solid fa-mobile-screen-button icon-prefix"></i>
+                    <input type="tel" id="phoneInput" placeholder="010-0000-0000" autofocus required autocomplete="tel">
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                    * 구역임원 또는 관리자로 등록된 휴대폰 번호를 입력하세요.
-                </p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="passwordInput">비밀번호</label>
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-key icon-prefix"></i>
+                    <input type="password" id="passwordInput" placeholder="비밀번호 또는 구원일 8자리 입력" required autocomplete="current-password">
+                    <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('passwordInput', this)">
+                        <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 아이디·비밀번호 저장 체크박스 (1년간 유지) -->
+            <div style="display: flex; align-items: center; margin-top: 0.75rem; margin-bottom: 1.25rem;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #475569; cursor: pointer; user-select: none; font-weight: 500;">
+                    <input type="checkbox" id="saveCredentialsCheck" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer; border-radius: 4px;">
+                    <span>아이디·비밀번호 저장 (1년간 유지)</span>
+                </label>
             </div>
             
-            <div id="errorMsg" style="display: none; color: var(--danger-color); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(220, 53, 69, 0.1); border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.2);"></div>
+            <div id="errorMsg" style="display: none; color: var(--danger-color); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: rgba(220, 53, 69, 0.1); border-radius: 8px; border: 1px solid rgba(220, 53, 69, 0.2); line-height: 1.4;"></div>
 
             <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
-                로그인 및 권한 확인
+                로그인
             </button>
         </form>
+    </div>
+
+    <!-- Modal for Mandatory Admin Password Change -->
+    <div id="pwChangeModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    <i class="fa-solid fa-shield-halved" style="color: var(--accent-color);"></i> 관리자 비밀번호 변경
+                </h2>
+                <p class="modal-desc">
+                    초기 기본 비밀번호(069100)로 로그인하셨습니다.<br>
+                    시스템 보안을 위해 <strong>새로운 비밀번호로 반드시 변경</strong>해야 로그인이 완료됩니다.
+                </p>
+            </div>
+
+            <div class="alert-warning-box">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px;"></i>
+                <div>비밀번호를 변경하지 않으면 관리자 기능을 이용할 수 없습니다.</div>
+            </div>
+
+            <form id="pwChangeForm">
+                <div class="form-group">
+                    <label class="form-label" for="newPwInput">새 비밀번호 (4자리 이상)</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-lock icon-prefix"></i>
+                        <input type="password" id="newPwInput" placeholder="새로운 비밀번호 입력" required minlength="4">
+                        <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('newPwInput', this)">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPwInput">새 비밀번호 확인</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-check-double icon-prefix"></i>
+                        <input type="password" id="confirmPwInput" placeholder="새 비밀번호 재입력" required minlength="4">
+                        <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('confirmPwInput', this)">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="modalErrorMsg" style="display: none; color: var(--danger-color); font-size: 0.82rem; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: rgba(220, 53, 69, 0.1); border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.2);"></div>
+
+                <button type="submit" id="pwChangeBtn" class="btn btn-primary btn-block">
+                    비밀번호 변경 및 로그인 완료
+                </button>
+            </form>
+        </div>
     </div>
 
     <script>
         const loginForm = document.getElementById('loginForm');
         const phoneInput = document.getElementById('phoneInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const saveCredentialsCheck = document.getElementById('saveCredentialsCheck');
         const errorMsg = document.getElementById('errorMsg');
         const submitBtn = document.getElementById('submitBtn');
 
-        // 이미 로그인되어 있으면 출석체크현황(/attend.html)으로 바로 이동
+        const pwChangeModal = document.getElementById('pwChangeModal');
+        const pwChangeForm = document.getElementById('pwChangeForm');
+        const newPwInput = document.getElementById('newPwInput');
+        const confirmPwInput = document.getElementById('confirmPwInput');
+        const modalErrorMsg = document.getElementById('modalErrorMsg');
+        const pwChangeBtn = document.getElementById('pwChangeBtn');
+
+        let pendingAdminUser = null;
+
+        // Auto-redirect if already logged in (세션 1년 유효 확인)
         try {
             const savedUser = JSON.parse(localStorage.getItem('faithon_user'));
-            if (savedUser) {
+            const sessionExpires = localStorage.getItem('faithon_session_expires');
+            const now = Date.now();
+            if (savedUser && (!sessionExpires || now < parseInt(sessionExpires, 10))) {
                 window.location.href = '/attend.html';
             }
         } catch(e) {}
+
+        // 저장된 아이디/비밀번호 자동완성 불러오기 (1년간 유지)
+        try {
+            const savedCreds = JSON.parse(localStorage.getItem('faithon_saved_creds'));
+            if (savedCreds && savedCreds.phone) {
+                const now = Date.now();
+                if (!savedCreds.expiresAt || now < savedCreds.expiresAt) {
+                    phoneInput.value = savedCreds.phone || '';
+                    passwordInput.value = savedCreds.password || '';
+                    saveCredentialsCheck.checked = true;
+                } else {
+                    localStorage.removeItem('faithon_saved_creds');
+                }
+            }
+        } catch(e) {}
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-regular fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-regular fa-eye';
+            }
+        }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -167,21 +356,45 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 확인 중...';
 
             const phone = phoneInput.value.trim();
+            const password = passwordInput.value.trim();
+            const isSaveChecked = saveCredentialsCheck.checked;
 
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone })
+                    body: JSON.stringify({ phone, password })
                 });
 
                 const data = await res.json();
 
-                if (data.success && data.user) {
-                    // 사용자 정보 저장
-                    localStorage.setItem('faithon_user', JSON.stringify(data.user));
-                    // 관리자와 구역임원 모두 첫화면은 출석체크현황(attend.html)으로 이동
-                    window.location.href = '/attend.html';
+                if (data.success) {
+                    // 아이디/비밀번호 저장 처리 (1년간 유지: 365일)
+                    const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+                    const expiryTime = Date.now() + oneYearMs;
+
+                    if (isSaveChecked) {
+                        localStorage.setItem('faithon_saved_creds', JSON.stringify({
+                            phone,
+                            password,
+                            savedAt: Date.now(),
+                            expiresAt: expiryTime
+                        }));
+                        localStorage.setItem('faithon_session_expires', String(expiryTime));
+                    } else {
+                        localStorage.removeItem('faithon_saved_creds');
+                        localStorage.removeItem('faithon_session_expires');
+                    }
+
+                    if (data.require_password_change) {
+                        // 관리자 최초 비밀번호(069100) 즉시 변경 팝업 노출
+                        pendingAdminUser = data.user;
+                        pwChangeModal.style.display = 'flex';
+                        newPwInput.focus();
+                    } else if (data.user) {
+                        localStorage.setItem('faithon_user', JSON.stringify(data.user));
+                        window.location.href = '/attend.html';
+                    }
                 } else {
                     errorMsg.textContent = data.error || '로그인에 실패했습니다.';
                     errorMsg.style.display = 'block';
@@ -192,7 +405,59 @@
                 errorMsg.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '로그인 및 권한 확인';
+                submitBtn.innerHTML = '로그인';
+            }
+        });
+
+        // Handle Admin Password Change Form
+        pwChangeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            modalErrorMsg.style.display = 'none';
+
+            const newPw = newPwInput.value.trim();
+            const confirmPw = confirmPwInput.value.trim();
+
+            if (newPw === '069100') {
+                modalErrorMsg.textContent = '초기 비밀번호(069100)와 다른 새로운 비밀번호를 입력해주세요.';
+                modalErrorMsg.style.display = 'block';
+                return;
+            }
+
+            if (newPw !== confirmPw) {
+                modalErrorMsg.textContent = '새 비밀번호와 비밀번호 확인이 일치하지 않습니다.';
+                modalErrorMsg.style.display = 'block';
+                return;
+            }
+
+            pwChangeBtn.disabled = true;
+            pwChangeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 변경 중...';
+
+            const phone = pendingAdminUser?.phone || phoneInput.value.trim();
+
+            try {
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, new_password: newPw })
+                });
+
+                const data = await res.json();
+
+                if (data.success && data.user) {
+                    localStorage.setItem('faithon_user', JSON.stringify(data.user));
+                    alert('비밀번호가 성공적으로 변경되었습니다. 출석부로 이동합니다.');
+                    window.location.href = '/attend.html';
+                } else {
+                    modalErrorMsg.textContent = data.error || '비밀번호 변경에 실패했습니다.';
+                    modalErrorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Change password error:', err);
+                modalErrorMsg.textContent = '비밀번호 변경 중 오류가 발생했습니다.';
+                modalErrorMsg.style.display = 'block';
+            } finally {
+                pwChangeBtn.disabled = false;
+                pwChangeBtn.innerHTML = '비밀번호 변경 및 로그인 완료';
             }
         });
     </script>

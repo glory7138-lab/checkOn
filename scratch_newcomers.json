@@ -1,0 +1,167 @@
+[
+  {
+    "row": 310,
+    "area_code": "11",
+    "guide_name": "윤나영",
+    "name": "최경숙",
+    "attendance_dates": [
+      "2025-12-07",
+      "2025-12-14"
+    ]
+  },
+  {
+    "row": 311,
+    "area_code": "11",
+    "guide_name": "조미경",
+    "name": "서금자",
+    "attendance_dates": [
+      "2026-05-03"
+    ]
+  },
+  {
+    "row": 312,
+    "area_code": "11",
+    "guide_name": "차경은",
+    "name": "이지영",
+    "attendance_dates": [
+      "2026-05-03"
+    ]
+  },
+  {
+    "row": 313,
+    "area_code": "11",
+    "guide_name": "차미나",
+    "name": "이지영",
+    "attendance_dates": [
+      "2026-05-03"
+    ]
+  },
+  {
+    "row": 314,
+    "area_code": "21",
+    "guide_name": "신현금",
+    "name": "김재홍",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-17",
+      "2026-05-24",
+      "2026-05-31"
+    ]
+  },
+  {
+    "row": 315,
+    "area_code": "21",
+    "guide_name": "노정희",
+    "name": "박점숙",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-17",
+      "2026-05-24",
+      "2026-05-31"
+    ]
+  },
+  {
+    "row": 316,
+    "area_code": "22",
+    "guide_name": "김창명",
+    "name": "배미숙",
+    "attendance_dates": [
+      "2026-04-05",
+      "2026-04-26",
+      "2026-05-03",
+      "2026-05-17"
+    ]
+  },
+  {
+    "row": 317,
+    "area_code": "22",
+    "guide_name": "이경옥",
+    "name": "배미숙",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-24",
+      "2026-06-07"
+    ]
+  },
+  {
+    "row": 318,
+    "area_code": "22",
+    "guide_name": "정니영",
+    "name": "손경희",
+    "attendance_dates": [
+      "2026-05-24",
+      "2026-06-07"
+    ]
+  },
+  {
+    "row": 319,
+    "area_code": "31",
+    "guide_name": "김명선",
+    "name": "김명선",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-10",
+      "2026-05-17",
+      "2026-05-24",
+      "2026-05-31",
+      "2026-06-07"
+    ]
+  },
+  {
+    "row": 320,
+    "area_code": "32",
+    "guide_name": "정양선",
+    "name": "이미화",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-10",
+      "2026-06-07"
+    ]
+  },
+  {
+    "row": 321,
+    "area_code": "32",
+    "guide_name": "최영욱",
+    "name": "최명희",
+    "attendance_dates": []
+  },
+  {
+    "row": 322,
+    "area_code": "32",
+    "guide_name": "최명희",
+    "name": "윤영희",
+    "attendance_dates": []
+  },
+  {
+    "row": 323,
+    "area_code": "32",
+    "guide_name": "이예인",
+    "name": "오은경",
+    "attendance_dates": [
+      "2026-05-24"
+    ]
+  },
+  {
+    "row": 324,
+    "area_code": "32",
+    "guide_name": "오상진",
+    "name": "최명희",
+    "attendance_dates": [
+      "2026-05-24"
+    ]
+  },
+  {
+    "row": 325,
+    "area_code": "41",
+    "guide_name": "김예솔",
+    "name": "백종애",
+    "attendance_dates": [
+      "2026-05-03",
+      "2026-05-10",
+      "2026-05-17",
+      "2026-05-24",
+      "2026-05-31",
+      "2026-06-07"
+    ]
+  }
+]
