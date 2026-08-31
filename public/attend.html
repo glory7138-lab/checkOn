@@ -1675,14 +1675,19 @@
 
             updateActiveTab(key);
 
+            // Bulletproof scroll position calculation (independent of offsetParent)
+            const containerRect = container.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const targetScrollTop = container.scrollTop + (targetRect.top - containerRect.top);
+
             container.scrollTo({
-                top: target.offsetTop,
+                top: Math.max(0, targetScrollTop),
                 behavior: 'smooth'
             });
 
             manualScrollTimer = setTimeout(() => {
                 isManualScrolling = false;
-            }, 600);
+            }, 650);
         }
 
         function updateActiveTab(activeKey) {
@@ -1714,7 +1719,7 @@
             
             const options = {
                 root: container,
-                rootMargin: '0px 0px -70% 0px',
+                rootMargin: '0px 0px -80% 0px',
                 threshold: 0
             };
 
@@ -1733,34 +1738,49 @@
             sections.forEach(sec => sectionObserver.observe(sec));
         }
 
+        let swipeHandlerAttached = false;
         let touchStartX = 0;
         let touchStartY = 0;
         let touchStartTime = 0;
 
         // HORIZONTAL SWIPE GESTURES: Swipe anywhere to jump between sections
         function setupSwipeGestures() {
-            const container = document.getElementById('membersContainer');
-            if (!container) return;
+            const card = document.getElementById('memberAttendanceCard');
+            if (!card || swipeHandlerAttached) return;
+            swipeHandlerAttached = true;
 
-            container.addEventListener('touchstart', (e) => {
+            card.addEventListener('touchstart', (e) => {
                 if (e.touches.length !== 1) return;
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
                 touchStartTime = Date.now();
             }, { passive: true });
 
-            container.addEventListener('touchend', (e) => {
+            card.addEventListener('touchend', (e) => {
                 if (e.changedTouches.length !== 1) return;
                 const deltaX = e.changedTouches[0].clientX - touchStartX;
                 const deltaY = e.changedTouches[0].clientY - touchStartY;
                 const elapsedTime = Date.now() - touchStartTime;
 
-                // Horizontal swipe: |deltaX| > 45px, clearly horizontal (> 1.2 * |deltaY|), under 450ms
-                if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && elapsedTime < 450) {
+                // Horizontal swipe: |deltaX| > 40px, clearly horizontal (> 1.2 * |deltaY|), under 500ms
+                if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && elapsedTime < 500) {
                     const renderedSections = Array.from(document.querySelectorAll('.fellow-section'));
                     if (renderedSections.length <= 1) return;
 
-                    const currentKey = activeFellowKey || renderedSections[0].getAttribute('data-fellow-key');
+                    // Determine currently visible section from actual scroll position
+                    const container = document.getElementById('membersContainer');
+                    let currentKey = activeFellowKey;
+                    if (container && !isManualScrolling) {
+                        const containerRect = container.getBoundingClientRect();
+                        for (const sec of renderedSections) {
+                            const rect = sec.getBoundingClientRect();
+                            if (rect.top <= containerRect.top + 60 && rect.bottom > containerRect.top + 30) {
+                                currentKey = sec.getAttribute('data-fellow-key');
+                                break;
+                            }
+                        }
+                    }
+
                     const currentIndex = renderedSections.findIndex(sec => sec.getAttribute('data-fellow-key') === currentKey);
                     if (currentIndex === -1) return;
 
