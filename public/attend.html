@@ -676,25 +676,30 @@
 
             /* Admin View Mobile Scroll */
             #adminStatusView {
-                flex: 1 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow-y: auto !important;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
-                padding-bottom: 5rem !important;
+                padding-bottom: 5rem;
             }
 
             #adminDistrictPanel, #adminSchoolPanel {
-                overflow-y: visible !important;
+                overflow-y: visible;
             }
 
             #memberAttendanceCard {
-                flex: 1 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow: hidden !important;
-                margin-bottom: 0 !important;
-                border-radius: 12px 12px 0 0 !important;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                margin-bottom: 0;
+                border-radius: 12px 12px 0 0;
+            }
+
+            #adminStatusView[style*="display: none"],
+            #memberAttendanceCard[style*="display: none"] {
+                display: none !important;
             }
 
             .fellow-sticky-nav {
