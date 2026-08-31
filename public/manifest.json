@@ -1,6 +1,6 @@
 {
-  "name": "FaithOn출첵",
-  "short_name": "FaithOn출첵",
+  "name": "창원교회 출석부",
+  "short_name": "창원교회 출석부",
   "description": "창원교회 출석체크 관리 시스템",
   "start_url": "/attend.html",
   "display": "standalone",
