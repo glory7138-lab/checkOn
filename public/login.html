@@ -254,7 +254,7 @@
                 </h2>
                 <p class="modal-desc">
                     초기 기본 비밀번호(069100)로 로그인하셨습니다.<br>
-                    시스템 보안을 위해 <strong>새로운 비밀번호로 반드시 변경</strong>해야 로그인이 완료됩니다.
+                    시스템 보안을 위해 <strong>특수문자(!@#$%^&* 등)가 1개 이상 포함된 5자리 이상의 새 비밀번호</strong>로 반드시 변경해야 로그인이 완료됩니다.
                 </p>
             </div>
 
@@ -265,10 +265,10 @@
 
             <form id="pwChangeForm">
                 <div class="form-group">
-                    <label class="form-label" for="newPwInput">새 비밀번호 (4자리 이상)</label>
+                    <label class="form-label" for="newPwInput">새 비밀번호 (특수문자 포함 5자리 이상)</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-lock icon-prefix"></i>
-                        <input type="password" id="newPwInput" placeholder="새로운 비밀번호 입력" required minlength="4">
+                        <input type="password" id="newPwInput" placeholder="특수문자 포함 5자리 이상 입력" required minlength="5">
                         <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('newPwInput', this)">
                             <i class="fa-regular fa-eye"></i>
                         </button>
@@ -279,7 +279,7 @@
                     <label class="form-label" for="confirmPwInput">새 비밀번호 확인</label>
                     <div class="input-with-icon">
                         <i class="fa-solid fa-check-double icon-prefix"></i>
-                        <input type="password" id="confirmPwInput" placeholder="새 비밀번호 재입력" required minlength="4">
+                        <input type="password" id="confirmPwInput" placeholder="새 비밀번호 재입력" required minlength="5">
                         <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('confirmPwInput', this)">
                             <i class="fa-regular fa-eye"></i>
                         </button>
@@ -419,6 +419,19 @@
 
             if (newPw === '069100') {
                 modalErrorMsg.textContent = '초기 비밀번호(069100)와 다른 새로운 비밀번호를 입력해주세요.';
+                modalErrorMsg.style.display = 'block';
+                return;
+            }
+
+            if (newPw.length < 5) {
+                modalErrorMsg.textContent = '비밀번호는 최소 5자리 이상이어야 합니다.';
+                modalErrorMsg.style.display = 'block';
+                return;
+            }
+
+            const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-+=~`[\]\\;/]/;
+            if (!specialCharRegex.test(newPw)) {
+                modalErrorMsg.textContent = '비밀번호에 특수문자(!@#$%^&* 등)가 최소 1개 이상 반드시 포함되어야 합니다.';
                 modalErrorMsg.style.display = 'block';
                 return;
             }

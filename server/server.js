@@ -279,8 +279,13 @@ app.post('/api/auth/change-password', async (req, res) => {
     if (cleanNewPassword === '069100') {
         return res.status(400).json({ success: false, error: '초기 비밀번호(069100)와 다른 새로운 비밀번호를 설정해주세요.' });
     }
-    if (cleanNewPassword.length < 4) {
-        return res.status(400).json({ success: false, error: '비밀번호는 최소 4자리 이상이어야 합니다.' });
+    if (cleanNewPassword.length < 5) {
+        return res.status(400).json({ success: false, error: '비밀번호는 최소 5자리 이상이어야 합니다.' });
+    }
+    // 반드시 특수문자 1개 이상 포함 규칙 검증
+    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-+=~`[\]\\;/]/;
+    if (!specialCharRegex.test(cleanNewPassword)) {
+        return res.status(400).json({ success: false, error: '비밀번호에 특수문자(!@#$%^&* 등)가 최소 1개 이상 포함되어야 합니다.' });
     }
 
     let conn;
