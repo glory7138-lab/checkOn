@@ -583,62 +583,56 @@
         }
 
         /* ==========================================================================
-           Hybrid Swipe Animations (View Transitions API & JS Fallback)
+           Edge Scrolling + Snap Carousel UI
            ========================================================================== */
         
-        /* 1. View Transitions API (Modern Devices) */
+        /* 1. Horizontal Snap Container */
         #membersContainer {
-            view-transition-name: members-list;
+            display: flex;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+            /* Container fills the remaining vertical space */
+            height: calc(100vh - 210px);
+            /* Reset padding so cards can fill height */
+            padding: 0 !important;
+        }
+        #membersContainer::-webkit-scrollbar {
+            display: none;
         }
 
-        ::view-transition-group(members-list) {
-            animation-duration: 0.35s;
+        /* 2. Independent Vertical Scrolling Sections */
+        .fellow-section {
+            flex: 0 0 100vw; /* Exact viewport width per section */
+            width: 100vw;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            
+            /* Fill container height */
+            height: 100%;
+            padding: 1rem 1rem 3rem 1rem; /* Provide bottom padding for scrolling */
+            box-sizing: border-box;
         }
 
-        /* Prevent root from animating */
-        html.swipe-next ::view-transition-old(root),
-        html.swipe-next ::view-transition-new(root),
-        html.swipe-prev ::view-transition-old(root),
-        html.swipe-prev ::view-transition-new(root) {
-            animation: none;
+        /* Sticky Section Header (봉사회, 어머니회 등) */
+        .fellow-header {
+            position: sticky;
+            top: -1rem; /* offset padding */
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            margin: -1rem -1rem 1rem -1rem;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
         }
-
-        /* Swipe Left (Next) */
-        html.swipe-next ::view-transition-old(members-list) {
-            animation: slide-out-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-        html.swipe-next ::view-transition-new(members-list) {
-            animation: slide-in-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        /* Swipe Right (Prev) */
-        html.swipe-prev ::view-transition-old(members-list) {
-            animation: slide-out-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-        html.swipe-prev ::view-transition-new(members-list) {
-            animation: slide-in-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        @keyframes slide-out-left { to { transform: translateX(-100%); } }
-        @keyframes slide-in-right { from { transform: translateX(100%); } }
-        @keyframes slide-out-right { to { transform: translateX(100%); } }
-        @keyframes slide-in-left { from { transform: translateX(-100%); } }
-
-        /* 2. JS Fallback Animation (Older Devices) */
-        .js-swipe-transition {
-            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
-        }
-        .js-swipe-out-left { transform: translateX(-30px); opacity: 0; }
-        .js-swipe-out-right { transform: translateX(30px); opacity: 0; }
-        .js-swipe-in-right { transform: translateX(30px); opacity: 0; }
-        .js-swipe-in-left { transform: translateX(-30px); opacity: 0; }
-        
-        .js-swipe-reset {
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease !important;
-            transform: translateX(0);
-            opacity: 1;
-        }
-
 
     </style>
 </head>
@@ -862,7 +856,7 @@
             </div>
 
             <!-- VIEW 2: [구역 임원 전용 & 관리자 구역 상세 확인] 성도별 출석체크 리스트 뷰 -->
-            <div class="card" id="memberAttendanceCard" style="padding: 1rem 1.25rem;">
+            <div class="card" id="memberAttendanceCard" style="padding: 0;">
                 <!-- 3. 회별 Sticky 탭 바 (봉사회 / 어머니회 / 청년회 / 은장회 / 새참자) -->
                 <nav class="fellow-sticky-nav" id="fellowStickyNav" aria-label="회별 바로가기">
                     <div class="fellow-tabs-list" id="fellowTabsContainer">
@@ -942,11 +936,9 @@
         const fellowTabsContainer = document.getElementById('fellowTabsContainer');
         const tabSunday = document.getElementById('tabSunday');
         const tabWednesday = document.getElementById('tabWednesday');
-        const adminAreaSelectBox = document.getElementById('adminAreaSelectBox');
         const areaCodeEl = document.getElementById('areaCode');
         const userNameDisplay = document.getElementById('userNameDisplay');
         const userRoleDisplay = document.getElementById('userRoleDisplay');
-        const pageSubTitle = document.getElementById('pageSubTitle');
         const navReserve = document.getElementById('navReserve');
         const navAdminUsers = document.getElementById('navAdminUsers');
         const mobNavReserve = document.getElementById('mobNavReserve');
@@ -1339,7 +1331,6 @@
 
         // [Admin - Church School] Fetch Attendance Counts
         async function fetchSchoolAttendance() {
-            document.getElementById('schoolSelectedDateText').textContent = currentSelectedDate || '선택된 일자';
             try {
                 const res = await fetch(`/api/admin/school-attendance?date=${encodeURIComponent(currentSelectedDate)}`);
                 const json = await res.json();
@@ -1397,29 +1388,6 @@
                 }
             } catch (err) {
                 console.error("Error saving school count:", err);
-            }
-        }
-
-        // Load Areas for Admin
-        async function loadAllAreas() {
-            try {
-                const res = await fetch('/api/areas');
-                const json = await res.json();
-                if (json.success && json.data) {
-                    areaCodeEl.innerHTML = '';
-                    json.data.forEach(area => {
-                        const opt = document.createElement('option');
-                        opt.value = area;
-                        opt.textContent = `${area}구역`;
-                        if (area === currentAreaCode) opt.selected = true;
-                        areaCodeEl.appendChild(opt);
-                    });
-                    if (json.data.length > 0 && !currentAreaCode) {
-                        currentAreaCode = json.data[0];
-                    }
-                }
-            } catch (err) {
-                console.error("Areas load error:", err);
             }
         }
 
@@ -1510,37 +1478,21 @@
 
             FELLOW_GROUPS.forEach(g => {
                 const list = grouped[g.key] || [];
-                if (list.length === 0 && g.key === 'etc') return; // 기타가 비어있으면 숨김
+                if (list.length === 0 && g.key === 'etc') return;
 
                 if (!firstRenderedSectionKey) firstRenderedSectionKey = g.key;
 
-                const attendedCount = list.filter(m => m.checked).length;
                 const tabBtn = document.createElement('button');
                 tabBtn.type = 'button';
                 tabBtn.className = `fellow-tab-pill ${g.key === firstRenderedSectionKey ? 'active' : ''}`;
                 tabBtn.id = `tab-fellow-${g.key}`;
                 tabBtn.onclick = () => scrollToSection(g.key);
-                tabBtn.innerHTML = `
-                    <i class="fa-solid ${g.icon}"></i>
-                    <span>${g.label}</span>
-                `;
+                tabBtn.innerHTML = `<i class="fa-solid ${g.icon}"></i> <span>${g.label}</span>`;
                 fellowTabsContainer.appendChild(tabBtn);
             });
 
-            // 2. Build Sections with Member Cards (No Avatar Circles!)
+            // 2. Build Sections
             membersContainer.innerHTML = '';
-            updateTotalAttendanceBadge();
-
-            if (membersData.length === 0) {
-                membersContainer.innerHTML = `
-                    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
-                        <i class="fa-solid fa-users fa-2x" style="color: var(--text-muted); margin-bottom: 0.5rem;"></i>
-                        <div>해당 구역에 등록된 성도가 없습니다.</div>
-                    </div>
-                `;
-                return;
-            }
-
             let globalIndex = 1;
 
             FELLOW_GROUPS.forEach(g => {
@@ -1554,19 +1506,14 @@
 
                 const attendedCount = list.filter(m => m.checked).length;
 
-                // Section Header
                 section.innerHTML = `
-                    <div class="fellow-section-header">
-                        <div class="fellow-section-title">
-                            <i class="fa-solid ${g.icon}" style="color: var(--accent-color);"></i>
-                            <span>${g.label}</span>
-                        </div>
-                        <div class="fellow-section-count" id="section-count-${g.key}">
-                            출석 <strong style="color: var(--accent-color);">${attendedCount}</strong> / ${list.length}명
+                    <div class="fellow-header">
+                        <div class="fellow-section-header">
+                            <div class="fellow-section-title"><i class="fa-solid ${g.icon}"></i> ${g.label}</div>
+                            <div class="fellow-section-count" id="section-count-${g.key}">출석 ${attendedCount}/${list.length}명</div>
                         </div>
                     </div>
-                    <div class="member-list-container" id="list-fellow-${g.key}">
-                    </div>
+                    <div class="member-list-container" id="list-fellow-${g.key}"></div>
                 `;
 
                 const listContainer = section.querySelector(`#list-fellow-${g.key}`);
@@ -1574,25 +1521,6 @@
                 list.forEach((member) => {
                     const pos = (member.POSITION || '').trim();
                     const isNewcomer = !!member.is_newcomer;
-                    const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장') || pos.includes('조총무') || pos.includes('서기');
-
-                    let badgeHtml = '';
-                    if (isNewcomer) {
-                        badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.12); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">새참자</span>`;
-                    } else if (isLeader) {
-                        badgeHtml = `<span class="badge badge-success" style="padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
-                    } else if (pos.includes('목사') || pos.includes('전도사')) {
-                        badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
-                    } else if (pos.includes('집사')) {
-                        badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">집사</span>`;
-                    } else if (pos && pos !== '성도') {
-                        badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
-                    }
-
-                    const disabledAttr = isAdmin ? 'disabled' : '';
-                    const btnCursorStyle = isAdmin ? 'cursor: not-allowed; opacity: 0.85;' : '';
-                    const btnTitle = isAdmin ? '관리자는 조회만 가능하며 출석 체크를 수정할 수 없습니다.' : '';
-
                     const card = document.createElement('div');
                     card.className = 'member-card';
                     card.innerHTML = `
@@ -1601,162 +1529,50 @@
                             <div class="member-details">
                                 <div class="member-name-row">
                                     <span class="member-name">${member.NAME}</span>
-                                    ${badgeHtml}
                                 </div>
-                                ${isNewcomer && member.guide_name ? `<span class="member-subtext"><i class="fa-solid fa-person-chalkboard" style="font-size: 0.7rem;"></i> 인도: ${member.guide_name}</span>` : ''}
                             </div>
                         </div>
                         <div class="attend-check-col">
-                            <label class="attend-btn-container" style="${btnCursorStyle}" title="${btnTitle}">
-                                <input type="checkbox" ${member.checked ? 'checked' : ''} ${disabledAttr} onchange="toggleCheck('${member.CODE_NO}', this.checked, '${g.key}')">
-                                <div class="attend-btn-pill">
-                                    <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
-                                    <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
-                                </div>
-                            </label>
+                            <input type="checkbox" ${member.checked ? 'checked' : ''} onchange="toggleCheck('${member.CODE_NO}', this.checked, '${g.key}')">
                         </div>
                     `;
                     listContainer.appendChild(card);
                 });
-
                 membersContainer.appendChild(section);
             });
 
-            // 3. Setup IntersectionObserver for scroll spy & touch swipe gestures
             setupScrollSpy();
-            setupSwipeGestures();
         }
 
         let activeFellowKey = '';
-        let isManualScrolling = false;
-        let manualScrollTimer = null;
-
-        let isAnimating = false;
-
-        // Scroll to Section on Tab Click or Swipe (with Hybrid Animation)
-        function scrollToSection(key, direction = 'next') {
-            if (isAnimating) return;
+        function scrollToSection(key) {
+            const container = document.getElementById('membersContainer');
             const target = document.getElementById(`section-fellow-${key}`);
-            if (!target) return;
-
-            isManualScrolling = true;
-            if (manualScrollTimer) clearTimeout(manualScrollTimer);
-
-            // Calculate precise offset position accounting for sticky headers
-            const stickyNav = document.getElementById('fellowStickyNav');
-            const topBar = document.querySelector('.mobile-top-bar');
-            
-            let offset = 110;
-            if (stickyNav) {
-                const navHeight = stickyNav.offsetHeight || 44;
-                const topBarHeight = (topBar && window.getComputedStyle(topBar).display !== 'none') ? topBar.offsetHeight : 0;
-                offset = navHeight + topBarHeight + 12;
-            }
-
-            const elementPosition = target.getBoundingClientRect().top;
-            const targetPosition = elementPosition + window.pageYOffset - offset;
-
-            // If View Transitions API is supported (iOS 18+, Chrome 111+)
-            if (document.startViewTransition) {
-                isAnimating = true;
-                
-                // Set animation direction classes
-                document.documentElement.classList.remove('swipe-next', 'swipe-prev');
-                document.documentElement.classList.add(direction === 'next' ? 'swipe-next' : 'swipe-prev');
-
-                document.startViewTransition(() => {
-                    updateActiveTab(key);
-                    window.scrollTo({
-                        top: Math.max(0, targetPosition),
-                        behavior: 'instant'
-                    });
-                }).finished.finally(() => {
-                    document.documentElement.classList.remove('swipe-next', 'swipe-prev');
-                    isAnimating = false;
-                    manualScrollTimer = setTimeout(() => { isManualScrolling = false; }, 100);
-                });
-                
-            } else {
-                // JS Fallback for older devices (Cross-fade & slight slide)
-                isAnimating = true;
-                const container = document.getElementById('membersContainer');
-                
-                // Phase 1: Slide out
-                container.classList.add('js-swipe-transition');
-                container.classList.add(direction === 'next' ? 'js-swipe-out-left' : 'js-swipe-out-right');
-                
-                setTimeout(() => {
-                    // Phase 2: Instant jump & reposition for slide in
-                    updateActiveTab(key);
-                    window.scrollTo({ top: Math.max(0, targetPosition), behavior: 'instant' });
-                    
-                    container.classList.remove('js-swipe-transition', 'js-swipe-out-left', 'js-swipe-out-right');
-                    container.classList.add(direction === 'next' ? 'js-swipe-in-right' : 'js-swipe-in-left');
-                    
-                    // Force reflow
-                    void container.offsetWidth;
-                    
-                    // Phase 3: Slide in
-                    container.classList.add('js-swipe-reset');
-                    container.classList.remove('js-swipe-in-right', 'js-swipe-in-left');
-                    
-                    setTimeout(() => {
-                        container.classList.remove('js-swipe-reset');
-                        isAnimating = false;
-                        manualScrollTimer = setTimeout(() => { isManualScrolling = false; }, 100);
-                    }, 250);
-                    
-                }, 200);
-            }
+            if (!container || !target) return;
+            updateActiveTab(key);
+            container.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
         }
 
         function updateActiveTab(activeKey) {
+            if (activeFellowKey === activeKey) return;
             activeFellowKey = activeKey;
-            document.querySelectorAll('.fellow-tab-pill').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            document.querySelectorAll('.fellow-tab-pill').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.getElementById(`tab-fellow-${activeKey}`);
-            if (activeBtn) {
-                activeBtn.classList.add('active');
-                
-                // Keep the active tab visible within the horizontal scroll bar
-                const nav = document.getElementById('fellowStickyNav');
-                if (nav) {
-                    const navRect = nav.getBoundingClientRect();
-                    const btnRect = activeBtn.getBoundingClientRect();
-                    
-                    if (btnRect.left < navRect.left || btnRect.right > navRect.right) {
-                        nav.scrollTo({
-                            left: activeBtn.offsetLeft - (nav.clientWidth / 2) + (activeBtn.clientWidth / 2),
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            }
+            if (activeBtn) activeBtn.classList.add('active');
         }
 
-        // Scroll Spy setup for vertical scrolling
         function setupScrollSpy() {
-            if (sectionObserver) {
-                sectionObserver.disconnect();
-            }
-
+            if (sectionObserver) sectionObserver.disconnect();
+            const container = document.getElementById('membersContainer');
             const sections = document.querySelectorAll('.fellow-section');
-            if (sections.length === 0) return;
-
-            const options = {
-                root: null,
-                rootMargin: '-100px 0px -60% 0px',
-                threshold: 0
-            };
-
+            if (sections.length === 0 || !container) return;
             sectionObserver = new IntersectionObserver((entries) => {
-                if (isManualScrolling) return; // Don't trigger while clicking tab or swiping
-                
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const key = entry.target.getAttribute('data-fellow-key');
-                        if (key) updateActiveTab(key);
+                        if (key) {
+                            updateActiveTab(key);
+                        }
                     }
                 });
             }, options);
@@ -1764,64 +1580,78 @@
             sections.forEach(sec => sectionObserver.observe(sec));
         }
 
-        let swipeHandlerAttached = false;
-        let touchStartX = 0;
         let touchStartY = 0;
-        let touchStartTime = 0;
+        let activeSectionAtTouchStart = null;
+        let edgeScrollTriggered = false;
 
-        // Swipe gesture handler for horizontal navigation between fellow groups
+        // EDGE SCROLLING: Vertical scroll boundaries trigger horizontal tab change
         function setupSwipeGestures() {
-            const card = document.getElementById('memberAttendanceCard');
-            if (!card || swipeHandlerAttached) return;
-            swipeHandlerAttached = true;
+            const sections = document.querySelectorAll('.fellow-section');
+            
+            sections.forEach(sec => {
+                sec.addEventListener('touchstart', (e) => {
+                    if (e.touches.length !== 1) return;
+                    touchStartY = e.touches[0].clientY;
+                    activeSectionAtTouchStart = sec;
+                    edgeScrollTriggered = false;
+                }, { passive: true });
 
-            card.addEventListener('touchstart', (e) => {
-                if (e.touches.length !== 1) return;
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                touchStartTime = Date.now();
-            }, { passive: true });
+                sec.addEventListener('touchmove', (e) => {
+                    if (!activeSectionAtTouchStart || e.touches.length !== 1) return;
+                    
+                    const currentY = e.touches[0].clientY;
+                    const deltaY = currentY - touchStartY;
+                    
+                    const scrollTop = sec.scrollTop;
+                    const maxScrollTop = sec.scrollHeight - sec.clientHeight;
 
-            card.addEventListener('touchend', (e) => {
-                if (e.changedTouches.length !== 1) return;
-                const touchEndX = e.changedTouches[0].clientX;
-                const touchEndY = e.changedTouches[0].clientY;
-                const deltaX = touchEndX - touchStartX;
-                const deltaY = touchEndY - touchStartY;
-                const elapsedTime = Date.now() - touchStartTime;
+                    // Pulling down at the top (go to prev tab)
+                    if (scrollTop <= 0 && deltaY > 40) {
+                        edgeScrollTriggered = 'prev';
+                    } 
+                    // Pushing up at the bottom (go to next tab)
+                    else if (scrollTop >= maxScrollTop - 1 && deltaY < -40) {
+                        edgeScrollTriggered = 'next';
+                    } else {
+                        edgeScrollTriggered = false;
+                    }
+                }, { passive: true });
 
-                // Quick horizontal swipe detection:
-                // 1. Min 40px horizontal move
-                // 2. Horizontal distance > vertical distance * 1.3 (clearly horizontal, not vertical scrolling)
-                // 3. Fast enough gesture (less than 450ms)
-                if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && elapsedTime < 450) {
-                    handleSwipeNavigation(deltaX < 0 ? 'next' : 'prev');
-                }
-            }, { passive: true });
-        }
+                sec.addEventListener('touchend', (e) => {
+                    if (!edgeScrollTriggered || !activeSectionAtTouchStart) return;
 
-        function handleSwipeNavigation(direction) {
-            const renderedSections = Array.from(document.querySelectorAll('.fellow-section'));
-            if (renderedSections.length <= 1) return;
+                    const renderedSections = Array.from(document.querySelectorAll('.fellow-section'));
+                    const currentIndex = renderedSections.indexOf(activeSectionAtTouchStart);
+                    if (currentIndex === -1) return;
 
-            const currentKey = activeFellowKey || (renderedSections[0] && renderedSections[0].getAttribute('data-fellow-key'));
-            const currentIndex = renderedSections.findIndex(sec => sec.getAttribute('data-fellow-key') === currentKey);
+                    let targetIndex = currentIndex;
+                    if (edgeScrollTriggered === 'next' && currentIndex < renderedSections.length - 1) {
+                        targetIndex = currentIndex + 1;
+                    } else if (edgeScrollTriggered === 'prev' && currentIndex > 0) {
+                        targetIndex = currentIndex - 1;
+                    }
 
-            if (currentIndex === -1) return;
-
-            let targetIndex = currentIndex;
-            if (direction === 'next' && currentIndex < renderedSections.length - 1) {
-                targetIndex = currentIndex + 1;
-            } else if (direction === 'prev' && currentIndex > 0) {
-                targetIndex = currentIndex - 1;
-            }
-
-            if (targetIndex !== currentIndex) {
-                const nextKey = renderedSections[targetIndex].getAttribute('data-fellow-key');
-                if (nextKey) {
-                    scrollToSection(nextKey, direction);
-                }
-            }
+                    if (targetIndex !== currentIndex) {
+                        const nextSection = renderedSections[targetIndex];
+                        const nextKey = nextSection.getAttribute('data-fellow-key');
+                        
+                        if (nextKey) {
+                            scrollToSection(nextKey);
+                            
+                            // Adjust vertical scroll of target section for continuous feel
+                            setTimeout(() => {
+                                if (edgeScrollTriggered === 'prev') {
+                                    nextSection.scrollTop = nextSection.scrollHeight;
+                                } else {
+                                    nextSection.scrollTop = 0;
+                                }
+                            }, 50);
+                        }
+                    }
+                    
+                    edgeScrollTriggered = false;
+                }, { passive: true });
+            });
         }
 
         // 실시간 출석 체크 즉시 저장
