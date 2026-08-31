@@ -256,7 +256,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             FROM faithon_attendance a
             JOIN CWTB_USER u ON a.member_code = u.CODE_NO
             LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
-            WHERE a.service_date = ? 
+            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ? 
               AND a.service_type = ? 
               AND a.is_attended = TRUE
               AND u.YEAR = ?
@@ -274,7 +274,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             SELECT COALESCE(nc.area_code, nc.temp_area) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
             FROM faithon_attendance a
             JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
-            WHERE a.service_date = ?
+            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
               AND a.service_type = ?
               AND a.is_attended = TRUE
             GROUP BY COALESCE(nc.area_code, nc.temp_area)

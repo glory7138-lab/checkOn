@@ -293,6 +293,7 @@
         if (!urlParams.has('view')) {
             window.location.replace('/attend.html');
         }
+        const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
         const userArea = currentUser.scope_code || currentUser.area_code || '11';
 
         // Elements

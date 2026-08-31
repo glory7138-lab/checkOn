@@ -874,27 +874,6 @@
             });
         }
 
-        // Change Session Type (주일 / 수요)
-        function setSessionType(type) {
-            if (currentSessionType === type) return;
-            currentSessionType = type;
-
-            if (type === 'sunday') {
-                tabSunday.classList.add('active');
-                tabWednesday.classList.remove('active');
-            } else {
-                tabWednesday.classList.add('active');
-                tabSunday.classList.remove('active');
-            }
-
-            // Update 4 recent date buttons and select first
-            const dates = getRecentServiceDates(type);
-            currentSelectedDate = dates[0].value;
-            renderDateButtons();
-
-            fetchMembersAndAttendance();
-        }
-
         let adminAreaStatusList = [];
         let currentAdminFilter = 'all';
 
