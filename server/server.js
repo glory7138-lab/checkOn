@@ -1219,7 +1219,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                        u.POSITION,
                        '성도'
                    ) AS POSITION, 
-                   u.PHONE, u.AREA_CODE, 0 as is_newcomer, NULL as guide_name
+                   u.PHONE, u.AREA_CODE, u.FELLOW_DEPT, 0 as is_newcomer, NULL as guide_name
             FROM CWTB_USER u
             LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
             LEFT JOIN (
@@ -1328,6 +1328,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 name: m.NAME,
                 position: (m.POSITION || '성도').trim(),
                 area: m.AREA_CODE,
+                fellow_dept: m.FELLOW_DEPT || '',
                 is_newcomer: !!m.is_newcomer,
                 guide_name: m.guide_name,
                 history,
