@@ -1493,6 +1493,18 @@
 
             // 2. Build Sections
             membersContainer.innerHTML = '';
+            updateTotalAttendanceBadge();
+
+            if (membersData.length === 0) {
+                membersContainer.innerHTML = `
+                    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary); width: 100%;">
+                        <i class="fa-solid fa-users fa-2x" style="color: var(--text-muted); margin-bottom: 0.5rem;"></i>
+                        <div>해당 구역에 등록된 성도가 없습니다.</div>
+                    </div>
+                `;
+                return;
+            }
+
             let globalIndex = 1;
 
             FELLOW_GROUPS.forEach(g => {
@@ -1510,7 +1522,7 @@
                     <div class="fellow-header">
                         <div class="fellow-section-header">
                             <div class="fellow-section-title"><i class="fa-solid ${g.icon}"></i> ${g.label}</div>
-                            <div class="fellow-section-count" id="section-count-${g.key}">출석 ${attendedCount}/${list.length}명</div>
+                            <div class="fellow-section-count" id="section-count-${g.key}">출석 <strong>${attendedCount}</strong> / ${list.length}명</div>
                         </div>
                     </div>
                     <div class="member-list-container" id="list-fellow-${g.key}"></div>
@@ -1521,6 +1533,25 @@
                 list.forEach((member) => {
                     const pos = (member.POSITION || '').trim();
                     const isNewcomer = !!member.is_newcomer;
+                    const isLeader = pos.includes('구역장') || pos.includes('조장') || pos.includes('부구역장') || pos.includes('조총무') || pos.includes('서기');
+
+                    let badgeHtml = '';
+                    if (isNewcomer) {
+                        badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.12); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">새참자</span>`;
+                    } else if (isLeader) {
+                        badgeHtml = `<span class="badge badge-success" style="padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    } else if (pos.includes('목사') || pos.includes('전도사')) {
+                        badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    } else if (pos.includes('집사')) {
+                        badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">집사</span>`;
+                    } else if (pos && pos !== '성도') {
+                        badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0;">${pos}</span>`;
+                    }
+
+                    const disabledAttr = isAdmin ? 'disabled' : '';
+                    const btnCursorStyle = isAdmin ? 'cursor: not-allowed; opacity: 0.85;' : '';
+                    const btnTitle = isAdmin ? '관리자는 조회만 가능하며 출석 체크를 수정할 수 없습니다.' : '';
+
                     const card = document.createElement('div');
                     card.className = 'member-card';
                     card.innerHTML = `
@@ -1529,11 +1560,19 @@
                             <div class="member-details">
                                 <div class="member-name-row">
                                     <span class="member-name">${member.NAME}</span>
+                                    ${badgeHtml}
                                 </div>
+                                ${isNewcomer && member.guide_name ? `<span class="member-subtext"><i class="fa-solid fa-person-chalkboard" style="font-size: 0.7rem;"></i> 인도: ${member.guide_name}</span>` : ''}
                             </div>
                         </div>
                         <div class="attend-check-col">
-                            <input type="checkbox" ${member.checked ? 'checked' : ''} onchange="toggleCheck('${member.CODE_NO}', this.checked, '${g.key}')">
+                            <label class="attend-btn-container" style="${btnCursorStyle}" title="${btnTitle}">
+                                <input type="checkbox" ${member.checked ? 'checked' : ''} ${disabledAttr} onchange="toggleCheck('${member.CODE_NO}', this.checked, '${g.key}')">
+                                <div class="attend-btn-pill">
+                                    <span class="btn-label-unchecked"><i class="fa-regular fa-circle" style="font-size: 0.75rem;"></i> 미출석</span>
+                                    <span class="btn-label-checked"><i class="fa-solid fa-circle-check"></i> 출석</span>
+                                </div>
+                            </label>
                         </div>
                     `;
                     listContainer.appendChild(card);
@@ -1542,6 +1581,7 @@
             });
 
             setupScrollSpy();
+            setupSwipeGestures();
         }
 
         let activeFellowKey = '';
@@ -1558,7 +1598,20 @@
             activeFellowKey = activeKey;
             document.querySelectorAll('.fellow-tab-pill').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.getElementById(`tab-fellow-${activeKey}`);
-            if (activeBtn) activeBtn.classList.add('active');
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                const nav = document.getElementById('fellowStickyNav');
+                if (nav) {
+                    const navRect = nav.getBoundingClientRect();
+                    const btnRect = activeBtn.getBoundingClientRect();
+                    if (btnRect.left < navRect.left || btnRect.right > navRect.right) {
+                        nav.scrollTo({
+                            left: activeBtn.offsetLeft - (nav.clientWidth / 2) + (activeBtn.clientWidth / 2),
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }
         }
 
         function setupScrollSpy() {
@@ -1566,6 +1619,12 @@
             const container = document.getElementById('membersContainer');
             const sections = document.querySelectorAll('.fellow-section');
             if (sections.length === 0 || !container) return;
+            
+            const options = {
+                root: container,
+                threshold: 0.5
+            };
+
             sectionObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
