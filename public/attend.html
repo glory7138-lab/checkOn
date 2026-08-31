@@ -596,10 +596,10 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none; 
             -ms-overflow-style: none;
-            /* Container fills the remaining vertical space */
+            width: 100%;
             height: calc(100vh - 210px);
-            /* Reset padding so cards can fill height */
             padding: 0 !important;
+            box-sizing: border-box;
         }
         #membersContainer::-webkit-scrollbar {
             display: none;
@@ -607,8 +607,10 @@
 
         /* 2. Independent Vertical Scrolling Sections */
         .fellow-section {
-            flex: 0 0 100vw; /* Exact viewport width per section */
-            width: 100vw;
+            flex: 0 0 100%;
+            min-width: 100%;
+            width: 100%;
+            max-width: 100%;
             scroll-snap-align: start;
             scroll-snap-stop: always;
             
@@ -616,21 +618,21 @@
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             
-            /* Fill container height */
             height: 100%;
-            padding: 1rem 1rem 3rem 1rem; /* Provide bottom padding for scrolling */
+            padding: 0.75rem 0.75rem 3rem 0.75rem;
             box-sizing: border-box;
+            margin: 0 !important;
         }
 
         /* Sticky Section Header (봉사회, 어머니회 등) */
         .fellow-header {
             position: sticky;
-            top: -1rem; /* offset padding */
+            top: -0.75rem;
             z-index: 10;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(8px);
-            margin: -1rem -1rem 1rem -1rem;
-            padding: 1rem;
+            margin: -0.75rem -0.75rem 0.75rem -0.75rem;
+            padding: 0.75rem;
             border-bottom: 1px solid rgba(0,0,0,0.05);
         }
 
@@ -1580,8 +1582,18 @@
                 membersContainer.appendChild(section);
             });
 
-            setupScrollSpy();
-            setupSwipeGestures();
+            // Ensure first tab and initial scroll starts at leftmost (0)
+            if (firstRenderedSectionKey) {
+                activeFellowKey = firstRenderedSectionKey;
+                membersContainer.scrollLeft = 0;
+                updateActiveTab(firstRenderedSectionKey);
+            }
+
+            // Allow DOM to settle before attaching observers
+            setTimeout(() => {
+                setupScrollSpy();
+                setupSwipeGestures();
+            }, 80);
         }
 
         let activeFellowKey = '';
@@ -1622,12 +1634,12 @@
             
             const options = {
                 root: container,
-                threshold: 0.5
+                threshold: 0.6
             };
 
             sectionObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
-                    if (entry.isIntersecting) {
+                    if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
                         const key = entry.target.getAttribute('data-fellow-key');
                         if (key) {
                             updateActiveTab(key);
