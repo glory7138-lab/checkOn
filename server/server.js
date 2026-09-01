@@ -450,11 +450,20 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             if (r.area_code) ncAttendMap[r.area_code.trim()] = Number(r.nc_attend_cnt || 0);
         });
 
-        // 5. 구역장/부구역장 정보
+        // 5. 구역장/부구역장/조장 정보 (구역장 -> 부구역장 -> 조장 순으로 정렬)
         const leaderRows = await conn.query(`
-            SELECT u.AREA_CODE, u.NAME, pa.POSITION, u.PHONE
+            SELECT u.AREA_CODE, u.NAME, 
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN u.POSITION LIKE '%구역장%' OR u.POSITION LIKE '%조장%' THEN u.POSITION
+                           ELSE NULL 
+                       END,
+                       '구역임원'
+                   ) as POSITION, 
+                   u.PHONE
             FROM CWTB_USER u
-            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ? AND (pa.AREA_CODE = CONCAT(u.AREA_CODE, '구역') OR pa.AREA_CODE = u.AREA_CODE)
             WHERE u.YEAR = ? 
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
@@ -464,7 +473,18 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
                   OR u.POSITION LIKE '%구역장%'
                   OR u.POSITION LIKE '%조장%'
               )
-            ORDER BY u.AREA_CODE ASC, u.NAME ASC
+            ORDER BY 
+                CAST(u.AREA_CODE AS UNSIGNED) ASC,
+                u.AREA_CODE ASC,
+                CASE 
+                    WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%구역장%' AND COALESCE(pa.POSITION, u.POSITION) NOT LIKE '%부%' THEN 1
+                    WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%부구역장%' THEN 2
+                    WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%조장%' THEN 3
+                    WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%조총무%' THEN 4
+                    WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%서기%' THEN 5
+                    ELSE 6
+                END,
+                u.NAME ASC
         `, [activeYear, activeYear]);
 
         const leaderMap = {};
@@ -1381,12 +1401,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
         });
 
         // 날짜 순회
-        const dStart = new Date(fromDateStr);
-        const dEnd = new Date(toDateStr);
+        const dStart = new Date(`${fromDateStr}T00:00:00`);
+        const dEnd = new Date(`${toDateStr}T23:59:59`);
         const allDates = [];
         const curr = new Date(dStart);
 
-        while (curr <= dEnd && curr <= now) {
+        while (curr <= dEnd) {
             const day = curr.getDay();
             const y = curr.getFullYear();
             const m = String(curr.getMonth() + 1).padStart(2, '0');
@@ -1431,38 +1451,72 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
         const latestSundayCount = latestSundayObj ? Number(latestSundayObj.sundayAttend || 0) : 0;
         const prevSundayCount = prevSundayObj ? Number(prevSundayObj.sundayAttend || 0) : 0;
-        const sundayDiff = prevSundayCount > 0 ? (((latestSundayCount - prevSundayCount) / prevSundayCount) * 100).toFixed(1) : 0;
 
         const latestWednesdayCount = latestWednesdayObj ? Number(latestWednesdayObj.wednesdayAttend || 0) : 0;
         const prevWednesdayCount = prevWednesdayObj ? Number(prevWednesdayObj.wednesdayAttend || 0) : 0;
-        const wednesdayDiff = prevWednesdayCount > 0 ? (((latestWednesdayCount - prevWednesdayCount) / prevWednesdayCount) * 100).toFixed(1) : 0;
 
-        // 6. 최근 주일 기존 성도 vs 새참자 출석 분리 집계
+        // 6. 최근 주일/수요일 기존 성도 vs 새참자 출석 분리 집계
         let regularAttended = 0;
+        let prevRegularAttended = 0;
         let newcomerAttended = 0;
+        let prevNewcomerAttended = 0;
+
+        let wednesdayRegularAttended = 0;
+        let prevWednesdayRegularAttended = 0;
+        let wednesdayNewcomerAttended = 0;
+        let prevWednesdayNewcomerAttended = 0;
+
+        const splitQuery = `
+            SELECT 
+                SUM(CASE WHEN a.member_code NOT LIKE 'NC_%' THEN 1 ELSE 0 END) as reg_cnt,
+                SUM(CASE WHEN a.member_code LIKE 'NC_%' THEN 1 ELSE 0 END) as nc_cnt
+            FROM faithon_attendance a
+            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
+            LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
+              AND a.service_type = ?
+              AND a.is_attended = TRUE
+              AND (
+                  ? IS NULL 
+                  OR u.AREA_CODE = ? 
+                  OR nc.area_code = ? 
+                  OR nc.temp_area = ?
+              )
+        `;
 
         if (latestSundayObj) {
-            const splitQuery = `
-                SELECT 
-                    SUM(CASE WHEN a.member_code NOT LIKE 'NC_%' THEN 1 ELSE 0 END) as reg_cnt,
-                    SUM(CASE WHEN a.member_code LIKE 'NC_%' THEN 1 ELSE 0 END) as nc_cnt
-                FROM faithon_attendance a
-                LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
-                LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
-                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
-                  AND a.service_type = 'sunday'
-                  AND a.is_attended = TRUE
-                  AND (
-                      ? IS NULL 
-                      OR u.AREA_CODE = ? 
-                      OR nc.area_code = ? 
-                      OR nc.temp_area = ?
-                  )
-            `;
-            const splitRows = await conn.query(splitQuery, [activeYear, latestSundayObj.date, areaCode || null, areaCode, areaCode, areaCode]);
+            const splitRows = await conn.query(splitQuery, [activeYear, latestSundayObj.date, 'sunday', areaCode || null, areaCode, areaCode, areaCode]);
             regularAttended = Number(splitRows[0]?.reg_cnt || 0);
             newcomerAttended = Number(splitRows[0]?.nc_cnt || 0);
+
+            if (prevSundayObj) {
+                const prevSplitRows = await conn.query(splitQuery, [activeYear, prevSundayObj.date, 'sunday', areaCode || null, areaCode, areaCode, areaCode]);
+                prevRegularAttended = Number(prevSplitRows[0]?.reg_cnt || 0);
+                prevNewcomerAttended = Number(prevSplitRows[0]?.nc_cnt || 0);
+            }
         }
+
+        if (latestWednesdayObj) {
+            const wedSplitRows = await conn.query(splitQuery, [activeYear, latestWednesdayObj.date, 'wednesday', areaCode || null, areaCode, areaCode, areaCode]);
+            wednesdayRegularAttended = Number(wedSplitRows[0]?.reg_cnt || 0);
+            wednesdayNewcomerAttended = Number(wedSplitRows[0]?.nc_cnt || 0);
+
+            if (prevWednesdayObj) {
+                const prevWedSplitRows = await conn.query(splitQuery, [activeYear, prevWednesdayObj.date, 'wednesday', areaCode || null, areaCode, areaCode, areaCode]);
+                prevWednesdayRegularAttended = Number(prevWedSplitRows[0]?.reg_cnt || 0);
+                prevWednesdayNewcomerAttended = Number(prevWedSplitRows[0]?.nc_cnt || 0);
+            }
+        }
+
+        const sundayDiffCount = regularAttended - prevRegularAttended;
+        const wednesdayDiffCount = wednesdayRegularAttended - prevWednesdayRegularAttended;
+        const newcomerDiffCount = newcomerAttended - prevNewcomerAttended;
+        const wednesdayNewcomerDiffCount = wednesdayNewcomerAttended - prevWednesdayNewcomerAttended;
+
+        const sundayDiff = prevRegularAttended > 0 ? (((regularAttended - prevRegularAttended) / prevRegularAttended) * 100).toFixed(1) : 0;
+        const wednesdayDiff = prevWednesdayRegularAttended > 0 ? (((wednesdayRegularAttended - prevWednesdayRegularAttended) / prevWednesdayRegularAttended) * 100).toFixed(1) : 0;
+        const newcomerDiff = prevNewcomerAttended > 0 ? (((newcomerAttended - prevNewcomerAttended) / prevNewcomerAttended) * 100).toFixed(1) : 0;
+        const wednesdayNewcomerDiff = prevWednesdayNewcomerAttended > 0 ? (((wednesdayNewcomerAttended - prevWednesdayNewcomerAttended) / prevWednesdayNewcomerAttended) * 100).toFixed(1) : 0;
 
         const totalEligible = regularMemberCount + newcomerCount;
         const unattendedCount = Math.max(0, totalEligible - (regularAttended + newcomerAttended));
@@ -1482,7 +1536,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                    ) AS POSITION, 
                    u.PHONE, u.AREA_CODE, u.FELLOW_DEPT, 0 as is_newcomer, NULL as guide_name
             FROM CWTB_USER u
-            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ? AND (pa.AREA_CODE = CONCAT(u.AREA_CODE, '구역') OR pa.AREA_CODE = u.AREA_CODE)
             LEFT JOIN (
                 SELECT NAME, POSITION 
                 FROM CWTB_PEP 
@@ -1507,11 +1561,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
             CAST(u.AREA_CODE AS UNSIGNED) ASC,
             u.AREA_CODE ASC,
             CASE 
-                WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1
-                WHEN pa.POSITION LIKE '%부구역장%' THEN 2
-                WHEN pa.POSITION LIKE '%조장%' THEN 3
-                WHEN pa.POSITION LIKE '%조총무%' THEN 4
-                WHEN pa.POSITION LIKE '%서기%' THEN 5
+                WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%구역장%' AND COALESCE(pa.POSITION, u.POSITION) NOT LIKE '%부%' THEN 1
+                WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%부구역장%' THEN 2
+                WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%조장%' THEN 3
+                WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%조총무%' THEN 4
+                WHEN COALESCE(pa.POSITION, u.POSITION) LIKE '%서기%' THEN 5
                 WHEN pep.POSITION = '담임목사' THEN 6
                 WHEN pep.POSITION = '목사' THEN 7
                 WHEN pep.POSITION = '부목사' THEN 8
@@ -1627,10 +1681,15 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     latest_wednesday_attend: latestWednesdayCount,
                     wednesday_diff: wednesdayDiff,
                     newcomer_count: newcomerCount,
+                    newcomer_diff: newcomerDiff,
+                    latest_wednesday_newcomer_attend: wednesdayNewcomerAttended,
+                    wednesday_newcomer_diff: wednesdayNewcomerDiff,
                     reserve_count: reserveCount,
                     total_members: totalEligible,
+                    regular_total: regularMemberCount,
                     regular_attended: regularAttended,
                     newcomer_attended: newcomerAttended,
+                    wednesday_regular_attend: wednesdayRegularAttended,
                     unattended_count: unattendedCount
                 },
                 trend: {

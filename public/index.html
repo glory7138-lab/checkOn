@@ -116,22 +116,31 @@
                 </div>
             </div>
 
-            <!-- Stats Overview (금주 주일, 금주 수요, 새참자) -->
+            <!-- Stats Overview (금주 주일 성도, 금주 수요 성도, 금주 주일 새참자, 금주 수요 새참자) -->
             <div class="stats-grid" id="statsGrid">
                 <div class="card stat-card">
-                    <span class="stat-title">금주 주일</span>
+                    <span class="stat-title"><i class="fa-solid fa-church" style="color: #1428A0; margin-right: 4px;"></i> 금주 주일 (성도)</span>
                     <span class="stat-value" id="valSundayAttend">-</span>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
                 <div class="card stat-card">
-                    <span class="stat-title">금주 수요</span>
+                    <span class="stat-title"><i class="fa-solid fa-book-bible" style="color: #06b6d4; margin-right: 4px;"></i> 금주 수요 (성도)</span>
                     <span class="stat-value" id="valWednesdayAttend">-</span>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <div class="card stat-card">
-                    <span class="stat-title">새참자</span>
-                    <span class="stat-value" id="valNewcomerCount">-</span>
-                    <span class="stat-desc badge badge-success" style="width:fit-content; margin-top:2px;">구역 연동</span>
+                <div class="card stat-card" style="border-left-color: #0891b2;">
+                    <span class="stat-title"><i class="fa-solid fa-user-plus" style="color: #0891b2; margin-right: 4px;"></i> 금주 주일 새참자</span>
+                    <span class="stat-value" id="valSundayNewcomerCount" style="color: #0891b2;">-</span>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayNewcomerRate">새참자 참석률 -%</div>
+                    <span class="stat-desc" id="diffSundayNewcomerDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
+                </div>
+                <div class="card stat-card" style="border-left-color: #38bdf8;">
+                    <span class="stat-title"><i class="fa-solid fa-user-check" style="color: #0284c7; margin-right: 4px;"></i> 금주 수요 새참자</span>
+                    <span class="stat-value" id="valWednesdayNewcomerCount" style="color: #0284c7;">-</span>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayNewcomerRate">새참자 참석률 -%</div>
+                    <span class="stat-desc" id="diffWednesdayNewcomerDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
             </div>
 
@@ -152,49 +161,63 @@
             </div>
 
             <!-- Charts Section (PC는 항상 표시, 모바일 구역장은 기본 접힘으로 바로 표 확인 가능) -->
-            <div class="charts-grid" id="chartsSectionGrid" style="margin-bottom: 1.5rem;">
-                <div class="card chart-container">
-                    <h3 id="trendChartTitle">주간 출석 트렌드</h3>
-                    <div class="chart-wrapper">
+            <div class="charts-grid" id="chartsSectionGrid" style="margin-bottom: 1.5rem; align-items: stretch;">
+                <div class="card chart-container" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.4rem;">
+                            <h3 id="trendChartTitle" style="margin-bottom: 0;">주간 출석 트렌드</h3>
+                            <div class="matrix-tab-group" style="padding: 2px; gap: 2px;">
+                                <button type="button" class="matrix-tab active" id="trendTabAll" onclick="switchTrendTab('all')" style="font-size: 0.72rem; padding: 0.25rem 0.5rem;" title="주일 및 수요 전체 표시">
+                                    전체
+                                </button>
+                                <button type="button" class="matrix-tab" id="trendTabSunday" onclick="switchTrendTab('sunday')" style="font-size: 0.72rem; padding: 0.25rem 0.5rem;" title="주일만 보기 (수요일 날짜 제외)">
+                                    주일만
+                                </button>
+                                <button type="button" class="matrix-tab" id="trendTabWednesday" onclick="switchTrendTab('wednesday')" style="font-size: 0.72rem; padding: 0.25rem 0.5rem;" title="수요만 보기 (주일 날짜 제외)">
+                                    수요만
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper" style="flex: 1; position: relative; min-height: 240px; display: flex; align-items: center;">
                         <canvas id="trendChart"></canvas>
                     </div>
                 </div>
-                <div class="card chart-container">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                        <h3 style="margin-bottom: 0;">최근 주일 출석 구성비</h3>
-                        <span class="badge" id="ratioLatestDateBadge" style="background: var(--accent-light); color: var(--accent-color); font-weight: 700; font-size: 0.8rem;">-</span>
+                <div class="card chart-container" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                            <h3 style="margin-bottom: 0;">최근 주일 출석 구성비</h3>
+                            <span class="badge" id="ratioLatestDateBadge" style="background: var(--accent-light); color: var(--accent-color); font-weight: 700; font-size: 0.8rem;">-</span>
+                        </div>
+
+                        <!-- 총 출석/구역 총원 / 기존 성도 / 새참자 3단 수치 요약 바 -->
+                        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; background: #f8fafc; padding: 0.6rem 0.65rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.74rem; color: var(--text-secondary); font-weight: 700;">총 출석 / 구역 총원</div>
+                                <div style="font-size: 1.05rem; font-weight: 800; color: #1e293b;" id="summaryGrandAttend">-</div>
+                            </div>
+                            <div style="text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
+                                <div style="font-size: 0.74rem; color: var(--accent-color); font-weight: 700;">기존 성도</div>
+                                <div style="font-size: 1.05rem; font-weight: 800; color: var(--accent-color);" id="summaryRegularAttend">-</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.74rem; color: #0891b2; font-weight: 700;">새참자</div>
+                                <div style="font-size: 1.05rem; font-weight: 800; color: #0891b2;" id="summaryNewcomerAttend">-</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 총원 / 성도 / 새참자 수치 & % 요약 바 -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; background: #f8fafc; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">구역 총원</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);" id="summaryTotalMembers">-</div>
-                        </div>
-                        <div style="text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
-                            <div style="font-size: 0.75rem; color: var(--accent-color); font-weight: 600;">기존 성도</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: var(--accent-color);" id="summaryRegularAttend">-</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75rem; color: #0891b2; font-weight: 600;">새참자</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #0891b2;" id="summaryNewcomerAttend">-</div>
-                        </div>
-                    </div>
-
-                    <div class="chart-wrapper" style="position: relative;">
+                    <div class="chart-wrapper" style="flex: 1; position: relative; min-height: 240px; display: flex; align-items: center; justify-content: center;">
                         <canvas id="ratioChart"></canvas>
-                        <!-- 도넛 차트 중앙 총 출석률 텍스트 -->
-                        <div style="position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-                            <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">총 출석률</div>
-                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px;" id="centerAttendanceRate">-</div>
-                        </div>
+                        <!-- Hidden data container for Chart.js doughnutCenter plugin -->
+                        <span id="centerAttendanceRate" style="display: none;">0.0%</span>
                     </div>
                 </div>
             </div>
 
             <!-- 구역 인원별 출석 현황 (가로 막대 바 & 주차별 매트릭스) -->
-            <div class="card" style="margin-bottom: 2rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="card" id="dashboardMatrixCard" style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
                     <div>
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);" id="matrixSectionTitle">
                             <i class="fa-solid fa-users" style="color: var(--accent-color); margin-right: 6px;"></i>
@@ -228,6 +251,13 @@
                             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
                             <input type="text" class="form-input" id="memberSearchInput" style="padding-left: 2.2rem; font-size: 0.85rem; padding-top: 0.45rem; padding-bottom: 0.45rem;" placeholder="이름 검색...">
                         </div>
+                    </div>
+                </div>
+
+                <!-- 11구역 ~ 20구역 책장 넘김 / 스와이프 탭 바 (전체 구역 조회 시 표시) -->
+                <div class="area-tabs-nav" id="matrixAreaNav" style="display: none;">
+                    <div class="area-tabs-list" id="matrixAreaTabsList">
+                        <!-- Populated dynamically: 전체, 11구역, 12구역 ... 20구역 -->
                     </div>
                 </div>
 
@@ -321,7 +351,10 @@
         const diffSundayDesc = document.getElementById('diffSundayDesc');
         const valWednesdayAttend = document.getElementById('valWednesdayAttend');
         const diffWednesdayDesc = document.getElementById('diffWednesdayDesc');
-        const valNewcomerCount = document.getElementById('valNewcomerCount');
+        const valSundayNewcomerCount = document.getElementById('valSundayNewcomerCount');
+        const diffSundayNewcomerDesc = document.getElementById('diffSundayNewcomerDesc');
+        const valWednesdayNewcomerCount = document.getElementById('valWednesdayNewcomerCount');
+        const diffWednesdayNewcomerDesc = document.getElementById('diffWednesdayNewcomerDesc');
         const trendChartTitle = document.getElementById('trendChartTitle');
 
         let trendChartInstance = null;
@@ -332,6 +365,7 @@
         let cachedTrend = null;
         let currentCategoryTab = 'member'; // 'member' | 'newcomer'
         let currentMatrixTab = 'sunday'; // 'sunday' | 'wednesday' | 'all'
+        let currentTrendTab = 'all'; // 'all' | 'sunday' | 'wednesday' | 'combined'
 
         async function initPage() {
             // 1. Sidebar & Mobile Nav
@@ -416,6 +450,7 @@
             const dd = String(now.getDate()).padStart(2, '0');
             const endDateStr = `${yyyy}-${mm}-${dd}`;
 
+            // Find 4 most recent Sundays on or before today
             const sundays = [];
             let currS = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             while (sundays.length < 4) {
@@ -424,6 +459,7 @@
             }
             const fourthSunday = sundays[3];
 
+            // Find 4 most recent Wednesdays on or before today
             const wednesdays = [];
             let currW = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             while (wednesdays.length < 4) {
@@ -432,6 +468,7 @@
             }
             const fourthWednesday = wednesdays[3];
 
+            // Start date must cover both 4 Sundays and 4 Wednesdays
             const earlierDate = fourthSunday < fourthWednesday ? fourthSunday : fourthWednesday;
             const startY = earlierDate.getFullYear();
             const startM = String(earlierDate.getMonth() + 1).padStart(2, '0');
@@ -441,18 +478,22 @@
             return { startDate: startDateStr, endDate: endDateStr };
         }
 
+        let allAreaList = [];
+
         async function loadAllAreas() {
             try {
                 const res = await fetch('/api/areas');
                 const json = await res.json();
                 if (json.success && json.data) {
+                    allAreaList = json.data || [];
                     areaFilter.innerHTML = '<option value="">전체 구역</option>';
-                    json.data.forEach(area => {
+                    allAreaList.forEach(area => {
                         const opt = document.createElement('option');
                         opt.value = area;
                         opt.textContent = `${area}구역`;
                         areaFilter.appendChild(opt);
                     });
+                    renderAreaTabs();
                 }
             } catch (err) {
                 console.error(err);
@@ -482,23 +523,88 @@
                 const m = data.metrics;
                 cachedTrend = data.trend;
 
-                valSundayAttend.textContent = `${m.latest_sunday_attend}명`;
+                // 1. 금주 주일 (성도) [성도 출석수 / 성도 재적 (출석률%)]
+                const regTotalMem = m.regular_total !== undefined ? m.regular_total : Math.max(0, (m.total_members || 0) - (m.newcomer_count || 0));
+                const regSunAtt = m.regular_attended || 0;
+                const sunRegRate = regTotalMem > 0 ? ((regSunAtt / regTotalMem) * 100).toFixed(1) : '0.0';
+                valSundayAttend.innerHTML = `${regSunAtt}명 <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">/ ${regTotalMem}명 (${sunRegRate}%)</span>`;
+                
+                const subSunBreakdown = document.getElementById('subSundayBreakdown');
+                if (subSunBreakdown) {
+                    subSunBreakdown.innerHTML = `성도 출석률 <strong style="color:var(--accent-color);">${sunRegRate}%</strong>`;
+                }
+
+                // 1. 금주 주일 성도 증감
                 const sDiff = parseFloat(m.sunday_diff || 0);
-                if (sDiff >= 0) {
-                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 이전 대비 +${sDiff}%`;
+                const sDiffCnt = m.sunday_diff_count !== undefined ? m.sunday_diff_count : 0;
+                const sDiffCntStr = sDiffCnt > 0 ? `(+${sDiffCnt}명)` : (sDiffCnt < 0 ? `(${sDiffCnt}명)` : `(0명)`);
+                if (sDiff > 0 || (sDiff === 0 && sDiffCnt >= 0)) {
+                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 지난주 대비 +${sDiff}% <span style="font-weight:700; margin-left:2px;">${sDiffCntStr}</span>`;
                 } else {
-                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 이전 대비 ${sDiff}%`;
+                    diffSundayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${sDiff}% <span style="font-weight:700; margin-left:2px;">${sDiffCntStr}</span>`;
                 }
 
-                valWednesdayAttend.textContent = `${m.latest_wednesday_attend}명`;
+                // 2. 금주 수요 (성도) [성도 출석수 / 성도 총원 (출석률%)]
+                const regWedAtt = m.wednesday_regular_attend || 0;
+                const wedRegRate = regTotalMem > 0 ? ((regWedAtt / regTotalMem) * 100).toFixed(1) : '0.0';
+                valWednesdayAttend.innerHTML = `${regWedAtt}명 <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">/ ${regTotalMem}명 (${wedRegRate}%)</span>`;
+                
+                const subWedBreakdown = document.getElementById('subWednesdayBreakdown');
+                if (subWedBreakdown) {
+                    subWedBreakdown.innerHTML = `성도 출석률 <strong style="color:var(--accent-color);">${wedRegRate}%</strong>`;
+                }
+
                 const wDiff = parseFloat(m.wednesday_diff || 0);
-                if (wDiff >= 0) {
-                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 이전 대비 +${wDiff}%`;
+                const wDiffCnt = m.wednesday_diff_count !== undefined ? m.wednesday_diff_count : 0;
+                const wDiffCntStr = wDiffCnt > 0 ? `(+${wDiffCnt}명)` : (wDiffCnt < 0 ? `(${wDiffCnt}명)` : `(0명)`);
+                if (wDiff > 0 || (wDiff === 0 && wDiffCnt >= 0)) {
+                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 지난주 대비 +${wDiff}% <span style="font-weight:700; margin-left:2px;">${wDiffCntStr}</span>`;
                 } else {
-                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 이전 대비 ${wDiff}%`;
+                    diffWednesdayDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${wDiff}% <span style="font-weight:700; margin-left:2px;">${wDiffCntStr}</span>`;
                 }
 
-                valNewcomerCount.textContent = `${m.newcomer_count}명`;
+                // 3. 금주 주일 새참자 [출석수 / 전체새참자 (출석률%)]
+                const ncTotal = m.newcomer_count || 0;
+                const sunNcAtt = m.newcomer_attended || 0;
+                const sunNcRate = ncTotal > 0 ? ((sunNcAtt / ncTotal) * 100).toFixed(1) : '0.0';
+                if (valSundayNewcomerCount) {
+                    valSundayNewcomerCount.innerHTML = `${sunNcAtt}명 <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">/ ${ncTotal}명 (${sunNcRate}%)</span>`;
+                }
+                const subSunNcRate = document.getElementById('subSundayNewcomerRate');
+                if (subSunNcRate) {
+                    subSunNcRate.innerHTML = `새참자 출석률 <strong style="color:#0891b2;">${sunNcRate}%</strong>`;
+                }
+                const sncDiff = parseFloat(m.newcomer_diff || 0);
+                const sncDiffCnt = m.newcomer_diff_count !== undefined ? m.newcomer_diff_count : 0;
+                const sncDiffCntStr = sncDiffCnt > 0 ? `(+${sncDiffCnt}명)` : (sncDiffCnt < 0 ? `(${sncDiffCnt}명)` : `(0명)`);
+                if (diffSundayNewcomerDesc) {
+                    if (sncDiff > 0 || (sncDiff === 0 && sncDiffCnt >= 0)) {
+                        diffSundayNewcomerDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 지난주 대비 +${sncDiff}% <span style="font-weight:700; margin-left:2px;">${sncDiffCntStr}</span>`;
+                    } else {
+                        diffSundayNewcomerDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${sncDiff}% <span style="font-weight:700; margin-left:2px;">${sncDiffCntStr}</span>`;
+                    }
+                }
+
+                // 4. 금주 수요 새참자 [출석수 / 전체새참자 (출석률%)]
+                const wedNcAtt = m.latest_wednesday_newcomer_attend || 0;
+                const wedNcRate = ncTotal > 0 ? ((wedNcAtt / ncTotal) * 100).toFixed(1) : '0.0';
+                if (valWednesdayNewcomerCount) {
+                    valWednesdayNewcomerCount.innerHTML = `${wedNcAtt}명 <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">/ ${ncTotal}명 (${wedNcRate}%)</span>`;
+                }
+                const subWedNcRate = document.getElementById('subWednesdayNewcomerRate');
+                if (subWedNcRate) {
+                    subWedNcRate.innerHTML = `새참자 출석률 <strong style="color:#0284c7;">${wedNcRate}%</strong>`;
+                }
+                const wncDiff = parseFloat(m.wednesday_newcomer_diff || 0);
+                const wncDiffCnt = m.wednesday_newcomer_diff_count !== undefined ? m.wednesday_newcomer_diff_count : 0;
+                const wncDiffCntStr = wncDiffCnt > 0 ? `(+${wncDiffCnt}명)` : (wncDiffCnt < 0 ? `(${wncDiffCnt}명)` : `(0명)`);
+                if (diffWednesdayNewcomerDesc) {
+                    if (wncDiff > 0 || (wncDiff === 0 && wncDiffCnt >= 0)) {
+                        diffWednesdayNewcomerDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 지난주 대비 +${wncDiff}% <span style="font-weight:700; margin-left:2px;">${wncDiffCntStr}</span>`;
+                    } else {
+                        diffWednesdayNewcomerDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${wncDiff}% <span style="font-weight:700; margin-left:2px;">${wncDiffCntStr}</span>`;
+                    }
+                }
 
                 updateChartsWithCategory();
                 updateRatioChart(m);
@@ -520,28 +626,167 @@
             Chart.defaults.color = '#6c757d';
             Chart.defaults.font.family = "'Inter', sans-serif";
 
+            // Custom Chart.js Plugin to draw attendance numbers above each point on line charts
+            const lineDataLabelsPlugin = {
+                id: 'lineDataLabels',
+                afterDatasetsDraw: (chart) => {
+                    if (chart.config.type !== 'line') return;
+                    const { ctx } = chart;
+                    ctx.save();
+
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        if (meta.hidden) return;
+
+                        meta.data.forEach((element, index) => {
+                            const val = dataset.data[index];
+                            if (val === null || val === undefined || isNaN(val)) return;
+
+                            const { x, y } = element.tooltipPosition();
+                            
+                            // Styling for point numbers
+                            ctx.font = "700 11px 'Inter', sans-serif";
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            
+                            // Background pill / text shadow for crisp visibility
+                            const text = `${val}명`;
+                            const textWidth = ctx.measureText(text).width;
+                            const paddingX = 4;
+                            const paddingY = 2;
+                            const pillHeight = 16;
+                            const pillY = y - 10 - pillHeight;
+
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+                            ctx.beginPath();
+                            if (ctx.roundRect) {
+                                ctx.roundRect(x - textWidth / 2 - paddingX, pillY, textWidth + paddingX * 2, pillHeight, 4);
+                            } else {
+                                ctx.rect(x - textWidth / 2 - paddingX, pillY, textWidth + paddingX * 2, pillHeight);
+                            }
+                            ctx.fill();
+                            ctx.strokeStyle = dataset.borderColor || '#1428A0';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+
+                            // Number text
+                            ctx.fillStyle = dataset.borderColor || '#0f172a';
+                            ctx.fillText(text, x, pillY + pillHeight - 3);
+                        });
+                    });
+
+                    ctx.restore();
+                }
+            };
+
             const trendCtx = document.getElementById('trendChart').getContext('2d');
             trendChartInstance = new Chart(trendCtx, {
                 type: 'line',
                 data: {
                     labels: [],
                     datasets: [
-                        { label: '주일말씀 출석', data: [], borderColor: '#1428A0', backgroundColor: 'rgba(20, 40, 160, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#1428A0', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3, spanGaps: true },
-                        { label: '수요말씀 출석', data: [], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#06b6d4', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3, spanGaps: true }
+                        { label: '주일말씀 출석', data: [], borderColor: '#1428A0', backgroundColor: 'rgba(20, 40, 160, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#1428A0', pointBorderWidth: 2, pointRadius: 5, pointHoverRadius: 7, fill: false, tension: 0.3, spanGaps: true },
+                        { label: '수요말씀 출석', data: [], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.08)', borderWidth: 2.5, pointBackgroundColor: '#ffffff', pointBorderColor: '#06b6d4', pointBorderWidth: 2, pointRadius: 5, pointHoverRadius: 7, fill: false, tension: 0.3, spanGaps: true }
                     ]
                 },
+                plugins: [lineDataLabelsPlugin],
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } }, tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 6 } },
-                    scales: { y: { beginAtZero: true, grid: { color: '#e9ecef' }, border: { display: false }, ticks: { precision: 0 } }, x: { grid: { display: false }, border: { display: false } } }
+                    layout: {
+                        padding: { top: 25, bottom: 5, left: 10, right: 10 }
+                    },
+                    plugins: { 
+                        legend: { 
+                            position: 'top', 
+                            labels: { usePointStyle: true, boxWidth: 8, font: { size: 12, weight: '600' } } 
+                        }, 
+                        tooltip: { backgroundColor: '#1e293b', padding: 10, cornerRadius: 6 } 
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: '#e9ecef' }, 
+                            border: { display: false }, 
+                            ticks: { precision: 0 },
+                            grace: '15%'
+                        }, 
+                        x: { grid: { display: false }, border: { display: false } } 
+                    }
                 }
             });
 
             const ratioCtx = document.getElementById('ratioChart').getContext('2d');
+            
+            // Custom Chart.js Plugin to draw '총 출석률' text perfectly centered inside doughnut on all devices
+            const doughnutCenterPlugin = {
+                id: 'doughnutCenter',
+                afterDraw: (chart) => {
+                    if (chart.config.type !== 'doughnut') return;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return;
+                    
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || meta.data.length === 0) return;
+                    const x = meta.data[0].x;
+                    const y = meta.data[0].y;
+
+                    const rateEl = document.getElementById('centerAttendanceRate');
+                    const rateText = rateEl ? rateEl.textContent : '0.0%';
+
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    // 1. Subtitle: '총 출석률'
+                    ctx.font = "600 11px 'Inter', sans-serif";
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText('총 출석률', x, y - 10);
+                    
+                    // 2. Value: Rate %
+                    ctx.font = "800 20px 'Inter', sans-serif";
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillText(rateText, x, y + 12);
+                    
+                    ctx.restore();
+                }
+            };
+
             ratioChartInstance = new Chart(ratioCtx, {
                 type: 'doughnut',
-                data: { labels: ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'], datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 12 } } } } }
+                data: { 
+                    labels: ['기존 성도 출석', '새참자 출석', '미출석', '예비명단'], 
+                    datasets: [{ 
+                        data: [0, 0, 0, 0], 
+                        backgroundColor: ['#1428A0', '#06b6d4', '#e2e8f0', '#f59e0b'], 
+                        borderWidth: 0, 
+                        hoverOffset: 4 
+                    }] 
+                },
+                plugins: [doughnutCenterPlugin],
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    cutout: '72%', 
+                    layout: {
+                        padding: { top: 10, bottom: 10 }
+                    },
+                    plugins: { 
+                        legend: { 
+                            position: 'right', 
+                            labels: { 
+                                usePointStyle: true, 
+                                padding: 12, 
+                                font: { size: 11, weight: '600' },
+                                boxWidth: 8
+                            } 
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            padding: 10,
+                            cornerRadius: 6
+                        }
+                    } 
+                }
             });
         }
 
@@ -583,34 +828,139 @@
             }
         }
 
+        function switchTrendTab(tab) {
+            currentTrendTab = tab;
+            const btnAll = document.getElementById('trendTabAll');
+            const btnSun = document.getElementById('trendTabSunday');
+            const btnWed = document.getElementById('trendTabWednesday');
+            if (btnAll) btnAll.classList.toggle('active', tab === 'all');
+            if (btnSun) btnSun.classList.toggle('active', tab === 'sunday');
+            if (btnWed) btnWed.classList.toggle('active', tab === 'wednesday');
+
+            updateChartsWithCategory();
+        }
+
         function updateChartsWithCategory() {
             if (!trendChartInstance || !cachedTrend) return;
             const s = startDateInput.value || '';
             const e = endDateInput.value || '';
+            const isNewcomer = (currentCategoryTab === 'newcomer');
 
-            if (currentCategoryTab === 'newcomer') {
-                trendChartTitle.textContent = `새참자 주간 출석 트렌드 (${s} ~ ${e})`;
-                trendChartInstance.data.labels = cachedTrend.labels || [];
-                trendChartInstance.data.datasets[0].label = '새참자 주일말씀 참석';
-                trendChartInstance.data.datasets[0].borderColor = '#0891b2';
-                trendChartInstance.data.datasets[0].pointBorderColor = '#0891b2';
-                trendChartInstance.data.datasets[0].data = cachedTrend.sundays_newcomer || [];
-                trendChartInstance.data.datasets[1].label = '새참자 수요말씀 참석';
-                trendChartInstance.data.datasets[1].borderColor = '#38bdf8';
-                trendChartInstance.data.datasets[1].pointBorderColor = '#38bdf8';
-                trendChartInstance.data.datasets[1].data = cachedTrend.wednesdays_newcomer || [];
-            } else {
-                trendChartTitle.textContent = `성도 주간 출석 트렌드 (${s} ~ ${e})`;
-                trendChartInstance.data.labels = cachedTrend.labels || [];
-                trendChartInstance.data.datasets[0].label = '주일말씀 출석';
-                trendChartInstance.data.datasets[0].borderColor = '#1428A0';
-                trendChartInstance.data.datasets[0].pointBorderColor = '#1428A0';
-                trendChartInstance.data.datasets[0].data = cachedTrend.sundays || [];
-                trendChartInstance.data.datasets[1].label = '수요말씀 출석';
-                trendChartInstance.data.datasets[1].borderColor = '#06b6d4';
-                trendChartInstance.data.datasets[1].pointBorderColor = '#06b6d4';
-                trendChartInstance.data.datasets[1].data = cachedTrend.wednesdays || [];
+            trendChartTitle.textContent = isNewcomer 
+                ? `새참자 주간 출석 트렌드 (${s} ~ ${e})` 
+                : `성도 주간 출석 트렌드 (${s} ~ ${e})`;
+
+            // Source data arrays
+            const sunData = isNewcomer ? (cachedTrend.sundays_newcomer || []) : (cachedTrend.sundays || []);
+            const wedData = isNewcomer ? (cachedTrend.wednesdays_newcomer || []) : (cachedTrend.wednesdays || []);
+            const rawLabels = cachedTrend.labels || [];
+            const sessions = (cachedSessions && cachedSessions.length > 0) ? cachedSessions : [];
+
+            // Filter points according to currentTrendTab (주일만 / 수요만 / 전체)
+            // 'sunday': only Sunday dates on X axis (Wednesdays completely excluded from X axis)
+            // 'wednesday': only Wednesday dates on X axis (Sundays completely excluded from X axis)
+            // 'all': all dates with Sunday and Wednesday lines
+            let filteredLabels = [];
+            let filteredSun = [];
+            let filteredWed = [];
+
+            for (let i = 0; i < rawLabels.length; i++) {
+                const sess = sessions[i] || {};
+                const isSunday = sess.service_type === 'sunday' || rawLabels[i].includes('주일') || rawLabels[i].includes('(일)');
+                const isWednesday = sess.service_type === 'wednesday' || rawLabels[i].includes('수요') || rawLabels[i].includes('(수)');
+
+                if (currentTrendTab === 'sunday') {
+                    if (isSunday) {
+                        filteredLabels.push(rawLabels[i]);
+                        filteredSun.push(sunData[i]);
+                    }
+                } else if (currentTrendTab === 'wednesday') {
+                    if (isWednesday) {
+                        filteredLabels.push(rawLabels[i]);
+                        filteredWed.push(wedData[i]);
+                    }
+                } else {
+                    // 'all': Include all dates
+                    filteredLabels.push(rawLabels[i]);
+                    filteredSun.push(sunData[i]);
+                    filteredWed.push(wedData[i]);
+                }
             }
+
+            trendChartInstance.data.labels = filteredLabels;
+
+            if (currentTrendTab === 'sunday') {
+                trendChartInstance.data.datasets = [
+                    {
+                        label: isNewcomer ? '새참자 주일말씀 참석' : '주일말씀 출석',
+                        data: filteredSun,
+                        borderColor: isNewcomer ? '#0891b2' : '#1428A0',
+                        pointBorderColor: isNewcomer ? '#0891b2' : '#1428A0',
+                        backgroundColor: isNewcomer ? 'rgba(8, 145, 178, 0.08)' : 'rgba(20, 40, 160, 0.08)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.3,
+                        spanGaps: true
+                    }
+                ];
+            } else if (currentTrendTab === 'wednesday') {
+                trendChartInstance.data.datasets = [
+                    {
+                        label: isNewcomer ? '새참자 수요말씀 참석' : '수요말씀 출석',
+                        data: filteredWed,
+                        borderColor: isNewcomer ? '#38bdf8' : '#06b6d4',
+                        pointBorderColor: isNewcomer ? '#38bdf8' : '#06b6d4',
+                        backgroundColor: isNewcomer ? 'rgba(56, 189, 248, 0.08)' : 'rgba(6, 182, 212, 0.08)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.3,
+                        spanGaps: true
+                    }
+                ];
+            } else {
+                // 'all': Show both Sunday & Wednesday lines
+                trendChartInstance.data.datasets = [
+                    {
+                        label: isNewcomer ? '새참자 주일말씀 참석' : '주일말씀 출석',
+                        data: filteredSun,
+                        borderColor: isNewcomer ? '#0891b2' : '#1428A0',
+                        pointBorderColor: isNewcomer ? '#0891b2' : '#1428A0',
+                        backgroundColor: isNewcomer ? 'rgba(8, 145, 178, 0.04)' : 'rgba(20, 40, 160, 0.04)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: false,
+                        tension: 0.3,
+                        spanGaps: true
+                    },
+                    {
+                        label: isNewcomer ? '새참자 수요말씀 참석' : '수요말씀 출석',
+                        data: filteredWed,
+                        borderColor: isNewcomer ? '#38bdf8' : '#06b6d4',
+                        pointBorderColor: isNewcomer ? '#38bdf8' : '#06b6d4',
+                        backgroundColor: isNewcomer ? 'rgba(56, 189, 248, 0.04)' : 'rgba(6, 182, 212, 0.04)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: false,
+                        tension: 0.3,
+                        spanGaps: true
+                    }
+                ];
+            }
+
             trendChartInstance.update();
         }
 
@@ -628,15 +978,18 @@
             const ncRate = total > 0 ? ((ncAttended / total) * 100).toFixed(1) : '0.0';
             const unRate = total > 0 ? ((unattended / total) * 100).toFixed(1) : '0.0';
 
-            const summaryTotal = document.getElementById('summaryTotalMembers');
+            const summaryGrand = document.getElementById('summaryGrandAttend');
             const summaryReg = document.getElementById('summaryRegularAttend');
             const summaryNc = document.getElementById('summaryNewcomerAttend');
             const centerRate = document.getElementById('centerAttendanceRate');
             const dateBadge = document.getElementById('ratioLatestDateBadge');
 
-            if (summaryTotal) summaryTotal.textContent = `${total}명`;
-            if (summaryReg) summaryReg.innerHTML = `${regAttended}명 <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">(${regRate}%)</span>`;
-            if (summaryNc) summaryNc.innerHTML = `${ncAttended}명 <span style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">(${ncRate}%)</span>`;
+            const regTotal = m.regular_total !== undefined ? m.regular_total : Math.max(0, total - (m.newcomer_count || 0));
+            const ncTotal = m.newcomer_count || 0;
+
+            if (summaryGrand) summaryGrand.innerHTML = `${totalAttended}명 <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">/ ${total}명 (${totalRate}%)</span>`;
+            if (summaryReg) summaryReg.innerHTML = `${regAttended}명 <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">/ ${regTotal}명 (${regRate}%)</span>`;
+            if (summaryNc) summaryNc.innerHTML = `${ncAttended}명 <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">/ ${ncTotal}명 (${ncRate}%)</span>`;
             if (centerRate) centerRate.textContent = `${totalRate}%`;
 
             const sundaysOnly = cachedSessions.filter(s => s.service_type === 'sunday');
@@ -737,15 +1090,21 @@
 
                 let badgeHtml = '';
                 if (isNewcomer) {
-                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 1px 2px; margin-left: 2px; font-size: 0.56rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">새참자</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.6rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">새참자</span>`;
+                } else if (pos.includes('부구역장')) {
+                    badgeHtml = `<span class="badge-leader badge-leader-deputy" style="margin-left: 3px;">부구역장</span>`;
+                } else if (pos.includes('구역장')) {
+                    badgeHtml = `<span class="badge-leader badge-leader-main" style="margin-left: 3px;">구역장</span>`;
+                } else if (pos.includes('조장')) {
+                    badgeHtml = `<span class="badge-leader badge-leader-group" style="margin-left: 3px;">조장</span>`;
                 } else if (isLeader) {
-                    badgeHtml = `<span class="badge badge-success" style="padding: 1px 2px; margin-left: 2px; font-size: 0.56rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
+                    badgeHtml = `<span class="badge-leader" style="font-size: 0.58rem; margin-left: 3px;">${pos}</span>`;
                 } else if (pos.includes('목사') || pos.includes('전도사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 1px 2px; margin-left: 2px; font-size: 0.56rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.6rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
                 } else if (pos.includes('집사')) {
-                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 1px 2px; margin-left: 2px; font-size: 0.56rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">집사</span>`;
+                    badgeHtml = `<span class="badge" style="background: rgba(20, 40, 160, 0.08); color: var(--accent-color); border: 1px solid rgba(20, 40, 160, 0.25); font-weight: 700; padding: 1px 3px; margin-left: 3px; font-size: 0.6rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">집사</span>`;
                 } else if (pos && pos !== '성도') {
-                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 1px 2px; margin-left: 2px; font-size: 0.56rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
+                    badgeHtml = `<span class="badge" style="background: var(--surface-hover); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 1px 3px; margin-left: 3px; font-size: 0.6rem; white-space: nowrap; flex-shrink: 0; line-height: 1.1;">${pos}</span>`;
                 }
 
                 const areaNum = parseInt(m.area, 10);
@@ -790,6 +1149,106 @@
                 memberMatrixBody.appendChild(tr);
             });
             updateDateScrollButtons();
+            renderAreaTabs();
+            setupMatrixSwipeGestures();
+        }
+
+        function renderAreaTabs() {
+            const areaNav = document.getElementById('matrixAreaNav');
+            const tabsList = document.getElementById('matrixAreaTabsList');
+            if (!areaNav || !tabsList) return;
+
+            // Only show Area Tabs if Admin has multiple areas available
+            if (!isAdmin || allAreaList.length <= 1) {
+                areaNav.style.display = 'none';
+                return;
+            }
+
+            areaNav.style.display = 'block';
+            const currentSelectedArea = areaFilter.value || '';
+
+            let tabsHtml = `
+                <button type="button" class="area-tab-pill ${currentSelectedArea === '' ? 'active' : ''}" id="tabArea-all" onclick="selectAreaTab('')">
+                    <i class="fa-solid fa-layer-group" style="font-size: 0.8rem; margin-right: 3px;"></i> 전체 구역
+                </button>
+            `;
+
+            allAreaList.forEach(area => {
+                const isActive = currentSelectedArea === String(area);
+                tabsHtml += `
+                    <button type="button" class="area-tab-pill ${isActive ? 'active' : ''}" id="tabArea-${area}" onclick="selectAreaTab('${area}')">
+                        ${area}구역
+                    </button>
+                `;
+            });
+
+            tabsList.innerHTML = tabsHtml;
+
+            // Scroll active pill into view smoothly
+            const activePill = tabsList.querySelector('.area-tab-pill.active');
+            if (activePill) {
+                const navRect = areaNav.getBoundingClientRect();
+                const pillRect = activePill.getBoundingClientRect();
+                if (pillRect.left < navRect.left || pillRect.right > navRect.right) {
+                    areaNav.scrollTo({
+                        left: activePill.offsetLeft - (areaNav.clientWidth / 2) + (activePill.clientWidth / 2),
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        }
+
+        async function selectAreaTab(area) {
+            if (areaFilter.value === String(area)) return;
+            areaFilter.value = area;
+            await loadDashboardData();
+        }
+
+        let matrixSwipeAttached = false;
+        let matrixTouchStartX = 0;
+        let matrixTouchStartY = 0;
+        let matrixTouchStartTime = 0;
+
+        function setupMatrixSwipeGestures() {
+            const card = document.getElementById('dashboardMatrixCard');
+            if (!card || matrixSwipeAttached) return;
+            matrixSwipeAttached = true;
+
+            card.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                matrixTouchStartX = e.touches[0].clientX;
+                matrixTouchStartY = e.touches[0].clientY;
+                matrixTouchStartTime = Date.now();
+            }, { passive: true });
+
+            card.addEventListener('touchend', (e) => {
+                if (e.changedTouches.length !== 1) return;
+                const deltaX = e.changedTouches[0].clientX - matrixTouchStartX;
+                const deltaY = e.changedTouches[0].clientY - matrixTouchStartY;
+                const elapsedTime = Date.now() - matrixTouchStartTime;
+
+                // Swipe condition: Horizontal distance > 45px, horizontal dominance > 1.2 * vertical, < 700ms
+                if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && elapsedTime < 700) {
+                    if (!isAdmin || allAreaList.length <= 1) return;
+
+                    // Sequence of tabs: '' (전체), area1, area2, ...
+                    const areaTabsSequence = ['', ...allAreaList.map(a => String(a))];
+                    const currentArea = areaFilter.value || '';
+                    const currentIndex = areaTabsSequence.indexOf(currentArea);
+                    if (currentIndex === -1) return;
+
+                    let targetIndex = currentIndex;
+                    if (deltaX < 0 && currentIndex < areaTabsSequence.length - 1) {
+                        targetIndex = currentIndex + 1; // Left swipe -> Next Area (책장 넘기듯 다음 구역)
+                    } else if (deltaX > 0 && currentIndex > 0) {
+                        targetIndex = currentIndex - 1; // Right swipe -> Prev Area (책장 넘기듯 이전 구역)
+                    }
+
+                    if (targetIndex !== currentIndex) {
+                        selectAreaTab(areaTabsSequence[targetIndex]);
+                    }
+                }
+            }, { passive: true });
         }
 
         const tableContainerEl = document.getElementById('matrixTableContainer');
