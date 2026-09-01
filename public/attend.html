@@ -1395,10 +1395,10 @@
                 }
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">${area.area_code}구역</span>
-                            <span style="font-size: 0.8rem; color: var(--text-secondary);">총원 ${area.grand_total}명</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; white-space: nowrap;">
+                        <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                            <span style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); white-space: nowrap;">${area.area_code}구역</span>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">총원 ${area.grand_total}명</span>
                         </div>
                         ${statusBadge}
                     </div>
@@ -1409,18 +1409,18 @@
                     </div>
 
                     <!-- Details Stats -->
-                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.65rem;">
-                        <span style="color: var(--text-secondary);">
-                            성도 <strong>${area.attended_count}</strong> / ${area.total_members}명
-                            ${area.newcomer_members > 0 ? `· 새참자 <strong>${area.newcomer_attended_count}</strong> / ${area.newcomer_members}명` : ''}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.65rem; white-space: nowrap; gap: 4px;">
+                        <span style="color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            성도 <strong>${area.attended_count}</strong>/${area.total_members}명
+                            ${area.newcomer_members > 0 ? `· 새참 <strong>${area.newcomer_attended_count}</strong>/${area.newcomer_members}명` : ''}
                         </span>
-                        <strong style="color: ${progressColor}; font-size: 0.9rem;">${area.rate}%</strong>
+                        <strong style="color: ${progressColor}; font-size: 0.9rem; white-space: nowrap; flex-shrink: 0;">${area.rate}%</strong>
                     </div>
 
                     <!-- Leader Contacts Section -->
                     <div style="background: #f8fafc; padding: 0.5rem 0.65rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 2px;">
-                            <i class="fa-solid fa-id-badge"></i> 구역 임원 연락처 (출석 독려):
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 2px; white-space: nowrap;">
+                            <i class="fa-solid fa-id-badge"></i> 구역 임원 연락처:
                         </div>
                         ${leaderHtml}
                     </div>
