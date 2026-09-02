@@ -1068,34 +1068,19 @@
             return dates;
         }
 
-        // Update Mobile Top & Sticky Header Context Displays
+        // Update Mobile Top & Sticky Header Context Displays (다른 탭과 동일하게 날짜 배지 제거하고 접속자 이름으로 통일)
         function updateContextDisplays() {
             const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
             const userArea = currentUser.scope_code || currentUser.area_code || '11';
-            
-            // Format friendly label: "8/30(주일)" or "8/26(수요)"
-            let dateLabel = '';
-            const isSunday = currentSessionType === 'sunday';
-            if (currentSelectedDate) {
-                const parts = currentSelectedDate.split('-');
-                if (parts.length === 3) {
-                    const m = parseInt(parts[1], 10);
-                    const d = parseInt(parts[2], 10);
-                    const dayName = isSunday ? '주일' : '수요';
-                    dateLabel = `${m}/${d}(${dayName})`;
-                }
-            }
-
-            const badgeStyle = isSunday
-                ? 'background: rgba(20, 40, 160, 0.1); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.25);'
-                : 'background: rgba(5, 150, 105, 0.1); color: #059669; border: 1px solid rgba(5, 150, 105, 0.25);';
+            const userName = currentUser.name || '성도';
+            const formattedNameHtml = `${userName}<span style="font-size: 0.78em; font-weight: 500; margin-left: 1px;">님</span>`;
 
             const mobUserDisplay = document.getElementById('mobileUserDisplay');
             if (mobUserDisplay) {
                 if (isAdmin) {
-                    mobUserDisplay.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${currentUser.name || '관리자'} <span style="font-size:0.75rem; font-weight:800; padding:1px 6px; border-radius:6px; margin-left:3px; ${badgeStyle}">${dateLabel}</span>`;
+                    mobUserDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; font-weight: 600;">(관리자)</span>`;
                 } else {
-                    mobUserDisplay.innerHTML = `<i class="fa-solid fa-users"></i> ${userArea}구역 <span style="font-size:0.75rem; font-weight:800; padding:1px 6px; border-radius:6px; margin-left:3px; ${badgeStyle}">${dateLabel}</span>`;
+                    mobUserDisplay.innerHTML = `${userArea}구역 ${formattedNameHtml}`;
                 }
             }
         }
