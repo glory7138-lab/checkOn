@@ -1127,14 +1127,18 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
   }
   
   .stats-grid {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     gap: 0.45rem !important;
     margin-bottom: 0.85rem !important;
     padding-bottom: 4px;
     scrollbar-width: none;
+  }
+
+  /* 관리자일 때만 모바일에서 flex 스크롤로 표시 */
+  .stats-grid:not([style*="display: none"]) {
+    display: flex !important;
   }
 
   .stats-grid::-webkit-scrollbar {
