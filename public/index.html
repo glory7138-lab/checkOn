@@ -118,8 +118,14 @@
                 </div>
             </div>
 
-            <!-- Stats Overview (금주 주일 성도, 금주 수요 성도, 금주 주일 새참자, 금주 수요 새참자) -->
+            <!-- Stats Overview (금주 총출석 합산, 금주 주일 성도, 금주 수요 성도, 금주 주일 새참자, 금주 수요 새참자) -->
             <div class="stats-grid" id="statsGrid">
+                <div class="card stat-card" style="border-left-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);">
+                    <span class="stat-title"><i class="fa-solid fa-users" style="color: #6366f1; margin-right: 4px;"></i> 금주 주일 (총합산)</span>
+                    <span class="stat-value" id="valTotalAttend" style="color: #4338ca;">-</span>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subTotalBreakdown">총 출석률 -%</div>
+                    <span class="stat-desc" id="diffTotalDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
+                </div>
                 <div class="card stat-card">
                     <span class="stat-title"><i class="fa-solid fa-church" style="color: #1428A0; margin-right: 4px;"></i> 금주 주일 (성도)</span>
                     <span class="stat-value" id="valSundayAttend">-</span>
@@ -349,6 +355,8 @@
         const memberMatrixBody = document.getElementById('memberMatrixBody');
 
         // Stat value elements
+        const valTotalAttend = document.getElementById('valTotalAttend');
+        const diffTotalDesc = document.getElementById('diffTotalDesc');
         const valSundayAttend = document.getElementById('valSundayAttend');
         const diffSundayDesc = document.getElementById('diffSundayDesc');
         const valWednesdayAttend = document.getElementById('valWednesdayAttend');
@@ -524,6 +532,31 @@
                 const data = json.data;
                 const m = data.metrics;
                 cachedTrend = data.trend;
+
+                // 0. 금주 주일 (총합산: 성도 + 새참자) [총 출석수 / 총 재적 (출석률%)]
+                const grandTotalMem = m.total_members || (regTotalMem + (m.newcomer_count || 0));
+                const totalSunAtt = (m.regular_attended || 0) + (m.newcomer_attended || 0);
+                const totalSunRate = grandTotalMem > 0 ? ((totalSunAtt / grandTotalMem) * 100).toFixed(1) : '0.0';
+                if (valTotalAttend) {
+                    valTotalAttend.innerHTML = `${totalSunAtt}명 <span style="font-size: 0.92rem; font-weight: 600; color: var(--text-secondary);">/ ${grandTotalMem}명 (${totalSunRate}%)</span>`;
+                }
+                const subTotalBreakdown = document.getElementById('subTotalBreakdown');
+                if (subTotalBreakdown) {
+                    subTotalBreakdown.innerHTML = `총 출석률 <strong style="color:#6366f1;">${totalSunRate}%</strong>`;
+                }
+
+                // 총합산 증감
+                const totDiffCnt = (m.sunday_diff_count !== undefined ? m.sunday_diff_count : 0) + (m.newcomer_diff_count !== undefined ? m.newcomer_diff_count : 0);
+                const prevTotalAtt = totalSunAtt - totDiffCnt;
+                const totDiffRate = prevTotalAtt > 0 ? (((totDiffCnt) / prevTotalAtt) * 100).toFixed(1) : '0.0';
+                const totDiffCntStr = totDiffCnt > 0 ? `(+${totDiffCnt}명)` : (totDiffCnt < 0 ? `(${totDiffCnt}명)` : `(0명)`);
+                if (diffTotalDesc) {
+                    if (totDiffCnt > 0 || (totDiffCnt === 0 && parseFloat(totDiffRate) >= 0)) {
+                        diffTotalDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--success-color);"></i> 지난주 대비 +${totDiffRate}% <span style="font-weight:700; margin-left:2px;">${totDiffCntStr}</span>`;
+                    } else {
+                        diffTotalDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${totDiffRate}% <span style="font-weight:700; margin-left:2px;">${totDiffCntStr}</span>`;
+                    }
+                }
 
                 // 1. 금주 주일 (성도) [성도 출석수 / 성도 재적 (출석률%)]
                 const regTotalMem = m.regular_total !== undefined ? m.regular_total : Math.max(0, (m.total_members || 0) - (m.newcomer_count || 0));

@@ -42,29 +42,25 @@
         }
         
         .brand-img {
-            width: 200px;
-            max-width: 80%;
+            width: 240px;
+            max-width: 90%;
             height: auto;
-            max-height: 200px;
+            max-height: 220px;
             object-fit: contain;
-            margin: 0 auto 1.25rem auto;
+            margin: 0 auto 0.75rem auto;
             display: block;
-            filter: drop-shadow(0 4px 12px rgba(20, 40, 160, 0.15));
+            filter: drop-shadow(0 6px 16px rgba(20, 40, 160, 0.12));
         }
         
         .login-title {
-            font-size: 1.85rem;
-            font-weight: 800;
-            margin-bottom: 0.25rem;
-            color: var(--accent-color);
-            letter-spacing: -0.5px;
+            display: none; /* logo-full.png에 이미 선명한 FaithOn 타이포가 포함되어 중복 방지 */
         }
         
         .login-subtitle {
             color: var(--text-secondary);
             margin-bottom: 1.8rem;
-            font-size: 0.9rem;
-            font-weight: 500;
+            font-size: 0.95rem;
+            font-weight: 600;
         }
         
         .login-form {
@@ -209,7 +205,7 @@
 </head>
 <body>
     <div class="login-container">
-        <img src="/images/icon-512.png" alt="FaithOn Logo" class="brand-img">
+        <img src="/images/logo-full.png" alt="FaithOn Logo" class="brand-img">
         <h1 class="login-title">FaithOn</h1>
         <p class="login-subtitle">창원교회 출석체크 관리 시스템</p>
         
