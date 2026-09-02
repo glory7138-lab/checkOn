@@ -118,33 +118,38 @@
                 </div>
             </div>
 
-            <!-- Stats Overview (금주 총출석 합산, 금주 주일 성도, 금주 수요 성도, 금주 주일 새참자, 금주 수요 새참자) -->
+            <!-- Stats Overview (관리자: 5개 지표, 일반 구역장/임원: 3개 핵심 지표) -->
             <div class="stats-grid" id="statsGrid">
-                <div class="card stat-card" style="border-left-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);">
+                <!-- 1. 금주 주일 (총합산) - 관리자 전용 -->
+                <div class="card stat-card" id="cardTotalAttend" style="border-left-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);">
                     <span class="stat-title"><i class="fa-solid fa-users" style="color: #6366f1; margin-right: 4px;"></i> 금주 주일 (총합산)</span>
                     <span class="stat-value" id="valTotalAttend" style="color: #4338ca;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subTotalBreakdown">총 출석률 -%</div>
                     <span class="stat-desc" id="diffTotalDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <div class="card stat-card">
+                <!-- 2. 금주 주일 (성도) - 공통 -->
+                <div class="card stat-card" id="cardSundayAttend">
                     <span class="stat-title"><i class="fa-solid fa-church" style="color: #1428A0; margin-right: 4px;"></i> 금주 주일 (성도)</span>
                     <span class="stat-value" id="valSundayAttend">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <div class="card stat-card">
+                <!-- 3. 금주 수요 (성도) - 공통 -->
+                <div class="card stat-card" id="cardWednesdayAttend">
                     <span class="stat-title"><i class="fa-solid fa-book-bible" style="color: #06b6d4; margin-right: 4px;"></i> 금주 수요 (성도)</span>
                     <span class="stat-value" id="valWednesdayAttend">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <div class="card stat-card" style="border-left-color: #0891b2;">
+                <!-- 4. 금주 주일 새참자 - 공통 -->
+                <div class="card stat-card" id="cardSundayNewcomer" style="border-left-color: #0891b2;">
                     <span class="stat-title"><i class="fa-solid fa-user-plus" style="color: #0891b2; margin-right: 4px;"></i> 금주 주일 새참자</span>
                     <span class="stat-value" id="valSundayNewcomerCount" style="color: #0891b2;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayNewcomerRate">새참자 참석률 -%</div>
                     <span class="stat-desc" id="diffSundayNewcomerDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <div class="card stat-card" style="border-left-color: #38bdf8;">
+                <!-- 5. 금주 수요 새참자 - 관리자 전용 -->
+                <div class="card stat-card" id="cardWednesdayNewcomer" style="border-left-color: #38bdf8;">
                     <span class="stat-title"><i class="fa-solid fa-user-check" style="color: #0284c7; margin-right: 4px;"></i> 금주 수요 새참자</span>
                     <span class="stat-value" id="valWednesdayNewcomerCount" style="color: #0284c7;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayNewcomerRate">새참자 참석률 -%</div>
@@ -434,11 +439,21 @@
                 userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
                 pageSubTitle.textContent = '창원교회 전체 및 구역별 실시간 출석 현황과 트렌드를 확인하세요.';
                 await loadAllAreas();
+
+                // 관리자는 5개 전체 지표 노출
+                document.getElementById('statsGrid').style.gridTemplateColumns = 'repeat(5, 1fr)';
+                if (document.getElementById('cardTotalAttend')) document.getElementById('cardTotalAttend').style.display = 'flex';
+                if (document.getElementById('cardWednesdayNewcomer')) document.getElementById('cardWednesdayNewcomer').style.display = 'flex';
             } else {
                 userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
                 pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 실시간 출석 현황과 트렌드를 확인하세요.`;
                 areaFilter.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
                 areaFilter.disabled = true;
+
+                // 구역 담당자는 3개 핵심 지표 (금주 주일 성도, 금주 수요 성도, 금주 주일 새참자)로 간소화
+                document.getElementById('statsGrid').style.gridTemplateColumns = 'repeat(3, 1fr)';
+                if (document.getElementById('cardTotalAttend')) document.getElementById('cardTotalAttend').style.display = 'none';
+                if (document.getElementById('cardWednesdayNewcomer')) document.getElementById('cardWednesdayNewcomer').style.display = 'none';
             }
 
             const range = calculateRecent4WeeksRange();
