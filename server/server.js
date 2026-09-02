@@ -37,6 +37,43 @@ async function getActiveYear(conn) {
     return '2026';
 }
 
+// Helper: 주소록(CWTB_USER)의 IS_HIDDEN 상태값과 예비명단(faithon_reserve) 양방향 동기화
+// - 주소록에서 IS_HIDDEN = '예비명단' 또는 'R'로 변경된 성도는 자동으로 faithon_reserve에 등록
+// - 주소록에서 IS_HIDDEN = 'N'(또는 정상)으로 복원된 성도는 faithon_reserve에서 자동 제외
+async function syncReserveWithAddressBook(conn, activeYear) {
+    try {
+        // 1. 주소록에서 '예비명단' 또는 'R'로 설정되었으나 faithon_reserve에 없는 성도 자동 등록
+        const reserveInUsers = await conn.query(`
+            SELECT u.CODE_NO, u.AREA_CODE 
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND (u.IS_HIDDEN = '예비명단' OR u.IS_HIDDEN = 'R') AND r.member_code IS NULL
+        `, [activeYear]);
+
+        for (const u of reserveInUsers) {
+            await conn.query(`
+                INSERT INTO faithon_reserve (member_code, original_area, reason)
+                VALUES (?, ?, '주소록 예비명단 변경')
+                ON DUPLICATE KEY UPDATE original_area = ?
+            `, [u.CODE_NO, u.AREA_CODE, u.AREA_CODE]);
+        }
+
+        // 2. 주소록에서 '정상(N)'으로 복원되었으나 faithon_reserve에 남아있는 정규 성도 자동 해제
+        const restoredUsers = await conn.query(`
+            SELECT r.member_code 
+            FROM faithon_reserve r
+            JOIN CWTB_USER u ON r.member_code = u.CODE_NO AND u.YEAR = ?
+            WHERE u.DEL_YN = 'N' AND (u.IS_HIDDEN = 'N' OR u.IS_HIDDEN = '' OR u.IS_HIDDEN IS NULL) AND r.member_code NOT LIKE 'NC_%'
+        `, [activeYear]);
+
+        for (const u of restoredUsers) {
+            await conn.query(`DELETE FROM faithon_reserve WHERE member_code = ?`, [u.member_code]);
+        }
+    } catch (e) {
+        console.error("syncReserveWithAddressBook error:", e);
+    }
+}
+
 // Helper: 주소록(CWTB_USER)에 정식 등록된 새참자 여부 동기화 (새참자 이력과 출석은 영구 보존하고 등재 상태만 갱신)
 async function syncNewcomersWithAddressBook(conn, activeYear) {
     try {
@@ -46,19 +83,44 @@ async function syncNewcomersWithAddressBook(conn, activeYear) {
         for (const nc of newcomers) {
             let matchedCode = null;
 
-            // 주소록에 '동일 성명' 및 '동일 구역'으로 정식 등록되었을 때 매칭
-            if (nc.name && nc.area_code) {
-                const res = await conn.query(`
+            // 1) 이름 + 휴대폰 번호(숫자만 비교)로 주소록 매칭
+            // 2) 또는 이름 + 배정 구역으로 주소록 매칭 (정상 노출 N 상태 기준)
+            if (nc.name) {
+                const cleanNcPhone = nc.phone ? nc.phone.replace(/[^0-9]/g, '') : null;
+                
+                // 먼저 이름으로 등록된 정상 성도들 조회
+                const candidates = await conn.query(`
                     SELECT CODE_NO, NAME, PHONE, AREA_CODE FROM CWTB_USER 
                     WHERE YEAR = ? 
                       AND DEL_YN = 'N' 
-                      AND NAME = ? 
-                      AND AREA_CODE = ?
-                    LIMIT 1
-                `, [activeYear, nc.name.trim(), nc.area_code.trim()]);
-                
-                if (res && res.length > 0) {
-                    matchedCode = res[0].CODE_NO;
+                      AND (IS_HIDDEN = 'N' OR IS_HIDDEN = '' OR IS_HIDDEN IS NULL)
+                      AND NAME = ?
+                `, [activeYear, nc.name.trim()]);
+
+                if (candidates && candidates.length > 0) {
+                    // 1순위: 폰번호 일치 (폰번호가 있는 경우)
+                    if (cleanNcPhone && cleanNcPhone.length >= 8) {
+                        const phoneMatch = candidates.find(c => {
+                            const cPhone = c.PHONE ? c.PHONE.replace(/[^0-9]/g, '') : '';
+                            return cPhone.includes(cleanNcPhone) || cleanNcPhone.includes(cPhone);
+                        });
+                        if (phoneMatch) {
+                            matchedCode = phoneMatch.CODE_NO;
+                        }
+                    }
+
+                    // 2순위: 동일 구역 일치
+                    if (!matchedCode && nc.area_code) {
+                        const areaMatch = candidates.find(c => c.AREA_CODE === nc.area_code.trim());
+                        if (areaMatch) {
+                            matchedCode = areaMatch.CODE_NO;
+                        }
+                    }
+
+                    // 3순위: 동명이인이 없는 단일 성도인 경우
+                    if (!matchedCode && candidates.length === 1) {
+                        matchedCode = candidates[0].CODE_NO;
+                    }
                 }
             }
 
@@ -553,6 +615,8 @@ app.get('/api/members', async (req, res) => {
         
         // 주소록에 등록된 새참자 자동 동기화 (이력 보존)
         await syncNewcomersWithAddressBook(conn, activeYear);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화
+        await syncReserveWithAddressBook(conn, activeYear);
 
         // 2-1. 정규 성도 조회 (구역 임원 및 집사/목사/부목사/전도사 직분 연동, 예비명단 제외)
         let query = `
@@ -816,18 +880,40 @@ app.get('/api/reserve', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 상태값(IS_HIDDEN)과 faithon_reserve 사전 양방향 동기화
+        await syncReserveWithAddressBook(conn, activeYear);
 
         const rows = await conn.query(`
             SELECT r.id, r.member_code, r.original_area, r.reason, r.added_at,
                    COALESCE(u.NAME, nc.name) as name, 
                    COALESCE(u.PHONE, nc.phone) as phone, 
-                   COALESCE(u.POSITION, '새참자') as position,
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN pep.POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사') THEN pep.POSITION
+                           WHEN d.NAME IS NOT NULL THEN '집사'
+                           ELSE NULL 
+                       END,
+                       u.POSITION,
+                       CASE WHEN r.member_code LIKE 'NC_%' THEN '새참자' ELSE '성도' END
+                   ) as position,
                    CASE WHEN r.member_code LIKE 'NC_%' THEN 1 ELSE 0 END as is_newcomer
             FROM faithon_reserve r
             LEFT JOIN CWTB_USER u ON r.member_code = u.CODE_NO AND u.YEAR = ?
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
             LEFT JOIN faithon_newcomer nc ON r.member_code = CONCAT('NC_', nc.id)
             ORDER BY r.added_at DESC
-        `, [activeYear]);
+        `, [activeYear, activeYear, activeYear]);
 
         res.json({ success: true, data: rows });
     } catch (err) {
@@ -839,6 +925,8 @@ app.get('/api/reserve', async (req, res) => {
 });
 
 // 예비명단 추가 (관리자 전용)
+// 1. faithon_reserve에 등록
+// 2. 정규 성도인 경우 주소록(CWTB_USER)의 상태값도 IS_HIDDEN = 'R' (예비명단 숨김)로 자동 동기화
 app.post('/api/reserve', async (req, res) => {
     const { member_code, original_area, reason } = req.body;
     if (!member_code) {
@@ -848,11 +936,23 @@ app.post('/api/reserve', async (req, res) => {
     let conn;
     try {
         conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. faithon_reserve 등록
         await conn.query(`
             INSERT INTO faithon_reserve (member_code, original_area, reason)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE original_area = ?, reason = ?
         `, [member_code, original_area || null, reason || null, original_area || null, reason || null]);
+
+        // 2. 주소록(CWTB_USER) IS_HIDDEN = '예비명단'으로 동기화 (새참자가 아닌 정규 성도일 때)
+        if (!member_code.startsWith('NC_')) {
+            await conn.query(`
+                UPDATE CWTB_USER 
+                SET IS_HIDDEN = '예비명단' 
+                WHERE CODE_NO = ? AND YEAR = ?
+            `, [member_code, activeYear]);
+        }
 
         res.json({ success: true, message: '예비명단으로 이동되었습니다.' });
     } catch (err) {
@@ -864,14 +964,39 @@ app.post('/api/reserve', async (req, res) => {
 });
 
 // 예비명단에서 구역으로 복귀 (관리자 전용)
+// 1. faithon_reserve에서 삭제
+// 2. 정규 성도인 경우 주소록(CWTB_USER)의 상태값을 IS_HIDDEN = 'N' (정상 노출)로 원복
+// 3. 새참자인 경우 새참자 활성화
 app.delete('/api/reserve/:member_code', async (req, res) => {
     const member_code = req.params.member_code;
     let conn;
     try {
         conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1. faithon_reserve 삭제
         await conn.query(`DELETE FROM faithon_reserve WHERE member_code = ?`, [member_code]);
+
+        // 2. 정규 성도인 경우 주소록(CWTB_USER) IS_HIDDEN = 'N' (정상 노출)로 원복
+        if (!member_code.startsWith('NC_')) {
+            await conn.query(`
+                UPDATE CWTB_USER 
+                SET IS_HIDDEN = 'N' 
+                WHERE CODE_NO = ? AND YEAR = ?
+            `, [member_code, activeYear]);
+        } else {
+            // 새참자였던 경우 새참자 미등재 활성화
+            const ncId = member_code.replace('NC_', '');
+            await conn.query(`
+                UPDATE faithon_newcomer 
+                SET is_registered_member = FALSE 
+                WHERE id = ?
+            `, [ncId]);
+        }
+
         res.json({ success: true, message: '구역으로 복귀되었습니다.' });
     } catch (err) {
+        console.error("Error restoring from reserve:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();

@@ -1145,7 +1145,8 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     display: none;
   }
 
-  .stats-grid-district {
+  /* 일반 구역 담당자일 때만 모바일에서 2열 그리드로 표시 (관리자 접속 시 display: none 유지) */
+  .stats-grid-district:not([style*="display: none"]) {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 0.6rem !important;
