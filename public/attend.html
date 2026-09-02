@@ -1235,9 +1235,23 @@
                 }
             }
 
-            // User Info Displays
-            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-            document.getElementById('mobileUserDisplay').textContent = isAdmin ? (currentUser.name || '관리자') : `${userArea}구역`;
+            // User Info Displays (홍길동님 포맷 적용)
+            const userName = currentUser.name || '성도';
+            const userPos = currentUser.position || (isAdmin ? '관리자' : '구역임원');
+            const formattedNameHtml = `${userName}<span style="font-size: 0.78em; font-weight: 500; margin-left: 1px;">님</span>`;
+
+            if (userNameDisplay) {
+                userNameDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; color: var(--text-secondary); font-weight: 500;">(${userPos})</span>`;
+            }
+
+            const mobUserDisplay = document.getElementById('mobileUserDisplay');
+            if (mobUserDisplay) {
+                if (isAdmin) {
+                    mobUserDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; font-weight: 600;">(관리자)</span>`;
+                } else {
+                    mobUserDisplay.innerHTML = `${userArea}구역 ${formattedNameHtml}`;
+                }
+            }
 
             // Initial Session Type Tab Styling
             if (currentSessionType === 'wednesday') {
@@ -1252,7 +1266,7 @@
 
             if (isAdmin) {
                 document.getElementById('pageTitle').textContent = '구역별 출석체크 현황';
-                userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+                userRoleDisplay.textContent = `창원교회 전체 관리자`;
                 
                 document.getElementById('adminStatusView').style.display = 'block';
                 document.getElementById('memberAttendanceCard').style.display = 'none';

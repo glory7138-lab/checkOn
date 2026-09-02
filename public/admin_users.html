@@ -385,13 +385,15 @@
         let allCandidates = [];
 
         async function initPage() {
-            if (!currentUser) return;
+            // Display User info (홍길동님 포맷 적용)
+            const userName = currentUser.name || '성도';
+            const userPos = currentUser.position || '관리자';
+            const formattedNameHtml = `${userName}<span style="font-size: 0.78em; font-weight: 500; margin-left: 1px;">님</span>`;
 
-            // Display User info
-            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-            userRoleDisplay.textContent = isAdmin ? `${currentUser.name} (${currentUser.position || '관리자'})` : '구역 담당자';
+            if (userNameDisplay) userNameDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; color: var(--text-secondary); font-weight: 500;">(${userPos})</span>`;
+            if (userRoleDisplay) userRoleDisplay.textContent = '창원교회 전체 관리자';
             const mobUser = document.getElementById('mobileUserDisplay');
-            if (mobUser) mobUser.textContent = currentUser.name || '관리자';
+            if (mobUser) mobUser.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; font-weight: 600;">(관리자)</span>`;
 
             const navAttend = document.getElementById('navAttend');
             if (navAttend) navAttend.style.display = 'flex';

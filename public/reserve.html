@@ -308,11 +308,15 @@
             window.location.href = '/attend.html';
         }
 
-        // Set sidebar user display
-        document.getElementById('userNameDisplay').textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-        document.getElementById('userRoleDisplay').textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+        // Set user displays (홍길동님 포맷 적용)
+        const userName = currentUser.name || '성도';
+        const userPos = currentUser.position || '관리자';
+        const formattedNameHtml = `${userName}<span style="font-size: 0.78em; font-weight: 500; margin-left: 1px;">님</span>`;
+
+        document.getElementById('userNameDisplay').innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; color: var(--text-secondary); font-weight: 500;">(${userPos})</span>`;
+        document.getElementById('userRoleDisplay').textContent = `창원교회 전체 관리자`;
         const mobUser = document.getElementById('mobileUserDisplay');
-        if (mobUser) mobUser.textContent = currentUser.name || '관리자';
+        if (mobUser) mobUser.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; font-weight: 600;">(관리자)</span>`;
 
         let normalMembers = [];
         let reserveMembers = [];

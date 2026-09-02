@@ -477,11 +477,26 @@
                 }
             }
 
-            userNameDisplay.textContent = `${currentUser.name} (${currentUser.position || '성도'})`;
-            document.getElementById('mobileUserDisplay').textContent = isAdmin ? (currentUser.name || '관리자') : `${userArea}구역`;
+            // User Info Displays (홍길동님 포맷 적용)
+            const userName = currentUser.name || '성도';
+            const userPos = currentUser.position || (isAdmin ? '관리자' : '구역임원');
+            const formattedNameHtml = `${userName}<span style="font-size: 0.78em; font-weight: 500; margin-left: 1px;">님</span>`;
+
+            if (userNameDisplay) {
+                userNameDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; color: var(--text-secondary); font-weight: 500;">(${userPos})</span>`;
+            }
+            
+            const mobUserDisplay = document.getElementById('mobileUserDisplay');
+            if (mobUserDisplay) {
+                if (isAdmin) {
+                    mobUserDisplay.innerHTML = `${formattedNameHtml} <span style="font-size: 0.85em; font-weight: 600;">(관리자)</span>`;
+                } else {
+                    mobUserDisplay.innerHTML = `${userArea}구역 ${formattedNameHtml}`;
+                }
+            }
             
             if (isAdmin) {
-                userRoleDisplay.textContent = `${currentUser.name} (${currentUser.position || '관리자'})`;
+                userRoleDisplay.textContent = `창원교회 전체 관리자`;
                 pageSubTitle.textContent = '창원교회 전체 및 구역별 실시간 출석 현황과 트렌드를 확인하세요.';
                 await loadAllAreas();
 
@@ -489,7 +504,7 @@
                 if (document.getElementById('statsGridAdmin')) document.getElementById('statsGridAdmin').style.display = 'grid';
                 if (document.getElementById('statsGridDistrict')) document.getElementById('statsGridDistrict').style.display = 'none';
             } else {
-                userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
+                userRoleDisplay.textContent = `${userArea}구역 담당`;
                 pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 실시간 출석 현황과 트렌드를 확인하세요.`;
                 areaFilter.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
                 areaFilter.disabled = true;
