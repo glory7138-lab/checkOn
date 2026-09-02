@@ -118,42 +118,87 @@
                 </div>
             </div>
 
-            <!-- Stats Overview (관리자: 5개 지표, 일반 구역장/임원: 3개 핵심 지표) -->
-            <div class="stats-grid" id="statsGrid">
-                <!-- 1. 금주 주일 (총합산) - 관리자 전용 -->
+            <!-- Stats Overview (관리자: 5개 통합 카드 / 일반 구역: 성도, 새참자 2개 카드) -->
+            <!-- 1. 관리자 전용 대시보드 (5개 지표) -->
+            <div class="stats-grid" id="statsGridAdmin">
                 <div class="card stat-card" id="cardTotalAttend" style="border-left-color: #6366f1; background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);">
                     <span class="stat-title"><i class="fa-solid fa-users" style="color: #6366f1; margin-right: 4px;"></i> 금주 주일 (총합산)</span>
                     <span class="stat-value" id="valTotalAttend" style="color: #4338ca;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subTotalBreakdown">총 출석률 -%</div>
                     <span class="stat-desc" id="diffTotalDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <!-- 2. 금주 주일 (성도) - 공통 -->
                 <div class="card stat-card" id="cardSundayAttend">
                     <span class="stat-title"><i class="fa-solid fa-church" style="color: #1428A0; margin-right: 4px;"></i> 금주 주일 (성도)</span>
                     <span class="stat-value" id="valSundayAttend">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffSundayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <!-- 3. 금주 수요 (성도) - 공통 -->
                 <div class="card stat-card" id="cardWednesdayAttend">
                     <span class="stat-title"><i class="fa-solid fa-book-bible" style="color: #06b6d4; margin-right: 4px;"></i> 금주 수요 (성도)</span>
                     <span class="stat-value" id="valWednesdayAttend">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayBreakdown">성도 출석률 -%</div>
                     <span class="stat-desc" id="diffWednesdayDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <!-- 4. 금주 주일 새참자 - 공통 -->
                 <div class="card stat-card" id="cardSundayNewcomer" style="border-left-color: #0891b2;">
                     <span class="stat-title"><i class="fa-solid fa-user-plus" style="color: #0891b2; margin-right: 4px;"></i> 금주 주일 새참자</span>
                     <span class="stat-value" id="valSundayNewcomerCount" style="color: #0891b2;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subSundayNewcomerRate">새참자 참석률 -%</div>
                     <span class="stat-desc" id="diffSundayNewcomerDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
                 </div>
-                <!-- 5. 금주 수요 새참자 - 관리자 전용 -->
                 <div class="card stat-card" id="cardWednesdayNewcomer" style="border-left-color: #38bdf8;">
                     <span class="stat-title"><i class="fa-solid fa-user-check" style="color: #0284c7; margin-right: 4px;"></i> 금주 수요 새참자</span>
                     <span class="stat-value" id="valWednesdayNewcomerCount" style="color: #0284c7;">-</span>
                     <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px; font-weight: 500;" id="subWednesdayNewcomerRate">새참자 참석률 -%</div>
                     <span class="stat-desc" id="diffWednesdayNewcomerDesc"><i class="fa-solid fa-spinner fa-spin"></i> 집계 중</span>
+                </div>
+            </div>
+
+            <!-- 2. 일반 구역 전용 간소화 대시보드 (성도 1개, 새참자 1개 = 총 2개 카드) -->
+            <div class="stats-grid-district" id="statsGridDistrict" style="display: none;">
+                <!-- 카드 1: 성도 (수요일, 주일) -->
+                <div class="card district-stat-card" style="border-left: 4px solid var(--accent-color);">
+                    <div class="district-stat-card-header">
+                        <span class="stat-title" style="font-size: 0.92rem; font-weight: 800; color: var(--text-primary);">
+                            <i class="fa-solid fa-church" style="color: var(--accent-color); margin-right: 5px;"></i> 성도 출석
+                        </span>
+                        <span class="badge" style="font-size: 0.75rem; background: var(--accent-light); color: var(--accent-color); font-weight: 700;">
+                            구역 총원 <strong id="distMemberTotal">-</strong>명
+                        </span>
+                    </div>
+                    <div class="district-stat-row-group">
+                        <div class="district-stat-col">
+                            <span class="district-session-label"><i class="fa-solid fa-book-bible" style="color: #06b6d4;"></i> 수요일</span>
+                            <span class="district-session-val" id="distMemberWedVal">-명</span>
+                        </div>
+                        <div class="district-stat-divider"></div>
+                        <div class="district-stat-col">
+                            <span class="district-session-label"><i class="fa-solid fa-church" style="color: #1428A0;"></i> 주일</span>
+                            <span class="district-session-val" id="distMemberSunVal">-명</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 카드 2: 새참자 (수요일, 주일) -->
+                <div class="card district-stat-card" style="border-left: 4px solid #0891b2;">
+                    <div class="district-stat-card-header">
+                        <span class="stat-title" style="font-size: 0.92rem; font-weight: 800; color: var(--text-primary);">
+                            <i class="fa-solid fa-user-plus" style="color: #0891b2; margin-right: 5px;"></i> 새참자 참석
+                        </span>
+                        <span class="badge" style="font-size: 0.75rem; background: #e0f2fe; color: #0284c7; font-weight: 700;">
+                            새참자 총원 <strong id="distNewcomerTotal">-</strong>명
+                        </span>
+                    </div>
+                    <div class="district-stat-row-group">
+                        <div class="district-stat-col">
+                            <span class="district-session-label"><i class="fa-solid fa-user-check" style="color: #0284c7;"></i> 수요일</span>
+                            <span class="district-session-val" id="distNewcomerWedVal" style="color: #0284c7;">-명</span>
+                        </div>
+                        <div class="district-stat-divider"></div>
+                        <div class="district-stat-col">
+                            <span class="district-session-label"><i class="fa-solid fa-user-plus" style="color: #0891b2;"></i> 주일</span>
+                            <span class="district-session-val" id="distNewcomerSunVal" style="color: #0891b2;">-명</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -440,20 +485,18 @@
                 pageSubTitle.textContent = '창원교회 전체 및 구역별 실시간 출석 현황과 트렌드를 확인하세요.';
                 await loadAllAreas();
 
-                // 관리자는 5개 전체 지표 노출
-                document.getElementById('statsGrid').style.gridTemplateColumns = 'repeat(5, 1fr)';
-                if (document.getElementById('cardTotalAttend')) document.getElementById('cardTotalAttend').style.display = 'flex';
-                if (document.getElementById('cardWednesdayNewcomer')) document.getElementById('cardWednesdayNewcomer').style.display = 'flex';
+                // 관리자는 5개 전체 통합 지표 노출
+                if (document.getElementById('statsGridAdmin')) document.getElementById('statsGridAdmin').style.display = 'grid';
+                if (document.getElementById('statsGridDistrict')) document.getElementById('statsGridDistrict').style.display = 'none';
             } else {
                 userRoleDisplay.textContent = `${userArea}구역 담당 임원`;
                 pageSubTitle.innerHTML = `<strong>${userArea}구역</strong> 성도 및 새참자 실시간 출석 현황과 트렌드를 확인하세요.`;
                 areaFilter.innerHTML = `<option value="${userArea}">${userArea}구역</option>`;
                 areaFilter.disabled = true;
 
-                // 구역 담당자는 3개 핵심 지표 (금주 주일 성도, 금주 수요 성도, 금주 주일 새참자)로 간소화
-                document.getElementById('statsGrid').style.gridTemplateColumns = 'repeat(3, 1fr)';
-                if (document.getElementById('cardTotalAttend')) document.getElementById('cardTotalAttend').style.display = 'none';
-                if (document.getElementById('cardWednesdayNewcomer')) document.getElementById('cardWednesdayNewcomer').style.display = 'none';
+                // 구역 담당자는 2개 카드(성도: 수요일/주일, 새참자: 수요일/주일)로 간소화
+                if (document.getElementById('statsGridAdmin')) document.getElementById('statsGridAdmin').style.display = 'none';
+                if (document.getElementById('statsGridDistrict')) document.getElementById('statsGridDistrict').style.display = 'grid';
             }
 
             const range = calculateRecent4WeeksRange();
@@ -655,6 +698,22 @@
                         diffWednesdayNewcomerDesc.innerHTML = `<i class="fa-solid fa-arrow-trend-down" style="color:var(--danger-color);"></i> 지난주 대비 ${wncDiff}% <span style="font-weight:700; margin-left:2px;">${wncDiffCntStr}</span>`;
                     }
                 }
+
+                // [일반 구역 전용 2개 카드 데이터 바인딩]
+                const distMemberTotal = document.getElementById('distMemberTotal');
+                const distMemberWedVal = document.getElementById('distMemberWedVal');
+                const distMemberSunVal = document.getElementById('distMemberSunVal');
+                const distNewcomerTotal = document.getElementById('distNewcomerTotal');
+                const distNewcomerWedVal = document.getElementById('distNewcomerWedVal');
+                const distNewcomerSunVal = document.getElementById('distNewcomerSunVal');
+
+                if (distMemberTotal) distMemberTotal.textContent = regTotalMem;
+                if (distMemberWedVal) distMemberWedVal.textContent = `${regWedAtt}명`;
+                if (distMemberSunVal) distMemberSunVal.textContent = `${regSunAtt}명`;
+
+                if (distNewcomerTotal) distNewcomerTotal.textContent = ncTotal;
+                if (distNewcomerWedVal) distNewcomerWedVal.textContent = `${wedNcAtt}명`;
+                if (distNewcomerSunVal) distNewcomerSunVal.textContent = `${sunNcAtt}명`;
 
                 updateChartsWithCategory();
                 updateRatioChart(m);

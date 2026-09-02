@@ -885,6 +885,71 @@ button {
   white-space: nowrap;
 }
 
+/* General District 2-Card Layout (성도, 새참자 2개 카드) */
+.stats-grid-district {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.15rem;
+  margin-bottom: 1.5rem;
+}
+
+.district-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.15rem 1.4rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xs);
+}
+
+.district-stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 0.65rem;
+}
+
+.district-stat-row-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.district-stat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.district-session-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.district-session-val {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+
+.district-stat-divider {
+  width: 1px;
+  height: 42px;
+  background: #e2e8f0;
+}
+
 .stat-title {
   color: var(--text-secondary);
   font-size: 0.82rem;
@@ -1074,6 +1139,34 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
 
   .stats-grid::-webkit-scrollbar {
     display: none;
+  }
+
+  .stats-grid-district {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.6rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .district-stat-card {
+    padding: 0.75rem 0.65rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .district-stat-card-header {
+    padding-bottom: 0.45rem !important;
+  }
+
+  .district-session-label {
+    font-size: 0.75rem !important;
+  }
+
+  .district-session-val {
+    font-size: 1.25rem !important;
+  }
+
+  .district-stat-divider {
+    height: 32px !important;
   }
   
   .stat-card {
