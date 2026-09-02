@@ -123,28 +123,32 @@ button {
 }
 
 .brand-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--gradient-primary);
-  border-radius: 8px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
   font-size: 1.1rem;
-  box-shadow: 0 4px 10px rgba(20, 40, 160, 0.25);
+  box-shadow: 0 4px 12px rgba(20, 40, 160, 0.15);
   overflow: hidden;
+  padding: 2px;
 }
 
 .brand-img-logo {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scale(1.05); /* 꽉 차게 확대 */
 }
 
 .brand-text {
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: var(--accent-color);
   letter-spacing: -0.5px;
