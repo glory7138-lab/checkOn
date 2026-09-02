@@ -1148,7 +1148,7 @@
 
             const isAllAreas = !areaFilter.value;
             const isMobile = window.innerWidth <= 768;
-            const infoLeft = isAllAreas ? (isMobile ? '72px' : '105px') : (isMobile ? '24px' : '45px');
+            const infoLeft = isAllAreas ? (isMobile ? '76px' : '105px') : (isMobile ? '24px' : '45px');
             const activeSessions = cachedSessions.filter(s => {
                 if (currentMatrixTab === 'sunday') return s.service_type === 'sunday';
                 if (currentMatrixTab === 'wednesday') return s.service_type === 'wednesday';
@@ -1269,7 +1269,7 @@
                 let areaBadgeStyle = 'background: rgba(20, 40, 160, 0.08); color: #1428A0; border: 1px solid rgba(20, 40, 160, 0.2);';
                 if (isEvenArea) areaBadgeStyle = 'background: rgba(13, 148, 136, 0.1); color: #0f766e; border: 1px solid rgba(13, 148, 136, 0.25);';
 
-                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;"><span style="font-weight: 800; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap;">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 3px; white-space: nowrap;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
+                tr.innerHTML = `<td class="sticky-col-seq" style="color: var(--text-secondary); text-align: center; font-weight: 600;">${idx + 1}</td>${isAllAreas ? `<td class="sticky-col-area" style="text-align: center;"><span class="badge badge-area" style="${areaBadgeStyle} font-weight: 700;">${m.area}구역</span></td>` : ''}<td class="sticky-col-info" style="left: ${infoLeft};"><div style="display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;"><span style="font-weight: 800; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap;">${m.name}</span>${badgeHtml}${isNewcomer ? `<span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 3px; white-space: nowrap;">(인도: ${m.guide_name || '-'})</span>` : ''}</div></td>${sessionCells}<td class="sticky-col-rate">${barHtml}</td>`;
                 memberMatrixBody.appendChild(tr);
             });
             updateDateScrollButtons();

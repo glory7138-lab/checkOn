@@ -418,6 +418,18 @@ button {
   border-color: rgba(5, 150, 105, 0.2);
 }
 
+.badge-area {
+  padding: 0.18rem 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: -0.3px;
+  border-radius: 5px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Uniform Size Leader Badges (구역장, 부구역장, 조장 일관된 폭과 크기 유지) */
 .badge-leader {
   display: inline-flex;
@@ -1306,15 +1318,15 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     font-size: 0.75rem !important;
   }
 
-  /* 2. 구역 컬럼 (전체 조회 시에만 24px ~ 72px) - 48px 폭 완전 확보 */
+  /* 2. 구역 컬럼 (전체 조회 시에만 24px ~ 76px) - 52px 폭 완전 확보 */
   .data-table th.sticky-col-area {
     position: sticky !important;
     left: 24px !important;
     z-index: 20 !important;
     background-color: #f8fafc !important;
-    width: 48px !important;
-    min-width: 48px !important;
-    max-width: 48px !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
     text-align: center;
     padding: 0.45rem 0.05rem !important;
     font-size: 0.72rem !important;
@@ -1324,12 +1336,25 @@ h1, h2, h3, h4, .stat-title, .stat-desc, .badge, .btn, .nav-item, .mobile-nav-it
     left: 24px !important;
     z-index: 15 !important;
     background-color: #ffffff !important;
-    width: 48px !important;
-    min-width: 48px !important;
-    max-width: 48px !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
     text-align: center;
     padding: 0.45rem 0.05rem !important;
     font-size: 0.72rem !important;
+  }
+
+  .data-table .badge-area {
+    padding: 2px 4px !important;
+    font-size: 0.65rem !important;
+    letter-spacing: -0.4px !important;
+    border-radius: 5px !important;
+    max-width: 46px !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
   }
 
   /* 3. 이름(성도정보) 컬럼 (구역별 접속 시 left: 24px, 전체 조회 시 left: 72px) */
