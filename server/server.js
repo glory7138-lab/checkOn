@@ -1434,26 +1434,75 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const wednesdaysOnly = allDates.filter(d => d.dayName === '수요');
 
         const sundaysWithData = sundaysOnly.filter(d => (d.sundayAttend || 0) > 0);
-        const latestSundayObj = sundaysWithData.length > 0 
+        let latestSundayObj = sundaysWithData.length > 0 
             ? sundaysWithData[sundaysWithData.length - 1] 
             : (sundaysOnly.length > 0 ? sundaysOnly[sundaysOnly.length - 1] : null);
 
-        const prevSundayIndex = sundaysWithData.length > 1 ? sundaysWithData.length - 2 : -1;
-        const prevSundayObj = prevSundayIndex >= 0 ? sundaysWithData[prevSundayIndex] : null;
+        // 만약 선택된 기간 내에 출석 주일이 없으면 DB 전체에서 가장 최근 주일을 조회
+        if (!latestSundayObj || (latestSundayObj.sundayAttend || 0) === 0) {
+            const dbLatestSunday = await conn.query(`
+                SELECT DATE_FORMAT(service_date, '%Y-%m-%d') as s_date, COUNT(DISTINCT member_code) as cnt
+                FROM faithon_attendance
+                WHERE service_type = 'sunday' AND is_attended = TRUE
+                GROUP BY DATE_FORMAT(service_date, '%Y-%m-%d')
+                ORDER BY service_date DESC
+                LIMIT 1
+            `);
+            if (dbLatestSunday && dbLatestSunday.length > 0) {
+                latestSundayObj = { date: dbLatestSunday[0].s_date, sundayAttend: Number(dbLatestSunday[0].cnt) };
+            }
+        }
 
         const wednesdaysWithData = wednesdaysOnly.filter(d => (d.wednesdayAttend || 0) > 0);
-        const latestWednesdayObj = wednesdaysWithData.length > 0 
+        let latestWednesdayObj = wednesdaysWithData.length > 0 
             ? wednesdaysWithData[wednesdaysWithData.length - 1] 
             : (wednesdaysOnly.length > 0 ? wednesdaysOnly[wednesdaysOnly.length - 1] : null);
 
-        const prevWednesdayIndex = wednesdaysWithData.length > 1 ? wednesdaysWithData.length - 2 : -1;
-        const prevWednesdayObj = prevWednesdayIndex >= 0 ? wednesdaysWithData[prevWednesdayIndex] : null;
+        if (!latestWednesdayObj || (latestWednesdayObj.wednesdayAttend || 0) === 0) {
+            const dbLatestWed = await conn.query(`
+                SELECT DATE_FORMAT(service_date, '%Y-%m-%d') as s_date, COUNT(DISTINCT member_code) as cnt
+                FROM faithon_attendance
+                WHERE service_type = 'wednesday' AND is_attended = TRUE
+                GROUP BY DATE_FORMAT(service_date, '%Y-%m-%d')
+                ORDER BY service_date DESC
+                LIMIT 1
+            `);
+            if (dbLatestWed && dbLatestWed.length > 0) {
+                latestWednesdayObj = { date: dbLatestWed[0].s_date, wednesdayAttend: Number(dbLatestWed[0].cnt) };
+            }
+        }
 
-        const latestSundayCount = latestSundayObj ? Number(latestSundayObj.sundayAttend || 0) : 0;
-        const prevSundayCount = prevSundayObj ? Number(prevSundayObj.sundayAttend || 0) : 0;
+        // 직전 주일 날짜 확실하게 DB에서 직전 1건 조회
+        let prevSundayDate = null;
+        if (latestSundayObj && latestSundayObj.date) {
+            const prevSunDb = await conn.query(`
+                SELECT DATE_FORMAT(service_date, '%Y-%m-%d') as s_date
+                FROM faithon_attendance
+                WHERE service_type = 'sunday' AND is_attended = TRUE AND service_date < ?
+                GROUP BY DATE_FORMAT(service_date, '%Y-%m-%d')
+                ORDER BY service_date DESC
+                LIMIT 1
+            `, [latestSundayObj.date]);
+            if (prevSunDb && prevSunDb.length > 0) {
+                prevSundayDate = prevSunDb[0].s_date;
+            }
+        }
 
-        const latestWednesdayCount = latestWednesdayObj ? Number(latestWednesdayObj.wednesdayAttend || 0) : 0;
-        const prevWednesdayCount = prevWednesdayObj ? Number(prevWednesdayObj.wednesdayAttend || 0) : 0;
+        // 직전 수요일 날짜 확실하게 DB에서 직전 1건 조회
+        let prevWednesdayDate = null;
+        if (latestWednesdayObj && latestWednesdayObj.date) {
+            const prevWedDb = await conn.query(`
+                SELECT DATE_FORMAT(service_date, '%Y-%m-%d') as s_date
+                FROM faithon_attendance
+                WHERE service_type = 'wednesday' AND is_attended = TRUE AND service_date < ?
+                GROUP BY DATE_FORMAT(service_date, '%Y-%m-%d')
+                ORDER BY service_date DESC
+                LIMIT 1
+            `, [latestWednesdayObj.date]);
+            if (prevWedDb && prevWedDb.length > 0) {
+                prevWednesdayDate = prevWedDb[0].s_date;
+            }
+        }
 
         // 6. 최근 주일/수요일 기존 성도 vs 새참자 출석 분리 집계
         let regularAttended = 0;
@@ -1484,29 +1533,34 @@ app.get('/api/dashboard/stats', async (req, res) => {
               )
         `;
 
-        if (latestSundayObj) {
+        if (latestSundayObj && latestSundayObj.date) {
             const splitRows = await conn.query(splitQuery, [activeYear, latestSundayObj.date, 'sunday', areaCode || null, areaCode, areaCode, areaCode]);
             regularAttended = Number(splitRows[0]?.reg_cnt || 0);
             newcomerAttended = Number(splitRows[0]?.nc_cnt || 0);
 
-            if (prevSundayObj) {
-                const prevSplitRows = await conn.query(splitQuery, [activeYear, prevSundayObj.date, 'sunday', areaCode || null, areaCode, areaCode, areaCode]);
+            if (prevSundayDate) {
+                const prevSplitRows = await conn.query(splitQuery, [activeYear, prevSundayDate, 'sunday', areaCode || null, areaCode, areaCode, areaCode]);
                 prevRegularAttended = Number(prevSplitRows[0]?.reg_cnt || 0);
                 prevNewcomerAttended = Number(prevSplitRows[0]?.nc_cnt || 0);
             }
         }
 
-        if (latestWednesdayObj) {
+        if (latestWednesdayObj && latestWednesdayObj.date) {
             const wedSplitRows = await conn.query(splitQuery, [activeYear, latestWednesdayObj.date, 'wednesday', areaCode || null, areaCode, areaCode, areaCode]);
             wednesdayRegularAttended = Number(wedSplitRows[0]?.reg_cnt || 0);
             wednesdayNewcomerAttended = Number(wedSplitRows[0]?.nc_cnt || 0);
 
-            if (prevWednesdayObj) {
-                const prevWedSplitRows = await conn.query(splitQuery, [activeYear, prevWednesdayObj.date, 'wednesday', areaCode || null, areaCode, areaCode, areaCode]);
+            if (prevWednesdayDate) {
+                const prevWedSplitRows = await conn.query(splitQuery, [activeYear, prevWednesdayDate, 'wednesday', areaCode || null, areaCode, areaCode, areaCode]);
                 prevWednesdayRegularAttended = Number(prevWedSplitRows[0]?.reg_cnt || 0);
                 prevWednesdayNewcomerAttended = Number(prevWedSplitRows[0]?.nc_cnt || 0);
             }
         }
+
+        const latestSundayCount = regularAttended + newcomerAttended;
+        const prevSundayCount = prevRegularAttended + prevNewcomerAttended;
+        const latestWednesdayCount = wednesdayRegularAttended + wednesdayNewcomerAttended;
+        const prevWednesdayCount = prevWednesdayRegularAttended + prevWednesdayNewcomerAttended;
 
         const sundayDiffCount = regularAttended - prevRegularAttended;
         const wednesdayDiffCount = wednesdayRegularAttended - prevWednesdayRegularAttended;
@@ -1678,12 +1732,16 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 metrics: {
                     latest_sunday_attend: latestSundayCount,
                     sunday_diff: sundayDiff,
+                    sunday_diff_count: sundayDiffCount,
                     latest_wednesday_attend: latestWednesdayCount,
                     wednesday_diff: wednesdayDiff,
+                    wednesday_diff_count: wednesdayDiffCount,
                     newcomer_count: newcomerCount,
                     newcomer_diff: newcomerDiff,
+                    newcomer_diff_count: newcomerDiffCount,
                     latest_wednesday_newcomer_attend: wednesdayNewcomerAttended,
                     wednesday_newcomer_diff: wednesdayNewcomerDiff,
+                    wednesday_newcomer_diff_count: wednesdayNewcomerDiffCount,
                     reserve_count: reserveCount,
                     total_members: totalEligible,
                     regular_total: regularMemberCount,
