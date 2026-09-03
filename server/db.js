@@ -69,6 +69,7 @@ async function initializeTables() {
                 created_by VARCHAR(100),
                 registered_code VARCHAR(255) NULL,
                 is_registered_member BOOLEAN DEFAULT FALSE,
+                is_hidden BOOLEAN DEFAULT FALSE,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
@@ -91,6 +92,9 @@ async function initializeTables() {
         } catch (e) {}
         try {
             await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN is_registered_member BOOLEAN DEFAULT FALSE AFTER registered_code`);
+        } catch (e) {}
+        try {
+            await conn.query(`ALTER TABLE faithon_newcomer ADD COLUMN is_hidden BOOLEAN DEFAULT FALSE AFTER is_registered_member`);
         } catch (e) {}
         try {
             await conn.query(`ALTER TABLE faithon_newcomer DROP INDEX unique_newcomer`);

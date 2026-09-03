@@ -330,7 +330,14 @@
                         <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
                         <input type="text" class="form-input" id="searchInput" style="padding-left: 2.5rem;" placeholder="이름 또는 인도자로 검색...">
                     </div>
-                    <div style="width: 180px;" id="areaFilterContainer">
+                    <div style="width: 140px;">
+                        <select class="form-input" id="statusFilter">
+                            <option value="active" selected>활동 중</option>
+                            <option value="hidden">숨김(보관)</option>
+                            <option value="all">전체 상태</option>
+                        </select>
+                    </div>
+                    <div style="width: 150px;" id="areaFilterContainer">
                         <select class="form-input" id="areaFilter">
                             <!-- JS Will Render -->
                         </select>
@@ -347,7 +354,7 @@
                                 <th class="col-hide-mobile" style="width: 90px;">배정 구역</th>
                                 <th class="col-hide-mobile" style="text-align: center; width: 85px;">누적 출석</th>
                                 <th class="col-hide-mobile" style="width: 110px;">등록일자</th>
-                                <th style="text-align: center; width: 75px;">관리</th>
+                                <th style="text-align: center; width: 85px;">관리</th>
                             </tr>
                         </thead>
                         <tbody id="newcomerList">
@@ -426,16 +433,58 @@
         </div>
     </div>
 
-    <!-- Modal for 3-digit Verification Code Deletion -->
+    <!-- Modal for Restoring Existing Hidden Newcomer -->
+    <div class="modal-overlay" id="restoreConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; opacity: 1; pointer-events: all;">
+        <div class="modal-content" style="max-width: 440px; background: #fff; padding: 1.75rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin: 1rem; width: 92%; transform: none;">
+            <div style="width: 52px; height: 52px; background: rgba(20, 40, 160, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--accent-color); font-size: 1.6rem;">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); text-align: center; margin-bottom: 0.5rem;">이전 등록 기록 발견</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); text-align: center; margin-bottom: 1.25rem; line-height: 1.45;">
+                이전에 등록되어 <strong>숨김(보관)</strong> 상태인 새참자 정보가 있습니다.<br>
+                기존 정보와 <strong>과거 출석 기록</strong>을 유지하고 복원하시겠습니까?
+            </p>
+            
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.1rem; margin-bottom: 1.25rem; font-size: 0.88rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.45rem;">
+                    <span style="color: var(--text-secondary);">성명 / 구역</span>
+                    <strong style="color: var(--text-primary);"><span id="restoreTargetName"></span> (<span id="restoreTargetArea"></span>구역)</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.45rem;">
+                    <span style="color: var(--text-secondary);">인도자</span>
+                    <span id="restoreTargetGuide" style="color: var(--text-primary); font-weight: 600;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.45rem;">
+                    <span style="color: var(--text-secondary);">연락처</span>
+                    <span id="restoreTargetPhone" style="color: var(--text-primary); font-weight: 600;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">과거 누적 출석</span>
+                    <strong style="color: var(--accent-color);"><span id="restoreTargetAttCount">0</span>회 출석 기록 보존됨</strong>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-weight: 700;" onclick="confirmRestoreExistingNewcomer()">
+                    <i class="fa-solid fa-rotate-left"></i> 이전 기록 유지하고 복원하기
+                </button>
+                <button type="button" class="btn btn-outline" style="width: 100%; padding: 0.65rem;" onclick="closeRestoreModal()">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for 3-digit Verification Code Deletion (Soft Delete) -->
     <div class="modal-overlay" id="deleteConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; opacity: 1; pointer-events: all;">
         <div class="modal-content" style="max-width: 380px; text-align: center; background: #fff; padding: 1.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); margin: 1rem; width: 90%; transform: none;">
             <div style="width: 50px; height: 50px; background: rgba(220, 53, 69, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--danger-color); font-size: 1.5rem;">
-                <i class="fa-solid fa-trash-can"></i>
+                <i class="fa-solid fa-eye-slash"></i>
             </div>
-            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem;">새참자 삭제 확인</h3>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-                '<strong id="delTargetName" style="color: var(--text-primary);"></strong>' 새참자를 정말 삭제하시겠습니까?<br>
-                <span style="font-size: 0.8rem; color: var(--danger-color);">* 삭제 시 출석체크 목록에서도 완전히 제거됩니다.</span>
+            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem;">새참자 숨김(보관) 확인</h3>
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.4;">
+                '<strong id="delTargetName" style="color: var(--text-primary);"></strong>' 새참자를 출석 목록에서 숨김 처리하시겠습니까?<br>
+                <span style="font-size: 0.8rem; color: var(--accent-color); font-weight: 600;">* 과거 출석 기록과 전화번호는 안전하게 보관되며, 언제든 다시 복원할 수 있습니다.</span>
             </p>
             
             <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
@@ -450,7 +499,7 @@
 
             <div style="display: flex; gap: 0.75rem;">
                 <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeDeleteModal()">취소</button>
-                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--danger-color); border-color: var(--danger-color);" onclick="confirmDeleteNewcomer()">확인 및 삭제</button>
+                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--danger-color); border-color: var(--danger-color);" onclick="confirmDeleteNewcomer()">확인 및 숨김</button>
             </div>
         </div>
     </div>
@@ -548,7 +597,7 @@
 
             const statusFilter = document.getElementById('statusFilter');
             if (statusFilter) {
-                statusFilter.addEventListener('change', renderNewcomers);
+                statusFilter.addEventListener('change', fetchNewcomers);
             }
             areaFilter.addEventListener('change', fetchNewcomers);
             searchInput.addEventListener('input', renderNewcomers);
@@ -582,10 +631,13 @@
 
         async function fetchNewcomers() {
             const area = isAdmin ? areaFilter.value : userArea;
+            const statusVal = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'active';
             newcomerList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> 새참자 명단을 불러오는 중...</td></tr>';
 
             try {
-                const url = area ? `/api/newcomers?areaCode=${encodeURIComponent(area)}` : '/api/newcomers';
+                let url = `/api/newcomers?status=${encodeURIComponent(statusVal)}`;
+                if (area) url += `&areaCode=${encodeURIComponent(area)}`;
+
                 const res = await fetch(url);
                 const json = await res.json();
 
@@ -603,13 +655,8 @@
 
         function renderNewcomers() {
             const query = searchInput.value.trim().toLowerCase();
-            const statusVal = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'all';
 
             const filtered = newcomersList.filter(nc => {
-                const isReg = !!(nc.is_registered_member || nc.registered_code);
-                if (statusVal === 'active' && isReg) return false;
-                if (statusVal === 'registered' && !isReg) return false;
-
                 const matchQuery = !query || (
                     (nc.name && nc.name.toLowerCase().includes(query)) ||
                     (nc.guide_name && nc.guide_name.toLowerCase().includes(query)) ||
@@ -629,17 +676,23 @@
                 const tr = document.createElement('tr');
                 const regDate = nc.registered_at ? nc.registered_at.split('T')[0] : '';
                 const isReg = !!(nc.is_registered_member || nc.registered_code);
+                const isHidden = !!nc.is_hidden;
 
-                const badgeHtml = isReg
-                    ? `<span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.72rem; padding: 0.12rem 0.45rem; font-weight: 700;" title="주소록 정식 성도 등재 완료"><i class="fa-solid fa-check-circle" style="font-size:0.65rem;"></i> 성도등재</span>`
-                    : `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.72rem; padding: 0.12rem 0.4rem; font-weight: 700;">새참자</span>`;
+                let badgeHtml = '';
+                if (isHidden) {
+                    badgeHtml = `<span class="badge" style="background: rgba(100, 116, 139, 0.12); color: #475569; border: 1px solid rgba(100, 116, 139, 0.35); font-size: 0.72rem; padding: 0.12rem 0.45rem; font-weight: 700;" title="출석부 숨김 보관 상태"><i class="fa-solid fa-eye-slash" style="font-size:0.65rem;"></i> 숨김(보관)</span>`;
+                } else if (isReg) {
+                    badgeHtml = `<span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.72rem; padding: 0.12rem 0.45rem; font-weight: 700;" title="주소록 정식 성도 등재 완료"><i class="fa-solid fa-check-circle" style="font-size:0.65rem;"></i> 성도등재</span>`;
+                } else {
+                    badgeHtml = `<span class="badge" style="background: rgba(6, 182, 212, 0.1); color: #0891b2; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.72rem; padding: 0.12rem 0.4rem; font-weight: 700;">새참자</span>`;
+                }
 
                 tr.innerHTML = `
                     <td style="color: var(--text-secondary); text-align: center; font-weight: 600; width: 42px;">${idx + 1}</td>
                     <td class="nc-main-cell">
-                        <!-- 1번째 줄: 이름 + 새참자/성도등재 뱃지 + 전화번호 -->
+                        <!-- 1번째 줄: 이름 + 새참자/숨김 뱃지 + 전화번호 -->
                         <div class="nc-row-line1">
-                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">${nc.name}</span>
+                            <span style="font-weight: 700; font-size: 0.95rem; color: ${isHidden ? 'var(--text-secondary)' : 'var(--text-primary)'};">${nc.name}</span>
                             ${badgeHtml}
                             ${nc.phone ? `<span style="font-size: 0.78rem; color: var(--text-secondary); margin-left: 2px;"><i class="fa-solid fa-phone" style="font-size: 0.7rem; color: var(--accent-color);"></i> ${nc.phone}</span>` : ''}
                         </div>
@@ -666,16 +719,22 @@
                     <td class="col-hide-mobile" style="color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap;">
                         ${regDate}
                     </td>
-                    <td style="text-align: center; white-space: nowrap; width: 75px;">
+                    <td style="text-align: center; white-space: nowrap; width: 85px;">
                         <div style="display: inline-flex; gap: 4px; justify-content: center;">
+                            ${isHidden ? `
+                            <button class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem; background: #059669; border-color: #059669;" onclick="restoreNewcomerDirectly(${nc.id}, '${nc.name}')" title="출석부로 복원">
+                                <i class="fa-solid fa-rotate-left"></i> 복원
+                            </button>
+                            ` : `
                             <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem;" onclick="openEditModal(${nc.id})" title="정보 수정">
                                 <i class="fa-solid fa-pen"></i> 수정
                             </button>
                             ${(isAdmin || !isReg) ? `
-                            <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem; color: var(--danger-color); border-color: rgba(220, 53, 69, 0.3);" onclick="requestDeleteNewcomer(${nc.id}, '${nc.name}')" title="삭제">
-                                <i class="fa-solid fa-trash"></i>
+                            <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem; color: var(--danger-color); border-color: rgba(220, 53, 69, 0.3);" onclick="requestDeleteNewcomer(${nc.id}, '${nc.name}')" title="숨김(보관)">
+                                <i class="fa-solid fa-eye-slash"></i>
                             </button>
                             ` : ''}
+                            `}
                         </div>
                     </td>
                 `;
@@ -724,6 +783,8 @@
             document.getElementById('newcomerModal').classList.remove('active');
         }
 
+        let pendingRestorePayload = null;
+
         async function handleFormSubmit(e) {
             e.preventDefault();
             const editId = document.getElementById('editId').value;
@@ -764,8 +825,21 @@
                 });
                 const json = await res.json();
 
+                // 숨김 처리된 동일인이 존재하여 복원 의사를 묻는 경우
+                if (!json.success && json.is_existing_hidden && json.existing_data) {
+                    pendingRestorePayload = {
+                        ...payload,
+                        restore_id: json.existing_data.id
+                    };
+                    showRestoreModal(json.existing_data);
+                    return;
+                }
+
                 if (json.success) {
                     closeModal();
+                    if (json.restored) {
+                        alert(json.message);
+                    }
                     await fetchNewcomers();
                 } else {
                     errorDiv.textContent = json.error || '저장 중 오류가 발생했습니다.';
@@ -780,68 +854,78 @@
             }
         }
 
-        async function promptMoveNewcomerArea(id, name, currentArea) {
-            const nc = newcomersList.find(n => n.id === id);
-            if (!nc) return;
-            const newArea = prompt(`'${name}' 새참자의 이동할 구역 번호를 입력하세요:\n(현재: ${currentArea}구역, 예: 11, 12, 21, 31 등)`, currentArea);
-            if (!newArea || newArea.trim() === '' || newArea.trim() === currentArea) return;
+        function showRestoreModal(existingData) {
+            document.getElementById('restoreTargetName').textContent = existingData.name;
+            document.getElementById('restoreTargetArea').textContent = existingData.area_code;
+            document.getElementById('restoreTargetGuide').textContent = existingData.guide_name || '-';
+            document.getElementById('restoreTargetPhone').textContent = existingData.phone || '-';
+            document.getElementById('restoreTargetAttCount').textContent = existingData.attendance_count || 0;
 
-            const cleanArea = newArea.replace(/[^0-9]/g, '');
-            if (!cleanArea) {
-                alert('올바른 구역 번호를 입력해주세요.');
-                return;
-            }
-
-            try {
-                const res = await fetch(`/api/newcomers/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: nc.name,
-                        guide_name: nc.guide_name,
-                        phone: nc.phone,
-                        area_code: cleanArea,
-                        memo: nc.memo
-                    })
-                });
-                const json = await res.json();
-                if (json.success) {
-                    alert(`'${name}' 새참자가 ${cleanArea}구역으로 이동되었습니다.`);
-                    await fetchNewcomers();
-                } else {
-                    alert(json.error || '구역 이동 중 오류가 발생했습니다.');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('구역 이동 처리 중 서버 오류가 발생했습니다.');
+            const modalEl = document.getElementById('restoreConfirmModal');
+            if (modalEl) {
+                modalEl.style.display = 'flex';
+                modalEl.style.opacity = '1';
+                modalEl.style.pointerEvents = 'all';
             }
         }
 
-        async function moveNewcomerToReserve(id, name, areaCode) {
-            if (!confirm(`'${name}' 새참자를 예비명단으로 이동하시겠습니까?\n(이동 시 구역 출석체크 목록에서 제외되며, 예비명단 관리에서 언제든 구역으로 복귀시킬 수 있습니다.)`)) {
+        function closeRestoreModal() {
+            pendingRestorePayload = null;
+            const modalEl = document.getElementById('restoreConfirmModal');
+            if (modalEl) modalEl.style.display = 'none';
+        }
+
+        async function confirmRestoreExistingNewcomer() {
+            if (!pendingRestorePayload) return;
+            const payload = {
+                ...pendingRestorePayload,
+                restore_if_exists: true
+            };
+
+            try {
+                const res = await fetch('/api/newcomers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    closeRestoreModal();
+                    closeModal();
+                    alert(json.message || '이전 기록과 함께 성공적으로 복원되었습니다.');
+                    // 복원 후 활동 중 목록 조회
+                    const statusFilter = document.getElementById('statusFilter');
+                    if (statusFilter) statusFilter.value = 'active';
+                    await fetchNewcomers();
+                } else {
+                    alert(json.error || '복원 처리 중 오류가 발생했습니다.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('복원 처리 중 서버 오류가 발생했습니다.');
+            }
+        }
+
+        async function restoreNewcomerDirectly(id, name) {
+            if (!confirm(`'${name}' 새참자를 출석체크 목록으로 다시 복원하시겠습니까?\n(이전 출석 기록과 정보가 모두 유지된 채 복원됩니다.)`)) {
                 return;
             }
 
             try {
-                const res = await fetch('/api/reserve', {
+                const res = await fetch(`/api/newcomers/${id}/restore`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        member_code: `NC_${id}`,
-                        original_area: areaCode,
-                        reason: '관리자 새참자 예비명단 이동'
-                    })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 const json = await res.json();
                 if (json.success) {
-                    alert(`'${name}' 새참자가 예비명단으로 이동되었습니다.`);
+                    alert(json.message || `'${name}' 새참자가 복원되었습니다.`);
                     await fetchNewcomers();
                 } else {
-                    alert(json.error || '예비명단 이동 중 오류가 발생했습니다.');
+                    alert(json.error || '복원 처리 중 오류가 발생했습니다.');
                 }
             } catch (err) {
                 console.error(err);
-                alert('예비명단 이동 처리 중 서버 오류가 발생했습니다.');
+                alert('복원 처리 중 서버 통신 오류가 발생했습니다.');
             }
         }
 
@@ -850,7 +934,6 @@
 
         window.requestDeleteNewcomer = function(id, name) {
             pendingDeleteId = id;
-            // Generate 3-digit random number (100 ~ 999)
             currentVerificationCode = String(Math.floor(100 + Math.random() * 900));
 
             const targetNameEl = document.getElementById('delTargetName');
@@ -900,18 +983,19 @@
             }
 
             try {
+                // 기본 soft delete(숨김) 수행
                 const res = await fetch(`/api/newcomers/${pendingDeleteId}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
                     closeDeleteModal();
                     await fetchNewcomers();
                 } else {
-                    errorDiv.textContent = json.error || '삭제 처리 중 오류가 발생했습니다.';
+                    errorDiv.textContent = json.error || '숨김 처리 중 오류가 발생했습니다.';
                     errorDiv.style.display = 'block';
                 }
             } catch (err) {
                 console.error(err);
-                errorDiv.textContent = '삭제 처리 중 서버 오류가 발생했습니다.';
+                errorDiv.textContent = '숨김 처리 중 서버 오류가 발생했습니다.';
                 errorDiv.style.display = 'block';
             }
         }
