@@ -24,15 +24,31 @@ app.use(express.json()); // Parse JSON bodies
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Helper: 현시점 최신 활성 연도(Active Year) 동적 조회
+// 1순위: 주소록 관리자 시스템 설정 테이블(CWTB_SYSTEM_CONFIG)의 'ACTIVE_YEAR' (관리자 대시보드에서 지정한 서비스 활성 연도)
+// 2순위: .env 설정 (ACTIVE_YEAR)
+// 3순위: CWTB_USER 테이블의 MAX(YEAR)
 async function getActiveYear(conn) {
-    if (process.env.ACTIVE_YEAR) return process.env.ACTIVE_YEAR;
     try {
+        // 1순위: CWTB_SYSTEM_CONFIG 확인 ('KEY'는 MariaDB 예약어이므로 SELECT * 로 안전하게 조회)
+        const cfgRows = await conn.query("SELECT * FROM CWTB_SYSTEM_CONFIG");
+        const activeYearRow = cfgRows.find(r => r.KEY === 'ACTIVE_YEAR');
+        if (activeYearRow && activeYearRow.VALUE) {
+            return String(activeYearRow.VALUE).trim();
+        }
+    } catch (e) {
+        console.error("getActiveYear (CWTB_SYSTEM_CONFIG) error:", e.message);
+    }
+
+    if (process.env.ACTIVE_YEAR) return process.env.ACTIVE_YEAR;
+
+    try {
+        // fallback: CWTB_USER의 최신 연도
         const rows = await conn.query("SELECT MAX(CAST(YEAR AS UNSIGNED)) as max_year FROM CWTB_USER WHERE DEL_YN = 'N'");
         if (rows && rows.length > 0 && rows[0].max_year) {
             return String(rows[0].max_year);
         }
     } catch (e) {
-        console.error("getActiveYear error:", e);
+        console.error("getActiveYear (CWTB_USER) error:", e.message);
     }
     return '2026';
 }
@@ -470,11 +486,12 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             totalMap[r.AREA_CODE.trim()] = Number(r.total_cnt || 0);
         });
 
-        // 3. 구역별 새참자 수 (미등재 새참자 기준)
+        // 3. 구역별 새참자 수 (미등재 및 숨김 제외 활성 새참자 기준)
         const ncRows = await conn.query(`
             SELECT COALESCE(area_code, temp_area) as area_code, COUNT(id) as nc_cnt
             FROM faithon_newcomer
             WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)
+              AND (is_hidden = FALSE OR is_hidden IS NULL)
             GROUP BY COALESCE(area_code, temp_area)
         `);
         const ncMap = {};
@@ -683,8 +700,13 @@ app.get('/api/members', async (req, res) => {
         
         const regularMembers = await conn.query(query, params);
 
-        // 2-2. 해당 구역 새참자 중 '아직 정식 성도로 등재되지 않은' 새참자만 출석체크 대상 목록에 포함 (중복 방지)
-        let ncQuery = `SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at FROM faithon_newcomer WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)`;
+        // 2-2. 해당 구역 새참자 중 '아직 정식 성도로 등재되지 않은' & '숨김 처리되지 않은' 새참자만 출석체크 대상 목록에 포함 (중복 방지 및 숨김 보관)
+        let ncQuery = `
+            SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at 
+            FROM faithon_newcomer 
+            WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)
+              AND (is_hidden = FALSE OR is_hidden IS NULL)
+        `;
         const ncParams = [];
         if (areaCode) {
             ncQuery += ` AND (area_code = ? OR temp_area = ?)`;
@@ -727,10 +749,11 @@ app.get('/api/members', async (req, res) => {
 // 새참자(Newcomer) 전용 API Routes
 // ==========================================
 
-// 새참자 목록 조회 (미등재 새참자 기본 조회)
+// 새참자 목록 조회 (기본: 활동 중인 미등재 새참자)
 app.get('/api/newcomers', async (req, res) => {
     const areaCode = req.query.areaCode;
     const includeRegistered = req.query.includeRegistered === 'true';
+    const status = req.query.status || 'active'; // 'all', 'active', 'hidden'
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -739,12 +762,20 @@ app.get('/api/newcomers', async (req, res) => {
 
         let query = `
             SELECT nc.id, nc.name, nc.guide_name, nc.phone, COALESCE(nc.area_code, nc.temp_area) as area_code, nc.memo, nc.registered_at,
-                   nc.registered_code, nc.is_registered_member,
+                   nc.registered_code, nc.is_registered_member, nc.is_hidden,
                    (SELECT COUNT(*) FROM faithon_attendance a WHERE a.member_code = CONCAT('NC_', nc.id) AND a.is_attended = TRUE) as attendance_count
             FROM faithon_newcomer nc
             WHERE 1=1
         `;
         const params = [];
+
+        // 상태 필터 (active: 활동 중, hidden: 숨김/보관, all: 전체)
+        if (status === 'active') {
+            query += ` AND (nc.is_hidden = FALSE OR nc.is_hidden IS NULL)`;
+        } else if (status === 'hidden') {
+            query += ` AND nc.is_hidden = TRUE`;
+        }
+
         if (!includeRegistered) {
             query += ` AND (nc.is_registered_member = FALSE OR nc.is_registered_member IS NULL)`;
         }
@@ -764,9 +795,9 @@ app.get('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 등록 (중복 방지 & 주소록 존재 여부 검사 & 인도자 공란 시 본인 이름 기본 지정)
+// 새참자 등록 (중복 방지 & 숨김 보관 동일인 검사 & 복원 지원 & 주소록 존재 여부 검사)
 app.post('/api/newcomers', async (req, res) => {
-    const { name, guide_name, phone, area_code, memo, created_by } = req.body;
+    const { name, guide_name, phone, area_code, memo, created_by, restore_if_exists } = req.body;
     if (!name || !area_code) {
         return res.status(400).json({ success: false, error: '이름과 배정 구역은 필수 항목입니다.' });
     }
@@ -778,14 +809,62 @@ app.post('/api/newcomers', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
 
-        // 1. 해당 구역 내 동일 이름 중복 등록 여부 확인
-        const dup = await conn.query(`
-            SELECT id FROM faithon_newcomer 
+        // 1. 해당 구역 내 동일 이름 새참자 존재 여부 확인 (활동 중 vs 숨김 상태 구분)
+        const dupRows = await conn.query(`
+            SELECT id, name, guide_name, phone, area_code, memo, is_hidden, registered_at,
+                   (SELECT COUNT(*) FROM faithon_attendance a WHERE a.member_code = CONCAT('NC_', faithon_newcomer.id) AND a.is_attended = TRUE) as attendance_count
+            FROM faithon_newcomer 
             WHERE name = ? AND (area_code = ? OR temp_area = ?)
+            ORDER BY id DESC
         `, [name.trim(), area_code.trim(), area_code.trim()]);
 
-        if (dup && dup.length > 0) {
-            return res.status(400).json({ success: false, error: `이미 ${area_code}구역에 등록된 동일한 이름의 새참자(${name})가 존재합니다.` });
+        if (dupRows && dupRows.length > 0) {
+            const activeDup = dupRows.find(d => !d.is_hidden);
+            const hiddenDup = dupRows.find(d => !!d.is_hidden);
+
+            // 이미 활성 상태로 등록되어 있는 경우
+            if (activeDup) {
+                return res.status(400).json({ success: false, error: `이미 ${area_code}구역에 등록되어 활동 중인 동일한 이름의 새참자(${name})가 존재합니다.` });
+            }
+
+            // 숨김(보관) 상태인 동일인이 존재하는 경우
+            if (hiddenDup) {
+                // 사용자가 명시적으로 복원 요청을 보낸 경우 -> 기존 기록 살려 복원 업데이트
+                if (restore_if_exists) {
+                    await conn.query(`
+                        UPDATE faithon_newcomer
+                        SET is_hidden = FALSE,
+                            guide_name = ?,
+                            phone = COALESCE(?, phone),
+                            memo = COALESCE(?, memo)
+                        WHERE id = ?
+                    `, [effectiveGuide, phone ? phone.trim() : null, memo ? memo.trim() : null, hiddenDup.id]);
+
+                    return res.json({
+                        success: true,
+                        restored: true,
+                        id: hiddenDup.id,
+                        message: `'${name}' 새참자의 이전 기록(출석 ${hiddenDup.attendance_count || 0}회 포함)이 성공적으로 복원되었습니다.`
+                    });
+                }
+
+                // 복원 플래그가 없으면 프론트엔드에 이전 이력 안내 팝업을 유도할 수 있도록 응답 반환
+                return res.json({
+                    success: false,
+                    is_existing_hidden: true,
+                    existing_data: {
+                        id: hiddenDup.id,
+                        name: hiddenDup.name,
+                        guide_name: hiddenDup.guide_name,
+                        phone: hiddenDup.phone,
+                        area_code: hiddenDup.area_code,
+                        memo: hiddenDup.memo,
+                        attendance_count: Number(hiddenDup.attendance_count || 0),
+                        registered_at: hiddenDup.registered_at
+                    },
+                    message: `이전에 등록 후 보관(숨김)된 동일한 새참자('${name}', 이전 출석 ${hiddenDup.attendance_count || 0}회)가 있습니다. 이전 정보를 복원하시겠습니까?`
+                });
+            }
         }
 
         // 2. 이미 주소록(CWTB_USER)에 등록된 성도인지 확인
@@ -798,10 +877,10 @@ app.post('/api/newcomers', async (req, res) => {
             return res.status(400).json({ success: false, error: `'${name}' 성도는 이미 ${activeYear}년도 주소록(${area_code}구역)에 정식 등록되어 있습니다.` });
         }
 
-        // 3. 새참자 등록
+        // 3. 신규 새참자 등록
         const insertRes = await conn.query(`
-            INSERT INTO faithon_newcomer (name, guide_name, phone, area_code, memo, created_by)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO faithon_newcomer (name, guide_name, phone, area_code, memo, created_by, is_hidden)
+            VALUES (?, ?, ?, ?, ?, ?, FALSE)
         `, [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, created_by || null]);
 
         res.json({ success: true, id: insertRes.insertId, message: `'${name}' 새참자가 ${area_code}구역에 등록되었습니다.` });
@@ -813,10 +892,59 @@ app.post('/api/newcomers', async (req, res) => {
     }
 });
 
-// 새참자 수정 (인도자 공란 시 본인 이름 기본 지정)
+// 새참자 직접 복원 API (숨김 해제)
+app.post('/api/newcomers/:id/restore', async (req, res) => {
+    const id = req.params.id;
+    const { guide_name, phone, area_code, memo } = req.body || {};
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 복원 대상 정보 조회
+        const existing = await conn.query(`SELECT id, name, area_code, guide_name, phone, memo FROM faithon_newcomer WHERE id = ?`, [id]);
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, error: '해당 새참자 정보를 찾을 수 없습니다.' });
+        }
+        const nc = existing[0];
+        const targetArea = area_code ? area_code.trim() : nc.area_code;
+        const targetGuide = guide_name ? guide_name.trim() : nc.guide_name;
+
+        // 동일 구역 내 이미 활성 상태인 동일 이름이 있는지 체크
+        const dup = await conn.query(`
+            SELECT id FROM faithon_newcomer 
+            WHERE name = ? AND (area_code = ? OR temp_area = ?) AND is_hidden = FALSE AND id != ?
+        `, [nc.name, targetArea, targetArea, id]);
+
+        if (dup && dup.length > 0) {
+            return res.status(400).json({ success: false, error: `이미 ${targetArea}구역에 활동 중인 동일한 이름의 새참자(${nc.name})가 존재합니다.` });
+        }
+
+        await conn.query(`
+            UPDATE faithon_newcomer
+            SET is_hidden = FALSE,
+                area_code = ?,
+                guide_name = ?,
+                phone = COALESCE(?, phone),
+                memo = COALESCE(?, memo)
+            WHERE id = ?
+        `, [targetArea, targetGuide, phone ? phone.trim() : null, memo ? memo.trim() : null, id]);
+
+        await syncNewcomersWithAddressBook(conn, activeYear);
+
+        res.json({ success: true, message: `'${nc.name}' 새참자가 정상적으로 복원되었습니다. 이전 출석 기록도 모두 유지됩니다.` });
+    } catch (err) {
+        console.error("Error restoring newcomer:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 새참자 수정
 app.put('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
-    const { name, guide_name, phone, area_code, memo } = req.body;
+    const { name, guide_name, phone, area_code, memo, is_hidden } = req.body;
     if (!name || !area_code) {
         return res.status(400).json({ success: false, error: '이름과 배정 구역은 필수 항목입니다.' });
     }
@@ -828,22 +956,32 @@ app.put('/api/newcomers/:id', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
 
-        // 1. 본인을 제외하고 해당 구역에 동일한 이름의 새참자가 있는지 중복 검사
+        // 1. 본인을 제외하고 해당 구역에 동일한 이름의 활성 새참자가 있는지 중복 검사
         const dup = await conn.query(`
             SELECT id FROM faithon_newcomer 
-            WHERE name = ? AND (area_code = ? OR temp_area = ?) AND id != ?
+            WHERE name = ? AND (area_code = ? OR temp_area = ?) AND id != ? AND is_hidden = FALSE
         `, [name.trim(), area_code.trim(), area_code.trim(), id]);
 
         if (dup && dup.length > 0) {
             return res.status(400).json({ success: false, error: `이미 ${area_code}구역에 동일한 이름의 다른 새참자(${name})가 존재합니다.` });
         }
 
-        // 2. 새참자 정보 업데이트 (이름이 변경되어도 ID 기반으로 과거 출석 기록 자동 보존)
-        await conn.query(`
+        // 2. 새참자 정보 업데이트 (이름/정보가 변경되어도 ID 기반으로 과거 출석 기록 자동 보존)
+        let updateSql = `
             UPDATE faithon_newcomer
             SET name = ?, guide_name = ?, phone = ?, area_code = ?, memo = ?
-            WHERE id = ?
-        `, [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null, id]);
+        `;
+        const updateParams = [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null];
+
+        if (is_hidden !== undefined) {
+            updateSql += `, is_hidden = ?`;
+            updateParams.push(!!is_hidden);
+        }
+
+        updateSql += ` WHERE id = ?`;
+        updateParams.push(id);
+
+        await conn.query(updateSql, updateParams);
 
         // 3. 수정된 이름이 주소록(CWTB_USER)에 이미 존재하는지 즉시 확인 및 자동 정리/이관
         await syncNewcomersWithAddressBook(conn, activeYear);
@@ -860,14 +998,25 @@ app.put('/api/newcomers/:id', async (req, res) => {
     }
 });
 
-// 새참자 삭제 (해당 구역장이 삭제)
+// 새참자 삭제 -> Soft Delete (과거 출석 및 연락처 영구 보존을 위해 숨김 보관 처리)
+// hard=true 파라미터가 있는 경우에만 DB 완전 삭제
 app.delete('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
+    const isHardDelete = req.query.hard === 'true';
     let conn;
     try {
         conn = await db.pool.getConnection();
-        await conn.query(`DELETE FROM faithon_newcomer WHERE id = ?`, [id]);
-        res.json({ success: true, message: '새참자가 삭제되었습니다.' });
+        if (isHardDelete) {
+            await conn.query(`DELETE FROM faithon_newcomer WHERE id = ?`, [id]);
+            res.json({ success: true, message: '새참자 정보가 완전히 삭제되었습니다.' });
+        } else {
+            // 소프트 삭제: 숨김 처리하여 출석체크 목록에서만 제외하고 과거 출석 및 연락처는 안전 보존
+            await conn.query(`UPDATE faithon_newcomer SET is_hidden = TRUE WHERE id = ?`, [id]);
+            res.json({ 
+                success: true, 
+                message: '새참자가 출석체크 목록에서 숨김(보관) 처리되었습니다. 과거 출석 기록과 정보는 안전하게 보관됩니다.' 
+            });
+        }
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     } finally {
@@ -1432,11 +1581,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const memRows = await conn.query(memQuery, memParams);
         const regularMemberCount = Number(memRows[0]?.cnt || 0);
 
-        // 새참자 수
-        let ncQuery = `SELECT COUNT(*) as cnt FROM faithon_newcomer`;
+        // 새참자 수 (활동 중인 새참자 기준)
+        let ncQuery = `SELECT COUNT(*) as cnt FROM faithon_newcomer WHERE (is_hidden = FALSE OR is_hidden IS NULL)`;
         const ncParams = [];
         if (areaCode) {
-            ncQuery += ` WHERE (area_code = ? OR temp_area = ?)`;
+            ncQuery += ` AND (area_code = ? OR temp_area = ?)`;
             ncParams.push(areaCode, areaCode);
         }
         const ncRows = await conn.query(ncQuery, ncParams);
