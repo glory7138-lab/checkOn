@@ -426,6 +426,35 @@
         </div>
     </div>
 
+    <!-- Modal for 3-digit Verification Code Deletion -->
+    <div class="modal-overlay" id="deleteConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; opacity: 1; pointer-events: all;">
+        <div class="modal-content" style="max-width: 380px; text-align: center; background: #fff; padding: 1.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); margin: 1rem; width: 90%; transform: none;">
+            <div style="width: 50px; height: 50px; background: rgba(220, 53, 69, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: var(--danger-color); font-size: 1.5rem;">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem;">새참자 삭제 확인</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                '<strong id="delTargetName" style="color: var(--text-primary);"></strong>' 새참자를 정말 삭제하시겠습니까?<br>
+                <span style="font-size: 0.8rem; color: var(--danger-color);">* 삭제 시 출석체크 목록에서도 완전히 제거됩니다.</span>
+            </p>
+            
+            <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">아래 3자리 숫자를 입력하세요</div>
+                <div id="delRandomCodeDisplay" style="font-size: 2rem; font-weight: 900; letter-spacing: 6px; color: var(--danger-color); font-family: monospace;">---</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <input type="text" inputmode="numeric" maxlength="3" class="form-input" id="delCodeInput" placeholder="인증 번호 3자리 입력" style="text-align: center; font-size: 1.25rem; font-weight: 800; letter-spacing: 4px;" autocomplete="off">
+                <div id="delCodeError" style="display: none; color: var(--danger-color); font-size: 0.8rem; margin-top: 0.4rem; font-weight: 600;"></div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeDeleteModal()">취소</button>
+                <button type="button" class="btn btn-primary" style="flex: 1; background: var(--danger-color); border-color: var(--danger-color);" onclick="confirmDeleteNewcomer()">확인 및 삭제</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const currentUser = JSON.parse(localStorage.getItem('faithon_user'));
         if (!currentUser) {
@@ -642,8 +671,8 @@
                             <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem;" onclick="openEditModal(${nc.id})" title="정보 수정">
                                 <i class="fa-solid fa-pen"></i> 수정
                             </button>
-                            ${isAdmin ? `
-                            <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem; color: var(--danger-color); border-color: rgba(220, 53, 69, 0.3);" onclick="deleteNewcomer(${nc.id}, '${nc.name}')" title="삭제">
+                            ${(isAdmin || !isReg) ? `
+                            <button class="btn btn-outline" style="padding: 0.3rem 0.55rem; font-size: 0.78rem; color: var(--danger-color); border-color: rgba(220, 53, 69, 0.3);" onclick="requestDeleteNewcomer(${nc.id}, '${nc.name}')" title="삭제">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                             ` : ''}
@@ -816,20 +845,74 @@
             }
         }
 
-        async function deleteNewcomer(id, name) {
-            if (!confirm(`'${name}' 새참자를 삭제하시겠습니까?\n(해당 구역 출석체크 목록에서도 제거됩니다.)`)) return;
+        let pendingDeleteId = null;
+        let currentVerificationCode = '';
+
+        window.requestDeleteNewcomer = function(id, name) {
+            pendingDeleteId = id;
+            // Generate 3-digit random number (100 ~ 999)
+            currentVerificationCode = String(Math.floor(100 + Math.random() * 900));
+
+            const targetNameEl = document.getElementById('delTargetName');
+            const codeDispEl = document.getElementById('delRandomCodeDisplay');
+            const inputEl = document.getElementById('delCodeInput');
+            const errorDiv = document.getElementById('delCodeError');
+            const modalEl = document.getElementById('deleteConfirmModal');
+
+            if (targetNameEl) targetNameEl.textContent = name;
+            if (codeDispEl) codeDispEl.textContent = currentVerificationCode;
+            if (inputEl) inputEl.value = '';
+            if (errorDiv) errorDiv.style.display = 'none';
+            if (modalEl) {
+                modalEl.style.display = 'flex';
+                modalEl.style.opacity = '1';
+                modalEl.style.pointerEvents = 'all';
+            }
+
+            setTimeout(() => {
+                if (inputEl) inputEl.focus();
+            }, 100);
+        };
+
+        window.closeDeleteModal = function() {
+            pendingDeleteId = null;
+            currentVerificationCode = '';
+            const modalEl = document.getElementById('deleteConfirmModal');
+            if (modalEl) modalEl.style.display = 'none';
+        };
+
+        window.confirmDeleteNewcomer = async function() {
+            const inputVal = document.getElementById('delCodeInput').value.trim();
+            const errorDiv = document.getElementById('delCodeError');
+
+            if (!inputVal) {
+                errorDiv.textContent = '확인 번호 3자리를 입력해주세요.';
+                errorDiv.style.display = 'block';
+                document.getElementById('delCodeInput').focus();
+                return;
+            }
+
+            if (inputVal !== currentVerificationCode) {
+                errorDiv.textContent = `입력한 번호(${inputVal})가 일치하지 않습니다. 다시 입력해주세요.`;
+                errorDiv.style.display = 'block';
+                document.getElementById('delCodeInput').select();
+                return;
+            }
 
             try {
-                const res = await fetch(`/api/newcomers/${id}`, { method: 'DELETE' });
+                const res = await fetch(`/api/newcomers/${pendingDeleteId}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
+                    closeDeleteModal();
                     await fetchNewcomers();
                 } else {
-                    alert(json.error);
+                    errorDiv.textContent = json.error || '삭제 처리 중 오류가 발생했습니다.';
+                    errorDiv.style.display = 'block';
                 }
             } catch (err) {
                 console.error(err);
-                alert("삭제 처리 중 오류가 발생했습니다.");
+                errorDiv.textContent = '삭제 처리 중 서버 오류가 발생했습니다.';
+                errorDiv.style.display = 'block';
             }
         }
 

@@ -223,18 +223,22 @@ app.post('/api/auth/login', async (req, res) => {
             isAdmin = true;
         }
 
+        const hasPaRole = !!(user.PA_POSITION && user.PA_POSITION.trim() && user.PA_POSITION.trim() !== '-');
         const isLeader = (
+            hasPaRole ||
             effectivePosition.includes('구역장') || 
             effectivePosition.includes('부구역장') || 
             effectivePosition.includes('조장') || 
             effectivePosition.includes('조총무') || 
-            effectivePosition.includes('서기')
+            effectivePosition.includes('서기') ||
+            effectivePosition.includes('임원') ||
+            effectivePosition.includes('지역장')
         );
 
         if (!isAdmin && !isLeader) {
             return res.status(403).json({
                 success: false,
-                error: '접속 권한이 없는 사용자입니다. (구역장, 부구역장, 조장, 관리자만 접속 가능)'
+                error: '접속 권한이 없는 사용자입니다. (구역 임원 및 관리자만 접속 가능)'
             });
         }
 
@@ -530,10 +534,11 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
               AND (
-                  pa.POSITION LIKE '%구역장%' 
-                  OR pa.POSITION LIKE '%조장%' 
+                  (pa.POSITION IS NOT NULL AND pa.POSITION != '' AND pa.POSITION != '-')
                   OR u.POSITION LIKE '%구역장%'
                   OR u.POSITION LIKE '%조장%'
+                  OR u.POSITION LIKE '%총무%'
+                  OR u.POSITION LIKE '%서기%'
               )
             ORDER BY 
                 CAST(u.AREA_CODE AS UNSIGNED) ASC,
