@@ -65,6 +65,10 @@
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
                 </a>
+                <a href="/admin_gathering.html" class="nav-item" id="navAdminGathering" style="display: none;">
+                    <i class="fa-solid fa-calendar-star"></i>
+                    <span>대집회 관리</span>
+                </a>
                 <a href="/newcomer.html" class="nav-item" id="navNewcomer">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>새참자 관리</span>
@@ -444,8 +448,12 @@
             }
 
             const mobNavReserve = document.getElementById('mobNavReserve');
+            const navAdminGathering = document.getElementById('navAdminGathering');
             if (navReserve) {
                 navReserve.style.display = isAdmin ? 'flex' : 'none';
+            }
+            if (navAdminGathering) {
+                navAdminGathering.style.display = isAdmin ? 'flex' : 'none';
             }
             if (navAdminUsers) {
                 navAdminUsers.style.display = isAdmin ? 'flex' : 'none';
@@ -464,6 +472,7 @@
                     quickNav.innerHTML = `
                         <a href="/?view=dashboard" class="mobile-quick-item active"><i class="fa-solid fa-chart-pie"></i> 통계</a>
                         <a href="/attend.html" class="mobile-quick-item"><i class="fa-solid fa-clipboard-user"></i> 출석체크현황</a>
+                        <a href="/admin_gathering.html" class="mobile-quick-item"><i class="fa-solid fa-calendar-star"></i> 대집회</a>
                         <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
                         <a href="/reserve.html" class="mobile-quick-item"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
                         <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
