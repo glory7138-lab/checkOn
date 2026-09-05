@@ -125,6 +125,50 @@ async function initializeTables() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 
+        // 6. 대집회 마스터 테이블
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_special_gatherings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(150) NOT NULL,
+                instructor VARCHAR(100) DEFAULT '',
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                selected_dates LONGTEXT NOT NULL, -- JSON array of dates e.g. ["2026-09-07", ...]
+                is_active BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 7. 대집회 출석 기록 테이블 (완전 분리)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_special_attendance (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                gathering_id INT NOT NULL,
+                service_date DATE NOT NULL,
+                member_code VARCHAR(255) NOT NULL,
+                member_type VARCHAR(50) DEFAULT 'REGULAR', -- 'REGULAR'(기존성도/정규새참자) or 'SPECIAL_NEW'(대집회전용새참자)
+                is_attended BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_special_att (gathering_id, service_date, member_code)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 8. 대집회 전용 새참자 테이블 (기존 명부와 완전 분리)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_special_newcomers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                gathering_id INT NOT NULL,
+                area_code VARCHAR(100) NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                guide_name VARCHAR(100) NULL,
+                phone VARCHAR(100) NULL,
+                memo VARCHAR(255) NULL,
+                created_by VARCHAR(100) NULL,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
         console.log("[FaithOn DB] Initialized custom tables successfully.");
     } catch (err) {
         console.error("[FaithOn DB] Error initializing tables:", err);

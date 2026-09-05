@@ -487,6 +487,7 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
         });
 
         // 3. 구역별 새참자 수 (미등재 및 숨김 제외 활성 새참자 기준)
+        // 3. 구역별 새참자 수 (미등재 및 숨김 제외 활성 새참자 기준 + 대집회 전용 새참자)
         const ncRows = await conn.query(`
             SELECT COALESCE(area_code, temp_area) as area_code, COUNT(id) as nc_cnt
             FROM faithon_newcomer
@@ -499,35 +500,87 @@ app.get('/api/admin/area-attendance-status', async (req, res) => {
             if (r.area_code) ncMap[r.area_code.trim()] = Number(r.nc_cnt || 0);
         });
 
+        // 대집회인 경우 대집회 전용 새참자 추가 집계
+        if (type === 'special') {
+            const spGathering = await conn.query(`SELECT id FROM faithon_special_gatherings WHERE is_active = TRUE LIMIT 1`);
+            if (spGathering && spGathering.length > 0) {
+                const spNcRows = await conn.query(`
+                    SELECT area_code, COUNT(id) as sp_cnt 
+                    FROM faithon_special_newcomers 
+                    WHERE gathering_id = ? 
+                    GROUP BY area_code
+                `, [spGathering[0].id]);
+                spNcRows.forEach(r => {
+                    if (r.area_code) {
+                        const a = r.area_code.trim();
+                        ncMap[a] = (ncMap[a] || 0) + Number(r.sp_cnt || 0);
+                    }
+                });
+            }
+        }
+
         // 4. 해당 날짜/예배 구역별 실제 출석 체크된 인원 수
-        const attendRows = await conn.query(`
-            SELECT u.AREA_CODE, COUNT(DISTINCT a.member_code) as attend_cnt
-            FROM faithon_attendance a
-            JOIN CWTB_USER u ON a.member_code = u.CODE_NO
-            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
-            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ? 
-              AND a.service_type = ? 
-              AND a.is_attended = TRUE
-              AND u.YEAR = ?
-              AND u.DEL_YN = 'N'
-              AND r.member_code IS NULL
-            GROUP BY u.AREA_CODE
-        `, [date, type, activeYear]);
+        let attendRows, ncAttendRows;
+        if (type === 'special') {
+            const spGathering = await conn.query(`SELECT id FROM faithon_special_gatherings WHERE is_active = TRUE LIMIT 1`);
+            const gid = spGathering.length > 0 ? spGathering[0].id : -1;
+
+            attendRows = await conn.query(`
+                SELECT u.AREA_CODE, COUNT(DISTINCT a.member_code) as attend_cnt
+                FROM faithon_special_attendance a
+                JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+                LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ? 
+                  AND a.gathering_id = ?
+                  AND a.is_attended = TRUE
+                  AND u.YEAR = ?
+                  AND u.DEL_YN = 'N'
+                  AND r.member_code IS NULL
+                GROUP BY u.AREA_CODE
+            `, [date, gid, activeYear]);
+
+            ncAttendRows = await conn.query(`
+                SELECT COALESCE(nc.area_code, nc.temp_area, snc.area_code) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
+                FROM faithon_special_attendance a
+                LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+                LEFT JOIN faithon_special_newcomers snc ON a.member_code = CONCAT('SNC_', snc.id) AND snc.gathering_id = ?
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
+                  AND a.gathering_id = ?
+                  AND a.is_attended = TRUE
+                  AND (nc.id IS NOT NULL OR snc.id IS NOT NULL)
+                GROUP BY area_code
+            `, [gid, date, gid]);
+        } else {
+            attendRows = await conn.query(`
+                SELECT u.AREA_CODE, COUNT(DISTINCT a.member_code) as attend_cnt
+                FROM faithon_attendance a
+                JOIN CWTB_USER u ON a.member_code = u.CODE_NO
+                LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ? 
+                  AND a.service_type = ? 
+                  AND a.is_attended = TRUE
+                  AND u.YEAR = ?
+                  AND u.DEL_YN = 'N'
+                  AND r.member_code IS NULL
+                GROUP BY u.AREA_CODE
+            `, [date, type, activeYear]);
+
+            ncAttendRows = await conn.query(`
+                SELECT COALESCE(nc.area_code, nc.temp_area) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
+                FROM faithon_attendance a
+                JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+                WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
+                  AND a.service_type = ?
+                  AND a.is_attended = TRUE
+                GROUP BY COALESCE(nc.area_code, nc.temp_area)
+            `, [date, type]);
+        }
+
         const attendMap = {};
         attendRows.forEach(r => {
             attendMap[r.AREA_CODE.trim()] = Number(r.attend_cnt || 0);
         });
 
-        // 4-1. 해당 날짜 새참자 출석 수 (모든 새참자 출석 기록 포함)
-        const ncAttendRows = await conn.query(`
-            SELECT COALESCE(nc.area_code, nc.temp_area) as area_code, COUNT(DISTINCT a.member_code) as nc_attend_cnt
-            FROM faithon_attendance a
-            JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
-            WHERE DATE_FORMAT(a.service_date, '%Y-%m-%d') = ?
-              AND a.service_type = ?
-              AND a.is_attended = TRUE
-            GROUP BY COALESCE(nc.area_code, nc.temp_area)
-        `, [date, type]);
         const ncAttendMap = {};
         ncAttendRows.forEach(r => {
             if (r.area_code) ncAttendMap[r.area_code.trim()] = Number(r.nc_attend_cnt || 0);
@@ -2258,6 +2311,780 @@ app.delete('/api/admin/revoke/:name', async (req, res) => {
     }
 });
 
+// ==========================================
+// 대집회(Special Gathering) 전용 API Routes
+// ==========================================
+
+// 1. 현재 활성화된 대집회 정보 조회 (구역 출석체크 화면 연동)
+app.get('/api/special-gatherings/active', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`
+            SELECT * FROM faithon_special_gatherings 
+            WHERE is_active = TRUE 
+            ORDER BY id DESC LIMIT 1
+        `);
+        if (rows && rows.length > 0) {
+            const gathering = rows[0];
+            let selectedDates = [];
+            try {
+                selectedDates = JSON.parse(gathering.selected_dates || '[]');
+            } catch (e) {
+                selectedDates = [];
+            }
+            res.json({
+                success: true,
+                active: true,
+                gathering: {
+                    id: gathering.id,
+                    title: gathering.title,
+                    instructor: gathering.instructor || '',
+                    start_date: gathering.start_date,
+                    end_date: gathering.end_date,
+                    selected_dates: selectedDates,
+                    is_active: !!gathering.is_active,
+                    created_at: gathering.created_at
+                }
+            });
+        } else {
+            res.json({ success: true, active: false, gathering: null });
+        }
+    } catch (err) {
+        console.error("GET /api/special-gatherings/active error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 2. 전체 대집회 목록 조회 (관리자용 - 과거 이력 포함)
+app.get('/api/special-gatherings', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`
+            SELECT * FROM faithon_special_gatherings 
+            ORDER BY start_date DESC, id DESC
+        `);
+        const list = rows.map(r => {
+            let sDates = [];
+            try { sDates = JSON.parse(r.selected_dates || '[]'); } catch (e) {}
+            return {
+                id: r.id,
+                title: r.title,
+                instructor: r.instructor || '',
+                start_date: r.start_date,
+                end_date: r.end_date,
+                selected_dates: sDates,
+                is_active: !!r.is_active,
+                created_at: r.created_at,
+                updated_at: r.updated_at
+            };
+        });
+        res.json({ success: true, list });
+    } catch (err) {
+        console.error("GET /api/special-gatherings error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 3. 신규 대집회 생성 (관리자용 - 기간/요일, 제목, 강사명, 활성화 여부)
+app.post('/api/special-gatherings', async (req, res) => {
+    const { title, instructor, start_date, end_date, selected_dates, is_active } = req.body;
+    if (!title || !start_date || !end_date || !Array.isArray(selected_dates) || selected_dates.length === 0) {
+        return res.status(400).json({ success: false, error: '대집회 제목 및 일정(기간)을 올바르게 입력해주세요.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        if (is_active) {
+            await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE`);
+        }
+
+        const datesJson = JSON.stringify(selected_dates);
+        const result = await conn.query(`
+            INSERT INTO faithon_special_gatherings (title, instructor, start_date, end_date, selected_dates, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [title, instructor || '', start_date, end_date, datesJson, is_active ? 1 : 0]);
+
+        await conn.commit();
+        res.json({ success: true, message: '대집회가 성공적으로 등록되었습니다.', id: result.insertId });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("POST /api/special-gatherings error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 4. 대집회 수정 (관리자용 - 제목, 강사명, 일정, 활성화 여부)
+app.put('/api/special-gatherings/:id', async (req, res) => {
+    const { id } = req.params;
+    const { title, instructor, start_date, end_date, selected_dates, is_active } = req.body;
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        const existing = await conn.query(`SELECT * FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!existing || existing.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, error: '해당 대집회를 찾을 수 없습니다.' });
+        }
+
+        const updates = [];
+        const params = [];
+
+        if (title !== undefined) {
+            updates.push('title = ?');
+            params.push(title);
+        }
+        if (instructor !== undefined) {
+            updates.push('instructor = ?');
+            params.push(instructor);
+        }
+        if (start_date !== undefined) {
+            updates.push('start_date = ?');
+            params.push(start_date);
+        }
+        if (end_date !== undefined) {
+            updates.push('end_date = ?');
+            params.push(end_date);
+        }
+        if (selected_dates !== undefined) {
+            updates.push('selected_dates = ?');
+            params.push(JSON.stringify(selected_dates));
+        }
+        if (is_active !== undefined) {
+            if (is_active) {
+                await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE WHERE id != ?`, [id]);
+            }
+            updates.push('is_active = ?');
+            params.push(is_active ? 1 : 0);
+        }
+
+        if (updates.length > 0) {
+            params.push(id);
+            await conn.query(`UPDATE faithon_special_gatherings SET ${updates.join(', ')} WHERE id = ?`, params);
+        }
+
+        await conn.commit();
+        res.json({ success: true, message: '대집회 정보가 수정되었습니다.' });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("PUT /api/special-gatherings/:id error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 5. 대집회 삭제 (관리자용)
+app.delete('/api/special-gatherings/:id', async (req, res) => {
+    const { id } = req.params;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        await conn.query(`DELETE FROM faithon_special_attendance WHERE gathering_id = ?`, [id]);
+        await conn.query(`DELETE FROM faithon_special_newcomers WHERE gathering_id = ?`, [id]);
+        await conn.query(`DELETE FROM faithon_special_gatherings WHERE id = ?`, [id]);
+
+        await conn.commit();
+        res.json({ success: true, message: '대집회 및 관련 출석 데이터가 삭제되었습니다.' });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("DELETE /api/special-gatherings/:id error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 6. 구역용: 대집회 명부 및 특정 일자 출석 조회
+app.get('/api/special-gatherings/:id/roster', async (req, res) => {
+    const { id } = req.params;
+    const { area, date } = req.query;
+
+    if (!area) {
+        return res.status(400).json({ success: false, error: '구역 코드를 전달해주세요.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1) 대집회 정보 조회
+        const gRows = await conn.query(`SELECT * FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!gRows || gRows.length === 0) {
+            return res.status(404).json({ success: false, error: '존재하지 않는 대집회입니다.' });
+        }
+        const gathering = gRows[0];
+        let selectedDates = [];
+        try { selectedDates = JSON.parse(gathering.selected_dates || '[]'); } catch (e) {}
+
+        // 2) 기존 구역 정규 성도 조회 (예비명단 제외, IS_HIDDEN = 'N', DEL_YN = 'N')
+        const regularMembers = await conn.query(`
+            SELECT u.CODE_NO, u.NAME, u.FELLOW_DEPT,
+                   COALESCE(
+                       pa.POSITION,
+                       CASE 
+                           WHEN pep.POSITION IS NOT NULL THEN pep.POSITION
+                           WHEN d.NAME IS NOT NULL THEN '집사'
+                           ELSE NULL 
+                       END,
+                       u.POSITION,
+                       '성도'
+                   ) AS POSITION, 
+                   u.AREA_CODE, u.PHONE, u.PIC,
+                   'REGULAR_MEMBER' as member_type,
+                   FALSE as is_newcomer
+            FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN (
+                SELECT NAME, POSITION 
+                FROM CWTB_PEP 
+                WHERE (YEAR = ? OR YEAR = '2025') 
+                  AND POSITION IN ('담임목사', '목사', '부목사', '전도사', '집사')
+                GROUP BY NAME
+            ) pep ON u.NAME = pep.NAME
+            LEFT JOIN (
+                SELECT DISTINCT NAME FROM CWTB_DEACON WHERE NAME IS NOT NULL
+            ) d ON u.NAME = d.NAME
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ?
+              AND r.member_code IS NULL 
+              AND u.IS_HIDDEN = 'N' 
+              AND u.DEL_YN = 'N'
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
+              AND u.AREA_CODE = ?
+            ORDER BY 
+                CASE 
+                    WHEN pa.POSITION LIKE '%구역장%' AND pa.POSITION NOT LIKE '%부%' THEN 1
+                    WHEN pa.POSITION LIKE '%부구역장%' THEN 2
+                    WHEN pa.POSITION LIKE '%조장%' THEN 3
+                    WHEN pa.POSITION LIKE '%조총무%' THEN 4
+                    WHEN pa.POSITION LIKE '%서기%' THEN 5
+                    WHEN pep.POSITION = '담임목사' THEN 6
+                    WHEN pep.POSITION = '목사' THEN 7
+                    WHEN pep.POSITION = '부목사' THEN 8
+                    WHEN pep.POSITION = '전도사' THEN 9
+                    WHEN pep.POSITION = '집사' OR d.NAME IS NOT NULL THEN 10
+                    ELSE 11
+                END,
+                u.NAME ASC
+        `, [activeYear, activeYear, activeYear, area]);
+
+        // 3) 기존 정규 새참자 (숨김제외, 정식등재제외)
+        const regularNewcomers = await conn.query(`
+            SELECT id, name, guide_name, phone, COALESCE(area_code, temp_area) as area_code, memo, registered_at 
+            FROM faithon_newcomer 
+            WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)
+              AND (is_hidden = FALSE OR is_hidden IS NULL)
+              AND (area_code = ? OR temp_area = ?)
+            ORDER BY name ASC
+        `, [area, area]);
+
+        const regNcList = regularNewcomers.map(nc => ({
+            CODE_NO: `NC_${nc.id}`,
+            NAME: nc.name,
+            POSITION: '새참자',
+            guide_name: nc.guide_name,
+            AREA_CODE: nc.area_code,
+            PHONE: nc.phone,
+            PIC: null,
+            member_type: 'REGULAR_NEWCOMER',
+            is_newcomer: true,
+            newcomer_id: nc.id
+        }));
+
+        // 4) 이번 대집회 전용 새참자
+        const specialNewcomers = await conn.query(`
+            SELECT id, name, guide_name, phone, area_code, memo, registered_at
+            FROM faithon_special_newcomers
+            WHERE gathering_id = ? AND area_code = ?
+            ORDER BY name ASC
+        `, [id, area]);
+
+        const spNcList = specialNewcomers.map(snc => ({
+            CODE_NO: `SNC_${snc.id}`,
+            NAME: snc.name,
+            POSITION: '대집회새참자',
+            guide_name: snc.guide_name,
+            AREA_CODE: snc.area_code,
+            PHONE: snc.phone,
+            memo: snc.memo,
+            member_type: 'SPECIAL_NEWCOMER',
+            is_newcomer: true,
+            is_special_newcomer: true,
+            special_newcomer_id: snc.id
+        }));
+
+        const combinedMembers = [...regularMembers, ...regNcList, ...spNcList];
+
+        // 5) 선택된 날짜의 출석 체크 상태 조회 (독립 테이블)
+        let attendanceMap = {};
+        if (date) {
+            const attRows = await conn.query(`
+                SELECT member_code, is_attended 
+                FROM faithon_special_attendance
+                WHERE gathering_id = ? AND DATE_FORMAT(service_date, '%Y-%m-%d') = ?
+            `, [id, date]);
+            attRows.forEach(a => {
+                attendanceMap[a.member_code] = !!a.is_attended;
+            });
+        }
+
+        res.json({
+            success: true,
+            gathering: {
+                id: gathering.id,
+                title: gathering.title,
+                start_date: gathering.start_date,
+                end_date: gathering.end_date,
+                selected_dates: selectedDates,
+                is_active: !!gathering.is_active
+            },
+            members: combinedMembers,
+            attendance: attendanceMap,
+            counts: {
+                regular: regularMembers.length,
+                regular_newcomers: regNcList.length,
+                special_newcomers: spNcList.length,
+                total: combinedMembers.length
+            }
+        });
+    } catch (err) {
+        console.error("GET /api/special-gatherings/:id/roster error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 7. 구역용: 대집회 출석 체크 일괄 저장 (독립 저장)
+app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
+    const { id } = req.params;
+    const { date, attendanceList } = req.body; // attendanceList: [ { member_code, is_attended, member_type } ]
+
+    if (!date || !Array.isArray(attendanceList)) {
+        return res.status(400).json({ success: false, error: '날짜 및 출석 체크 목록을 전달해주세요.' });
+    }
+
+    // 도래하지 않은 미래 일자 입력 방지
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (date > todayStr) {
+        return res.status(400).json({ success: false, error: '도래하지 않은 미래 날짜는 출석 체크를 할 수 없습니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        // 대집회 유효성 및 월 마감 확인 (해당 월이 지나면 마감)
+        const gRows = await conn.query(`SELECT * FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!gRows || gRows.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, error: '존재하지 않는 대집회입니다.' });
+        }
+
+        const gathering = gRows[0];
+        // 9월에 개최된 집회는 9월 내에만 체크 가능 (해당 월이 지난 경우 마감)
+        const gDate = new Date(gathering.start_date);
+        const now = new Date();
+        const gYearMonth = gDate.getFullYear() * 12 + gDate.getMonth();
+        const curYearMonth = now.getFullYear() * 12 + now.getMonth();
+        if (curYearMonth > gYearMonth) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, error: '해당 대집회의 출석 체크 기간(해당 월)이 마감되었습니다.' });
+        }
+
+        for (const item of attendanceList) {
+            const memberCode = String(item.member_code || '').trim();
+            if (!memberCode) continue;
+
+            const isAttended = item.is_attended ? 1 : 0;
+            let memberType = item.member_type || 'REGULAR';
+            if (memberCode.startsWith('SNC_')) memberType = 'SPECIAL_NEW';
+
+            if (isAttended === 1) {
+                await conn.query(`
+                    INSERT INTO faithon_special_attendance (gathering_id, service_date, member_code, member_type, is_attended)
+                    VALUES (?, ?, ?, ?, TRUE)
+                    ON DUPLICATE KEY UPDATE is_attended = TRUE, member_type = ?
+                `, [id, date, memberCode, memberType, memberType]);
+            } else {
+                await conn.query(`
+                    DELETE FROM faithon_special_attendance 
+                    WHERE gathering_id = ? AND DATE_FORMAT(service_date, '%Y-%m-%d') = ? AND member_code = ?
+                `, [id, date, memberCode]);
+            }
+        }
+
+        await conn.commit();
+        res.json({ success: true, message: '대집회 출석체크가 저장되었습니다.' });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("POST /api/special-gatherings/:id/attendance error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 8. 구역용: 대집회 전용 새참자 등록 (독립 보관)
+app.post('/api/special-gatherings/:id/newcomers', async (req, res) => {
+    const { id } = req.params;
+    const { area_code, name, guide_name, phone, memo, created_by } = req.body;
+
+    if (!area_code || !name) {
+        return res.status(400).json({ success: false, error: '구역과 이름을 입력해주세요.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const result = await conn.query(`
+            INSERT INTO faithon_special_newcomers (gathering_id, area_code, name, guide_name, phone, memo, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [id, area_code, name.trim(), guide_name || null, phone || null, memo || null, created_by || '구역임원']);
+
+        res.json({ success: true, message: '대집회 새참자가 등록되었습니다.', id: result.insertId });
+    } catch (err) {
+        console.error("POST /api/special-gatherings/:id/newcomers error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 9. 구역용: 대집회 전용 새참자 삭제 (독립)
+app.delete('/api/special-gatherings/:id/newcomers/:newcomerId', async (req, res) => {
+    const { id, newcomerId } = req.params;
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.beginTransaction();
+
+        await conn.query(`DELETE FROM faithon_special_attendance WHERE gathering_id = ? AND member_code = ?`, [id, `SNC_${newcomerId}`]);
+        await conn.query(`DELETE FROM faithon_special_newcomers WHERE id = ? AND gathering_id = ?`, [newcomerId, id]);
+
+        await conn.commit();
+        res.json({ success: true, message: '대집회 새참자가 삭제되었습니다.' });
+    } catch (err) {
+        if (conn) await conn.rollback();
+        console.error("DELETE /api/special-gatherings/:id/newcomers/:newcomerId error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 10. 관리자용: 대집회 종합 출석 통계 (일자별/구역별 집계)
+app.get('/api/special-gatherings/:id/stats', async (req, res) => {
+    const { id } = req.params;
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1) 대집회 정보
+        const gRows = await conn.query(`SELECT * FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!gRows || gRows.length === 0) {
+            return res.status(404).json({ success: false, error: '대집회 정보를 찾을 수 없습니다.' });
+        }
+        const gathering = gRows[0];
+        let selectedDates = [];
+        try { selectedDates = JSON.parse(gathering.selected_dates || '[]'); } catch (e) {}
+
+        // 2) 구역 목록
+        const areaRows = await conn.query(`
+            SELECT DISTINCT AREA_CODE 
+            FROM CWTB_USER 
+            WHERE YEAR = ? AND DEL_YN = 'N' AND AREA_CODE IS NOT NULL AND AREA_CODE != ''
+            ORDER BY CAST(AREA_CODE AS UNSIGNED) ASC, AREA_CODE ASC
+        `, [activeYear]);
+        const areaCodes = areaRows.map(r => r.AREA_CODE.trim());
+
+        // 3) 구역별 정규 성도 수
+        const regCountRows = await conn.query(`
+            SELECT u.AREA_CODE, COUNT(u.CODE_NO) as cnt
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('봉', '어', '청', '은', '봉사회', '어머니회', '청년회', '은장회')
+            GROUP BY u.AREA_CODE
+        `, [activeYear]);
+        const regCountMap = {};
+        regCountRows.forEach(r => { regCountMap[r.AREA_CODE.trim()] = Number(r.cnt || 0); });
+
+        // 4) 구역별 정규 새참자 수
+        const ncCountRows = await conn.query(`
+            SELECT COALESCE(area_code, temp_area) as area_code, COUNT(id) as cnt
+            FROM faithon_newcomer
+            WHERE (is_registered_member = FALSE OR is_registered_member IS NULL)
+              AND (is_hidden = FALSE OR is_hidden IS NULL)
+            GROUP BY COALESCE(area_code, temp_area)
+        `);
+        const ncCountMap = {};
+        ncCountRows.forEach(r => {
+            if (r.area_code) ncCountMap[r.area_code.trim()] = Number(r.cnt || 0);
+        });
+
+        // 5) 구역별 대집회 전용 새참자 수
+        const spNcCountRows = await conn.query(`
+            SELECT area_code, COUNT(id) as cnt
+            FROM faithon_special_newcomers
+            WHERE gathering_id = ?
+            GROUP BY area_code
+        `, [id]);
+        const spNcCountMap = {};
+        spNcCountRows.forEach(r => {
+            if (r.area_code) spNcCountMap[r.area_code.trim()] = Number(r.cnt || 0);
+        });
+
+        // 6) 일자별 + 구역별 출석 데이터 집계 (DATE_FORMAT 적용)
+        const attRows = await conn.query(`
+            SELECT DATE_FORMAT(a.service_date, '%Y-%m-%d') as service_date, 
+                   COALESCE(u.AREA_CODE, nc.area_code, nc.temp_area, snc.area_code) as area_code,
+                   a.member_type,
+                   a.member_code,
+                   COUNT(a.member_code) as attend_cnt
+            FROM faithon_special_attendance a
+            LEFT JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
+            LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+            LEFT JOIN faithon_special_newcomers snc ON a.member_code = CONCAT('SNC_', snc.id) AND snc.gathering_id = ?
+            WHERE a.gathering_id = ? AND a.is_attended = TRUE
+            GROUP BY service_date, area_code, a.member_type, a.member_code
+        `, [activeYear, id, id]);
+
+        // 구조화: { [area]: { [date]: { regular: X, newcomer: Y, special_newcomer: Z, total: W } } }
+        const statsByArea = {};
+        areaCodes.forEach(area => {
+            const regCount = regCountMap[area] || 0;
+            const ncCount = ncCountMap[area] || 0;
+            const spNcCount = spNcCountMap[area] || 0;
+            const targetTotal = regCount + ncCount + spNcCount;
+
+            statsByArea[area] = {
+                area_code: area,
+                reg_count: regCount,
+                nc_count: ncCount,
+                sp_nc_count: spNcCount,
+                target_total: targetTotal,
+                dates: {}
+            };
+
+            selectedDates.forEach(d => {
+                statsByArea[area].dates[d] = {
+                    attended: 0,
+                    regular_att: 0,
+                    nc_att: 0,
+                    sp_nc_att: 0,
+                    rate: 0
+                };
+            });
+        });
+
+        attRows.forEach(r => {
+            const d = r.service_date;
+            const area = r.area_code ? r.area_code.trim() : null;
+            if (area && statsByArea[area] && statsByArea[area].dates[d]) {
+                const count = Number(r.attend_cnt || 0);
+                if (r.member_type === 'SPECIAL_NEW' || String(r.member_code || '').startsWith('SNC_')) {
+                    statsByArea[area].dates[d].sp_nc_att += count;
+                } else if (String(r.member_code || '').startsWith('NC_')) {
+                    statsByArea[area].dates[d].nc_att += count;
+                } else {
+                    statsByArea[area].dates[d].regular_att += count;
+                }
+                statsByArea[area].dates[d].attended += count;
+            }
+        });
+
+        // 비율 계산
+        areaCodes.forEach(area => {
+            const target = statsByArea[area].target_total;
+            selectedDates.forEach(d => {
+                const att = statsByArea[area].dates[d].attended;
+                statsByArea[area].dates[d].rate = target > 0 ? Math.round((att / target) * 100) : 0;
+            });
+        });
+
+        // 일자별 전체 합계 통계 계산
+        const dailySummary = {};
+        selectedDates.forEach(d => {
+            let totAttended = 0;
+            let totTarget = 0;
+            let totReg = 0;
+            let totNc = 0;
+            let totSpNc = 0;
+            areaCodes.forEach(area => {
+                totTarget += statsByArea[area].target_total;
+                totAttended += statsByArea[area].dates[d].attended;
+                totReg += statsByArea[area].dates[d].regular_att;
+                totNc += statsByArea[area].dates[d].nc_att;
+                totSpNc += statsByArea[area].dates[d].sp_nc_att;
+            });
+            dailySummary[d] = {
+                target_total: totTarget,
+                attended: totAttended,
+                regular_att: totReg,
+                nc_att: totNc,
+                sp_nc_att: totSpNc,
+                rate: totTarget > 0 ? Math.round((totAttended / totTarget) * 100) : 0
+            };
+        });
+
+        res.json({
+            success: true,
+            gathering: {
+                id: gathering.id,
+                title: gathering.title,
+                start_date: gathering.start_date,
+                end_date: gathering.end_date,
+                selected_dates: selectedDates,
+                is_active: !!gathering.is_active
+            },
+            areas: areaCodes,
+            stats_by_area: statsByArea,
+            daily_summary: dailySummary
+        });
+    } catch (err) {
+        console.error("GET /api/special-gatherings/:id/stats error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 11. 관리자용: 대집회 1회 이상 출석한 새참자 참석현황 (전체/교구/구역별 보고서)
+app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
+    const { id } = req.params;
+    const { area } = req.query;
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+
+        // 1) 대집회 정보
+        const gRows = await conn.query(`SELECT * FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!gRows || gRows.length === 0) {
+            return res.status(404).json({ success: false, error: '대집회 정보를 찾을 수 없습니다.' });
+        }
+        const gathering = gRows[0];
+        let selectedDates = [];
+        try { selectedDates = JSON.parse(gathering.selected_dates || '[]'); } catch (e) {}
+
+        // 2) 1회 이상 출석한 새참자 목록 및 일자별 출석
+        let query = `
+            SELECT 
+                a.member_code,
+                COALESCE(nc.guide_name, snc.guide_name, '') as guide_name,
+                COALESCE(nc.name, snc.name) as name,
+                COALESCE(nc.memo, snc.memo, '지인') as relation,
+                COALESCE(nc.area_code, nc.temp_area, snc.area_code) as area_code,
+                COALESCE(nc.phone, snc.phone, '') as phone,
+                CASE WHEN a.member_code LIKE 'SNC_%' THEN '대집회새참' ELSE '구역새참' END as newcomer_type,
+                DATE_FORMAT(a.service_date, '%Y-%m-%d') as service_date
+            FROM faithon_special_attendance a
+            LEFT JOIN faithon_newcomer nc ON a.member_code = CONCAT('NC_', nc.id)
+            LEFT JOIN faithon_special_newcomers snc ON a.member_code = CONCAT('SNC_', snc.id) AND snc.gathering_id = ?
+            WHERE a.gathering_id = ? 
+              AND a.is_attended = TRUE
+              AND (a.member_code LIKE 'NC_%' OR a.member_code LIKE 'SNC_%')
+        `;
+        const params = [id, id];
+
+        if (area && area !== 'all') {
+            query += ` AND COALESCE(nc.area_code, nc.temp_area, snc.area_code) = ? `;
+            params.push(area);
+        }
+
+        query += ` ORDER BY CAST(COALESCE(nc.area_code, nc.temp_area, snc.area_code) AS UNSIGNED) ASC, area_code ASC, name ASC `;
+
+        const rows = await conn.query(query, params);
+
+        // Group by newcomer
+        const attendeeMap = {};
+        rows.forEach(r => {
+            const key = r.member_code;
+            if (!attendeeMap[key]) {
+                let location = '창원';
+                if (r.relation && (r.relation.includes('마산') || r.relation.includes('진영') || r.relation.includes('진해') || r.relation.includes('북면') || r.relation.includes('동읍') || r.relation.includes('자여'))) {
+                    location = r.relation;
+                }
+
+                attendeeMap[key] = {
+                    member_code: r.member_code,
+                    guide_name: r.guide_name || '-',
+                    name: r.name,
+                    relation: r.relation || '지인',
+                    area_code: r.area_code || '-',
+                    phone: r.phone || '',
+                    location: location,
+                    newcomer_type: r.newcomer_type,
+                    attendance: {},
+                    total_attended: 0
+                };
+                selectedDates.forEach(d => {
+                    attendeeMap[key].attendance[d] = false;
+                });
+            }
+            if (attendeeMap[key].attendance[r.service_date] !== undefined) {
+                attendeeMap[key].attendance[r.service_date] = true;
+                attendeeMap[key].total_attended++;
+            }
+        });
+
+        const list = Object.values(attendeeMap);
+
+        // Daily counts for attendees
+        const dailyCounts = {};
+        selectedDates.forEach(d => {
+            let cnt = 0;
+            list.forEach(item => {
+                if (item.attendance[d]) cnt++;
+            });
+            dailyCounts[d] = cnt;
+        });
+
+        res.json({
+            success: true,
+            gathering: {
+                id: gathering.id,
+                title: gathering.title,
+                instructor: gathering.instructor || '',
+                start_date: gathering.start_date,
+                end_date: gathering.end_date,
+                selected_dates: selectedDates
+            },
+            total_attendees: list.length,
+            daily_counts: dailyCounts,
+            list: list
+        });
+    } catch (err) {
+        console.error("GET /api/special-gatherings/:id/newcomer-attendees error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`[FaithOn] Server running at http://localhost:${PORT}`);
 });
+

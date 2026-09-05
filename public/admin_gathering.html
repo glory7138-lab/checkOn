@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FaithOn - 대집회 관리 및 종합 통계</title>
+    <link rel="icon" type="image/png" href="/images/icon-192.png">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (Excel) & html2canvas (Image PNG Download) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-hover: #1d4ed8;
+            --blue-light: #eff6ff;
+            --blue-border: #bfdbfe;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+        }
+
+        .gathering-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0.5rem 0.5rem 5rem 0.5rem;
+        }
+
+        /* Top Banner Card */
+        .banner-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .banner-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .banner-desc {
+            font-size: 0.88rem;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        /* Gospel Style Calendar Card */
+        .calendar-card {
+            background: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .calendar-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .mode-toggle-group {
+            display: inline-flex;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .mode-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: #ffffff;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Gospel Calendar Grid */
+        .gospel-cal-wrapper {
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 1rem;
+        }
+
+        .cal-nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding: 0 0.5rem;
+        }
+
+        .cal-month-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .cal-nav-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+        }
+
+        .cal-nav-btn:hover {
+            background: var(--blue-light);
+            color: var(--primary-blue);
+            border-color: var(--blue-border);
+        }
+
+        .cal-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .cal-days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            row-gap: 8px;
+        }
+
+        .cal-day-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 42px;
+        }
+
+        .cal-day-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cal-day-btn:hover:not(:disabled) {
+            background: var(--blue-light);
+            color: var(--primary-blue);
+        }
+
+        .cal-day-btn.selected {
+            background: var(--primary-blue) !important;
+            color: #ffffff !important;
+            font-weight: 800;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+        }
+
+        .cal-day-btn.in-range {
+            background: #dbeafe;
+            color: var(--primary-blue);
+            border-radius: 6px;
+        }
+
+        .cal-day-btn.today {
+            border: 2px solid var(--primary-blue);
+        }
+
+        .cal-day-btn:disabled {
+            color: #cbd5e1 !important;
+            cursor: not-allowed;
+        }
+
+        /* Form Inputs */
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-col {
+            flex: 1;
+            min-width: 240px;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 0.35rem;
+            display: block;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border-radius: 10px;
+            border: 1.5px solid var(--border-color);
+            background: #ffffff;
+            font-size: 0.92rem;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary-blue);
+        }
+
+        /* Gathering History Table & Cards */
+        .history-card {
+            background: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+        }
+
+        .gathering-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: #ffffff;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .gathering-item.active-gathering {
+            border-color: var(--primary-blue);
+            background: #f8faff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+        }
+
+        .status-badge-active {
+            background: #dcfce7;
+            color: #15803d;
+            font-weight: 800;
+            font-size: 0.78rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status-badge-inactive {
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: 700;
+            font-size: 0.78rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        /* Stats Grid Table */
+        .stats-table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: #ffffff;
+            margin-top: 1rem;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            text-align: center;
+        }
+
+        .stats-table th {
+            background: #f8fafc;
+            color: var(--text-secondary);
+            font-weight: 700;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1.5px solid #e2e8f0;
+            border-right: 1px solid #f1f5f9;
+            white-space: nowrap;
+        }
+
+        .stats-table td {
+            padding: 0.7rem 0.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            border-right: 1px solid #f1f5f9;
+            white-space: nowrap;
+        }
+
+        .stats-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        .stats-table tfoot td {
+            background: #f1f5f9;
+            font-weight: 800;
+            border-top: 2px solid #cbd5e1;
+        }
+
+        .rate-pill {
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: #e2e8f0;
+            color: #334155;
+            display: inline-block;
+            margin-left: 4px;
+        }
+
+        .rate-pill.high {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .rate-pill.mid {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        /* Actions */
+        .btn-primary-blue {
+            background: var(--primary-blue);
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 0.65rem 1.25rem;
+            font-size: 0.92rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary-blue:hover {
+            background: var(--primary-blue-hover);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-outline-danger {
+            background: transparent;
+            color: #ef4444;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-outline-danger:hover {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+
+        .btn-outline-blue {
+            background: transparent;
+            color: var(--primary-blue);
+            border: 1px solid var(--blue-border);
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-outline-blue:hover {
+            background: var(--blue-light);
+        }
+
+        /* Stats Tab Nav */
+        .stats-tab-group {
+            display: flex;
+            gap: 8px;
+            background: #f1f5f9;
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stats-tab-btn {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.65rem 1rem;
+            border-radius: 9px;
+            border: none;
+            background: transparent;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .stats-tab-btn.active {
+            background: #ffffff;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Report Paper Sheet Styling for Tab 2 */
+        .report-paper {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 2.2rem 2rem;
+            margin-top: 0.75rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            max-width: 960px;
+            margin-left: auto;
+            margin-right: auto;
+            color: #111827;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+        }
+
+        .report-header-title {
+            text-align: center;
+            font-size: 1.75rem;
+            font-weight: 900;
+            text-decoration: underline;
+            text-underline-offset: 8px;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            color: #000000;
+        }
+
+        .report-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 0.85rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000000;
+            text-align: center;
+            font-size: 0.96rem;
+        }
+
+        .report-table th, .report-table td {
+            border: 1px solid #000000;
+            padding: 0.55rem 0.4rem;
+        }
+
+        .report-table th {
+            background: #f8fafc;
+            font-weight: 800;
+            color: #000000;
+        }
+
+        .report-table .mark-o {
+            font-weight: 900;
+            font-size: 1.15rem;
+            color: #000000;
+        }
+
+        .report-table tfoot td {
+            background: #f8fafc;
+            font-weight: 800;
+            border-top: 2px solid #000000;
+        }
+
+        @media (max-width: 768px) {
+            .gathering-container {
+                padding: 0.25rem 0.25rem 5rem 0.25rem;
+            }
+            .banner-card {
+                padding: 1rem;
+            }
+            .banner-title {
+                font-size: 1.15rem;
+            }
+            .report-paper {
+                padding: 1.2rem 0.75rem;
+            }
+            .report-header-title {
+                font-size: 1.35rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Top Bar -->
+    <header class="mobile-top-bar" style="flex-direction: column; gap: 0.5rem; padding: 0.65rem 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <div class="brand-icon" style="width: 38px; height: 38px; min-width: 38px; border-radius: 9px; padding: 1px;">
+                    <img src="/images/icon-192.png" alt="FaithOn" class="brand-img-logo">
+                </div>
+                <span style="font-weight: 800; color: var(--accent-color); font-size: 1.2rem; letter-spacing: -0.5px;">FaithOn</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-color); background: var(--accent-light); padding: 3px 8px; border-radius: 6px;">관리자</span>
+                <button onclick="logout()" style="color: var(--danger-color); font-size: 0.9rem; padding: 4px; background: none; border: none;" title="로그아웃">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Quick Menu Pills -->
+        <nav class="mobile-quick-nav" id="mobileQuickNav" aria-label="모바일 메뉴">
+            <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
+            <a href="/attend.html" class="mobile-quick-item"><i class="fa-solid fa-clipboard-user"></i> 출석체크</a>
+            <a href="/admin_gathering.html" class="mobile-quick-item active"><i class="fa-solid fa-calendar-star"></i> 대집회</a>
+            <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+            <a href="/reserve.html" class="mobile-quick-item"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
+            <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
+        </nav>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <img src="/images/icon-512.png" alt="FaithOn" class="brand-img-logo">
+                </div>
+                <div class="brand-text">FaithOn</div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="/?view=dashboard" class="nav-item">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>대시보드</span>
+                </a>
+                <a href="/attend.html" class="nav-item">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span>출석체크현황</span>
+                </a>
+                <a href="/admin_gathering.html" class="nav-item active">
+                    <i class="fa-solid fa-calendar-star"></i>
+                    <span>대집회 관리</span>
+                </a>
+                <a href="/newcomer.html" class="nav-item">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>새참자 관리</span>
+                </a>
+                <a href="/reserve.html" class="nav-item">
+                    <i class="fa-solid fa-users-slash"></i>
+                    <span>예비명단 관리</span>
+                </a>
+                <a href="/admin_users.html" class="nav-item">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>관리자 설정</span>
+                </a>
+            </nav>
+
+            <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <div id="userProfile" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+                    <div style="font-weight: 600; color: var(--text-primary);" id="userNameDisplay">관리자</div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;" id="userRoleDisplay">창원교회 전체 관리자</div>
+                </div>
+                <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; padding: 0.4rem;" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> 로그아웃
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" style="padding: 1rem;">
+            <div class="gathering-container">
+                <!-- 1. Top Banner -->
+                <div class="banner-card">
+                    <div>
+                        <div class="banner-title">
+                            <i class="fa-solid fa-fire"></i> 대집회 등록 및 종합 통계
+                        </div>
+                        <div class="banner-desc">
+                            대집회 일정을 Gospel 달력으로 설정하고 구역 탭 노출(Y/N)을 제어하며, 일자별 출석 현황을 실시간 집계합니다.
+                        </div>
+                    </div>
+                    <button class="btn-primary-blue" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);" onclick="scrollToCreate()">
+                        <i class="fa-solid fa-plus"></i> 신규 집회 등록
+                    </button>
+                </div>
+
+                <!-- 2. 신규 집회 생성 / 수정 카드 (Gospel Calendar 이식) -->
+                <div class="calendar-card" id="createCard">
+                    <div class="calendar-header-row">
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-calendar-days" style="color: var(--primary-blue);"></i>
+                                <span id="formCardTitle">대집회 일정 및 기간 등록</span>
+                            </h2>
+                            <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+                                달력에서 원하는 일자를 클릭하거나 기간을 드래그하여 선택하세요.
+                            </div>
+                        </div>
+                        
+                        <!-- 모드 토글 (하루 선택 vs 기간 선택) -->
+                        <div class="mode-toggle-group">
+                            <button type="button" class="mode-btn active" id="btnModeRange" onclick="setCalMode('range')">기간 선택</button>
+                            <button type="button" class="mode-btn" id="btnModeSingle" onclick="setCalMode('single')">하루/개별 선택</button>
+                        </div>
+                    </div>
+
+                    <!-- Gospel Style 달력 컴포넌트 -->
+                    <div class="gospel-cal-wrapper">
+                        <div class="cal-nav-bar">
+                            <button type="button" class="cal-nav-btn" onclick="prevCalMonth()"><i class="fa-solid fa-chevron-left"></i> 이전달</button>
+                            <span class="cal-month-title" id="calMonthLabel">2026년 9월</span>
+                            <button type="button" class="cal-nav-btn" onclick="nextCalMonth()">다음달 <i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+
+                        <div class="cal-weekdays">
+                            <span style="color: #ef4444;">일</span>
+                            <span>월</span>
+                            <span>화</span>
+                            <span>수</span>
+                            <span>목</span>
+                            <span>금</span>
+                            <span style="color: #3b82f6;">토</span>
+                        </div>
+
+                        <div class="cal-days-grid" id="calDaysGrid">
+                            <!-- JS Will Render Days -->
+                        </div>
+
+                        <div style="margin-top: 0.75rem; font-size: 0.82rem; color: var(--primary-blue); font-weight: 700; text-align: right;" id="selectedDatesSummary">
+                            선택된 일자: 0일
+                        </div>
+                    </div>
+
+                    <!-- 세부 입력 폼 -->
+                    <div class="form-row">
+                        <div class="form-col" style="flex: 2;">
+                            <label class="form-label">대집회 명칭 (예: 9월 대집회, 2026 가을 전도집회)</label>
+                            <input type="text" class="form-input" id="gatheringTitleInput" placeholder="예: 9월 대집회" value="9월 대집회">
+                        </div>
+                        <div class="form-col" style="flex: 1.5;">
+                            <label class="form-label">강사명 (예: 장관익 목사)</label>
+                            <input type="text" class="form-input" id="gatheringInstructorInput" placeholder="예: 장관익 목사" value="장관익 목사">
+                        </div>
+                        <div class="form-col" style="flex: 1;">
+                            <label class="form-label">구역 탭 노출 여부</label>
+                            <select class="form-input" id="gatheringActiveSelect">
+                                <option value="true" selected>Y (구역 탭에 즉시 노출)</option>
+                                <option value="false">N (숨김 / 비활성화)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem;">
+                        <button type="button" class="btn btn-outline" id="btnCancelEdit" style="display: none;" onclick="cancelEditGathering()">수정 취소</button>
+                        <button type="button" class="btn-primary-blue" id="btnSaveGathering" onclick="saveGathering()">
+                            <i class="fa-solid fa-floppy-disk"></i> 대집회 등록하기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. 대집회 목록 & 이력 관리 -->
+                <div class="history-card">
+                    <h2 style="margin: 0 0 1rem 0; font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-list-check" style="color: var(--primary-blue);"></i> 대집회 이력 목록
+                    </h2>
+                    <div id="gatheringsListContainer">
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+                            <div style="margin-top: 0.5rem;">대집회 목록을 불러오는 중...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 선택된 대집회 종합 통계 및 새참자 참석현황 탭 -->
+                <div class="history-card" id="statsCard" style="display: none;">
+                    <!-- 통계 서브 탭 그룹 -->
+                    <div class="stats-tab-group">
+                        <button type="button" class="stats-tab-btn active" id="tabBtnStatsAll" onclick="switchStatsTab('all')">
+                            <i class="fa-solid fa-chart-pie"></i> 탭 1: 구역별 성도 & 새참자 출석부 (종합 대시보드)
+                        </button>
+                        <button type="button" class="stats-tab-btn" id="tabBtnStatsNewcomer" onclick="switchStatsTab('newcomer')">
+                            <i class="fa-solid fa-file-invoice"></i> 탭 2: 전도집회 새참자 참석현황 (창원교회 전체)
+                        </button>
+                    </div>
+
+                    <!-- [탭 1] 구역별 성도 & 새참자 종합 출석 대시보드 -->
+                    <div id="statsPanelAll">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-chart-line" style="color: var(--primary-blue);"></i>
+                                    <span id="statsTitleDisplay">대집회 종합 출석 통계</span>
+                                </h2>
+                                <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;" id="statsPeriodDisplay">
+                                    기간: -
+                                </div>
+                            </div>
+                            <button type="button" class="btn-outline-blue" onclick="exportStatsToExcel()">
+                                <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드 (.csv)
+                            </button>
+                        </div>
+
+                        <!-- 종합 요약 배너 -->
+                        <div id="statsSummaryPills" style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                            <!-- JS Will Render Daily Totals -->
+                        </div>
+
+                        <!-- 종합 통계 그리드 테이블 -->
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table" id="statsTable">
+                                <thead id="statsTableHead"></thead>
+                                <tbody id="statsTableBody"></tbody>
+                                <tfoot id="statsTableFoot"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- [탭 2] 전도집회 새참자 참석현황 (보고용 종이 양식 포맷) -->
+                    <div id="statsPanelNewcomer" style="display: none;">
+                        <!-- 컨트롤 바 -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; background: #f8fafc; padding: 0.85rem 1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <label style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary);">교구/구역 필터:</label>
+                                <select id="ncReportAreaFilter" class="form-input" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.88rem;" onchange="loadNewcomerAttendeesReport()">
+                                    <option value="all">창원교회 전체</option>
+                                    <!-- Options will be dynamically filled -->
+                                </select>
+                            </div>
+                            
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn-primary-blue" style="background: #16a34a; font-size: 0.86rem; padding: 0.5rem 1rem;" onclick="exportNewcomerReportToExcel()">
+                                    <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드 (.xlsx)
+                                </button>
+                                <button type="button" class="btn-primary-blue" style="background: #ea580c; font-size: 0.86rem; padding: 0.5rem 1rem;" onclick="downloadNewcomerReportAsImage()">
+                                    <i class="fa-solid fa-file-image"></i> 이미지 저장 (.png)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 캡처 대상 보고서 본문 (A4 / 공문 양식 디자인) -->
+                        <div class="report-paper" id="newcomerReportPaper">
+                            <div class="report-header-title" id="reportHeaderTitle">
+                                전도집회 참석현황
+                            </div>
+                            <div class="report-meta-row">
+                                <div>
+                                    강사: <span id="reportSpeakerDisplay">장관익 목사</span> (<span id="reportPeriodDisplay">2026.09.01.~09.05</span>)
+                                </div>
+                                <div style="font-size: 0.95rem; color: #4b5563;" id="reportTargetScopeDisplay">
+                                    창원교회 전체
+                                </div>
+                            </div>
+
+                            <table class="report-table" id="newcomerReportTable">
+                                <thead id="ncReportTableHead">
+                                    <!-- JS Render Head -->
+                                </thead>
+                                <tbody id="ncReportTableBody">
+                                    <!-- JS Render Body -->
+                                </tbody>
+                                <tfoot id="ncReportTableFoot">
+                                    <!-- JS Render Foot (참석자계) -->
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <div class="mobile-bottom-nav-inner">
+            <a href="/?view=dashboard" class="mobile-nav-item">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>대시보드</span>
+            </a>
+            <a href="/attend.html" class="mobile-nav-item">
+                <i class="fa-solid fa-clipboard-user"></i>
+                <span>출석체크</span>
+            </a>
+            <a href="/admin_gathering.html" class="mobile-nav-item active">
+                <i class="fa-solid fa-calendar-star"></i>
+                <span>대집회</span>
+            </a>
+            <a href="/newcomer.html" class="mobile-nav-item">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>새참자</span>
+            </a>
+            <a href="/admin_users.html" class="mobile-nav-item">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>관리자</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        let currentUser = null;
+        let calCurrentDate = new Date(); // 달력 기준 월
+        let selectMode = 'range'; // 'range' or 'single'
+        let rangeStart = null;
+        let rangeEnd = null;
+        let selectedDates = [];
+        let editingGatheringId = null;
+        let loadedStatsData = null;
+
+        // Auth Check
+        async function checkAuth() {
+            const raw = localStorage.getItem('faithon_user');
+            if (!raw) {
+                location.href = '/login.html';
+                return;
+            }
+            currentUser = JSON.parse(raw);
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            if (!isAdmin) {
+                alert('관리자만 접근할 수 있는 페이지입니다.');
+                location.href = '/attend.html';
+                return;
+            }
+
+            const userName = currentUser.name || '관리자';
+            document.getElementById('userNameDisplay').textContent = `${userName} 성도님`;
+            document.getElementById('mobileUserDisplay').textContent = `${userName}(관리자)`;
+        }
+
+        // Initialize
+        async function initPage() {
+            await checkAuth();
+            renderCalendar();
+            await loadGatheringsList();
+        }
+
+        // Mode Toggle
+        function setCalMode(mode) {
+            selectMode = mode;
+            document.getElementById('btnModeRange').classList.toggle('active', mode === 'range');
+            document.getElementById('btnModeSingle').classList.toggle('active', mode === 'single');
+            rangeStart = null;
+            rangeEnd = null;
+            selectedDates = [];
+            renderCalendar();
+            updateSelectedSummary();
+        }
+
+        function prevCalMonth() {
+            calCurrentDate.setMonth(calCurrentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextCalMonth() {
+            calCurrentDate.setMonth(calCurrentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const y = calCurrentDate.getFullYear();
+            const m = calCurrentDate.getMonth();
+            document.getElementById('calMonthLabel').textContent = `${y}년 ${m + 1}월`;
+
+            const firstDayIndex = new Date(y, m, 1).getDay();
+            const lastDate = new Date(y, m + 1, 0).getDate();
+            const prevLastDate = new Date(y, m, 0).getDate();
+
+            const grid = document.getElementById('calDaysGrid');
+            grid.innerHTML = '';
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            // 1. Previous month blank days
+            for (let i = firstDayIndex - 1; i >= 0; i--) {
+                const dayNum = prevLastDate - i;
+                const prevM = m === 0 ? 11 : m - 1;
+                const prevY = m === 0 ? y - 1 : y;
+                const dateStr = `${prevY}-${String(prevM + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                createDayCell(grid, dayNum, dateStr, true);
+            }
+
+            // 2. Current month days
+            for (let d = 1; d <= lastDate; d++) {
+                const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                createDayCell(grid, d, dateStr, false);
+            }
+
+            // 3. Next month fill
+            const totalCells = firstDayIndex + lastDate;
+            const remaining = (7 - (totalCells % 7)) % 7;
+            for (let d = 1; d <= remaining; d++) {
+                const nextM = m === 11 ? 0 : m + 1;
+                const nextY = m === 11 ? y + 1 : y;
+                const dateStr = `${nextY}-${String(nextM + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                createDayCell(grid, d, dateStr, true);
+            }
+        }
+
+        function createDayCell(grid, dayNum, dateStr, isOtherMonth) {
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-cell';
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cal-day-btn';
+            btn.textContent = dayNum;
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (dateStr === todayStr) btn.classList.add('today');
+
+            const dayOfWeek = new Date(dateStr).getDay();
+            if (dayOfWeek === 0) btn.style.color = '#ef4444';
+            if (dayOfWeek === 6) btn.style.color = '#3b82f6';
+
+            if (isOtherMonth) {
+                btn.style.opacity = '0.35';
+            }
+
+            if (selectedDates.includes(dateStr)) {
+                btn.classList.add('selected');
+            } else if (selectMode === 'range' && rangeStart && rangeEnd) {
+                if (dateStr >= rangeStart && dateStr <= rangeEnd) {
+                    btn.classList.add('in-range');
+                }
+            }
+
+            btn.onclick = () => onDayClick(dateStr);
+            cell.appendChild(btn);
+            grid.appendChild(cell);
+        }
+
+        function onDayClick(dateStr) {
+            if (selectMode === 'single') {
+                if (selectedDates.includes(dateStr)) {
+                    selectedDates = selectedDates.filter(d => d !== dateStr);
+                } else {
+                    selectedDates.push(dateStr);
+                }
+                selectedDates.sort();
+            } else {
+                // Range mode
+                if (!rangeStart || (rangeStart && rangeEnd)) {
+                    rangeStart = dateStr;
+                    rangeEnd = null;
+                    selectedDates = [dateStr];
+                } else if (rangeStart && !rangeEnd) {
+                    if (dateStr < rangeStart) {
+                        rangeEnd = rangeStart;
+                        rangeStart = dateStr;
+                    } else {
+                        rangeEnd = dateStr;
+                    }
+                    // Generate array
+                    selectedDates = getDatesInRange(rangeStart, rangeEnd);
+                }
+            }
+            renderCalendar();
+            updateSelectedSummary();
+        }
+
+        function getDatesInRange(startDate, endDate) {
+            const dates = [];
+            let curr = new Date(startDate);
+            const end = new Date(endDate);
+            while (curr <= end) {
+                dates.push(curr.toISOString().split('T')[0]);
+                curr.setDate(curr.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function updateSelectedSummary() {
+            const count = selectedDates.length;
+            const el = document.getElementById('selectedDatesSummary');
+            if (count === 0) {
+                el.textContent = '선택된 일자: 0일';
+            } else if (count === 1) {
+                el.textContent = `선택된 일자: ${selectedDates[0]} (1일)`;
+            } else {
+                el.textContent = `선택된 기간: ${selectedDates[0]} ~ ${selectedDates[selectedDates.length - 1]} (총 ${count}일 선택됨)`;
+            }
+        }
+
+        // Load All Gatherings List
+        async function loadGatheringsList() {
+            const container = document.getElementById('gatheringsListContainer');
+            try {
+                const res = await fetch('/api/special-gatherings');
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                const list = json.list || [];
+                if (list.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            <i class="fa-solid fa-calendar-xmark fa-2x" style="color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                            <div>등록된 대집회가 없습니다. 위에서 새로운 대집회를 등록해주세요.</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '';
+                list.forEach(g => {
+                    const count = (g.selected_dates || []).length;
+                    const statusBadge = g.is_active 
+                        ? `<span class="status-badge-active"><i class="fa-solid fa-check"></i> 구역 노출 중 (Y)</span>` 
+                        : `<span class="status-badge-inactive">비노출 (N)</span>`;
+
+                    const item = document.createElement('div');
+                    item.className = `gathering-item ${g.is_active ? 'active-gathering' : ''}`;
+                    item.innerHTML = `
+                        <div style="min-width: 260px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <strong style="font-size: 1.05rem; color: var(--text-primary);">${g.title}</strong>
+                                ${statusBadge}
+                            </div>
+                            <div style="font-size: 0.84rem; color: var(--text-secondary);">
+                                <i class="fa-regular fa-calendar"></i> ${g.start_date.substring(0, 10)} ~ ${g.end_date.substring(0, 10)} (총 ${count}일)
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button type="button" class="btn-outline-blue" onclick="loadStats(${g.id})">
+                                <i class="fa-solid fa-chart-pie"></i> 출석 통계
+                            </button>
+                            <button type="button" class="btn-outline-blue" id="btnEdit-${g.id}">
+                                <i class="fa-solid fa-pen"></i> 수정
+                            </button>
+                            <button type="button" class="btn-outline-blue" onclick="toggleGatheringActive(${g.id}, ${!g.is_active})">
+                                ${g.is_active ? '<i class="fa-solid fa-eye-slash"></i> 숨김' : '<i class="fa-solid fa-eye"></i> 구역 노출'}
+                            </button>
+                            <button type="button" class="btn-outline-danger" onclick="deleteGathering(${g.id}, '${g.title}')">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                    document.getElementById(`btnEdit-${g.id}`).onclick = () => editGathering(g);
+                });
+
+                // Auto-load stats of the first active gathering or first gathering
+                const activeOne = list.find(g => g.is_active) || list[0];
+                if (activeOne && !loadedStatsData) {
+                    loadStats(activeOne.id);
+                }
+            } catch (err) {
+                console.error("loadGatheringsList error:", err);
+                container.innerHTML = `<div style="color: red; padding: 1rem;">대집회 목록 로드 실패: ${err.message}</div>`;
+            }
+        }
+
+        // Save (Create or Update) Gathering
+        async function saveGathering() {
+            const title = document.getElementById('gatheringTitleInput').value.trim();
+            const instructor = document.getElementById('gatheringInstructorInput').value.trim();
+            const isActive = document.getElementById('gatheringActiveSelect').value === 'true';
+
+            if (!title) {
+                alert('대집회 제목을 입력해주세요.');
+                return;
+            }
+            if (selectedDates.length === 0) {
+                alert('달력에서 최소 1일 이상의 집회 일자를 선택해주세요.');
+                return;
+            }
+
+            const startDate = selectedDates[0];
+            const endDate = selectedDates[selectedDates.length - 1];
+
+            const payload = {
+                title,
+                instructor,
+                start_date: startDate,
+                end_date: endDate,
+                selected_dates: selectedDates,
+                is_active: isActive
+            };
+
+            try {
+                let res;
+                if (editingGatheringId) {
+                    res = await fetch(`/api/special-gatherings/${editingGatheringId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/special-gatherings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                alert(json.message || '저장되었습니다.');
+                cancelEditGathering();
+                await loadGatheringsList();
+            } catch (err) {
+                alert(`저장 중 오류 발생: ${err.message}`);
+            }
+        }
+
+        function editGathering(g) {
+            editingGatheringId = g.id;
+            document.getElementById('formCardTitle').textContent = `대집회 수정: ${g.title}`;
+            document.getElementById('gatheringTitleInput').value = g.title;
+            document.getElementById('gatheringInstructorInput').value = g.instructor || '';
+            document.getElementById('gatheringActiveSelect').value = g.is_active ? 'true' : 'false';
+            document.getElementById('btnSaveGathering').innerHTML = '<i class="fa-solid fa-check"></i> 수정사항 저장';
+            document.getElementById('btnCancelEdit').style.display = 'inline-flex';
+
+            selectedDates = Array.isArray(g.selected_dates) ? [...g.selected_dates] : [];
+            if (selectedDates.length > 0) {
+                rangeStart = selectedDates[0];
+                rangeEnd = selectedDates[selectedDates.length - 1];
+                calCurrentDate = new Date(selectedDates[0]);
+            }
+            renderCalendar();
+            updateSelectedSummary();
+            scrollToCreate();
+        }
+
+        function cancelEditGathering() {
+            editingGatheringId = null;
+            document.getElementById('formCardTitle').textContent = '대집회 일정 및 기간 등록';
+            document.getElementById('gatheringTitleInput').value = '9월 대집회';
+            document.getElementById('gatheringInstructorInput').value = '장관익 목사';
+            document.getElementById('gatheringActiveSelect').value = 'true';
+            document.getElementById('btnSaveGathering').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 대집회 등록하기';
+            document.getElementById('btnCancelEdit').style.display = 'none';
+            rangeStart = null;
+            rangeEnd = null;
+            selectedDates = [];
+            renderCalendar();
+            updateSelectedSummary();
+        }
+
+        async function toggleGatheringActive(id, newActive) {
+            try {
+                const res = await fetch(`/api/special-gatherings/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: newActive })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+                await loadGatheringsList();
+            } catch (err) {
+                alert(`노출 상태 변경 실패: ${err.message}`);
+            }
+        }
+
+        async function deleteGathering(id, title) {
+            if (!confirm(`[${title}] 대집회를 정말 삭제하시겠습니까?\n해당 집회의 출석 체크 데이터도 함께 삭제됩니다.`)) return;
+            try {
+                const res = await fetch(`/api/special-gatherings/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+                alert('삭제되었습니다.');
+                await loadGatheringsList();
+            } catch (err) {
+                alert(`삭제 실패: ${err.message}`);
+            }
+        }
+
+        // Load & Render Stats
+        async function loadStats(gatheringId) {
+            activeGatheringId = gatheringId;
+            const card = document.getElementById('statsCard');
+            card.style.display = 'block';
+
+            try {
+                const res = await fetch(`/api/special-gatherings/${gatheringId}/stats`);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                loadedStatsData = json;
+                const g = json.gathering;
+                document.getElementById('statsTitleDisplay').textContent = `${g.title} 종합 출석 통계`;
+                document.getElementById('statsPeriodDisplay').textContent = `기간: ${g.start_date.substring(0, 10)} ~ ${g.end_date.substring(0, 10)} (${g.selected_dates.length}일간)`;
+
+                // Fill Area Filter Options for Tab 2
+                const areaSelect = document.getElementById('ncReportAreaFilter');
+                if (areaSelect) {
+                    const currentVal = areaSelect.value;
+                    let opts = `<option value="all">창원교회 전체</option>`;
+                    (json.areas || []).forEach(a => {
+                        opts += `<option value="${a}">${a}구역</option>`;
+                    });
+                    areaSelect.innerHTML = opts;
+                    if (currentVal) areaSelect.value = currentVal;
+                }
+
+                renderStatsTable(json);
+
+                if (currentStatsSubTab === 'newcomer') {
+                    await loadNewcomerAttendeesReport();
+                }
+            } catch (err) {
+                console.error("loadStats error:", err);
+                alert(`통계 로드 실패: ${err.message}`);
+            }
+        }
+
+        function renderStatsTable(data) {
+            const { gathering, areas, stats_by_area, daily_summary } = data;
+            const dates = gathering.selected_dates || [];
+
+            // 1. Daily Summary Pills
+            const pillsContainer = document.getElementById('statsSummaryPills');
+            pillsContainer.innerHTML = '';
+            dates.forEach(d => {
+                const sum = daily_summary[d] || { target_total: 0, attended: 0, rate: 0 };
+                const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
+                const pill = document.createElement('div');
+                pill.style.cssText = 'background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 6px 12px; min-width: 110px; flex-shrink: 0; text-align: center;';
+                pill.innerHTML = `
+                    <div style="font-size: 0.76rem; color: #1e40af; font-weight: 700;">${d.substring(5)} (${dayOfWeek})</div>
+                    <div style="font-size: 1.05rem; font-weight: 800; color: var(--primary-blue);">${sum.attended}명</div>
+                    <div style="font-size: 0.72rem; color: #64748b;">${sum.rate}% 출석</div>
+                `;
+                pillsContainer.appendChild(pill);
+            });
+
+            // 2. Table Header
+            const thead = document.getElementById('statsTableHead');
+            let headerHtml = `
+                <tr>
+                    <th rowspan="2" style="width: 80px;">구역</th>
+                    <th rowspan="2" style="width: 70px;">정규 성도</th>
+                    <th rowspan="2" style="width: 70px;">정규 새참</th>
+                    <th rowspan="2" style="width: 70px;">집회 새참</th>
+                    <th rowspan="2" style="width: 70px;">총원</th>
+            `;
+            dates.forEach(d => {
+                const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
+                headerHtml += `<th style="min-width: 80px;">${d.substring(5)} (${dayOfWeek})</th>`;
+            });
+            headerHtml += `</tr>`;
+            thead.innerHTML = headerHtml;
+
+            // 3. Table Body
+            const tbody = document.getElementById('statsTableBody');
+            tbody.innerHTML = '';
+            areas.forEach(area => {
+                const stat = stats_by_area[area];
+                const tr = document.createElement('tr');
+                let rowHtml = `
+                    <td style="font-weight: 800; color: var(--primary-blue);">${area}구역</td>
+                    <td>${stat.reg_count}</td>
+                    <td>${stat.nc_count}</td>
+                    <td style="color: #2563eb; font-weight: 700;">${stat.sp_nc_count}</td>
+                    <td style="font-weight: 800;">${stat.target_total}</td>
+                `;
+
+                dates.forEach(d => {
+                    const dStat = stat.dates[d] || { attended: 0, rate: 0 };
+                    let rateClass = dStat.rate >= 80 ? 'high' : (dStat.rate >= 50 ? 'mid' : '');
+                    rowHtml += `
+                        <td>
+                            <strong>${dStat.attended}</strong>
+                            <span class="rate-pill ${rateClass}">${dStat.rate}%</span>
+                        </td>
+                    `;
+                });
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+
+            // 4. Table Foot (Total Summary)
+            const tfoot = document.getElementById('statsTableFoot');
+            let totalReg = 0, totalNc = 0, totalSpNc = 0, totalTarget = 0;
+            areas.forEach(a => {
+                totalReg += stats_by_area[a].reg_count;
+                totalNc += stats_by_area[a].nc_count;
+                totalSpNc += stats_by_area[a].sp_nc_count;
+                totalTarget += stats_by_area[a].target_total;
+            });
+
+            let footHtml = `
+                <tr>
+                    <td>합계</td>
+                    <td>${totalReg}</td>
+                    <td>${totalNc}</td>
+                    <td style="color: #2563eb;">${totalSpNc}</td>
+                    <td>${totalTarget}</td>
+            `;
+
+            dates.forEach(d => {
+                const sum = daily_summary[d] || { attended: 0, rate: 0 };
+                footHtml += `
+                    <td>
+                        <strong>${sum.attended}</strong>
+                        <span class="rate-pill high">${sum.rate}%</span>
+                    </td>
+                `;
+            });
+            footHtml += `</tr>`;
+            tfoot.innerHTML = footHtml;
+        }
+
+        let currentStatsSubTab = 'all'; // 'all' or 'newcomer'
+        let loadedNewcomerReportData = null;
+        let activeGatheringId = null;
+
+        // Switch Sub Tabs (Tab 1 vs Tab 2)
+        function switchStatsTab(tab) {
+            currentStatsSubTab = tab;
+            document.getElementById('tabBtnStatsAll').classList.toggle('active', tab === 'all');
+            document.getElementById('tabBtnStatsNewcomer').classList.toggle('active', tab === 'newcomer');
+
+            document.getElementById('statsPanelAll').style.display = tab === 'all' ? 'block' : 'none';
+            document.getElementById('statsPanelNewcomer').style.display = tab === 'newcomer' ? 'block' : 'none';
+
+            if (tab === 'newcomer' && activeGatheringId) {
+                loadNewcomerAttendeesReport();
+            }
+        }
+
+        // Load Newcomer Attendees Report (Tab 2)
+        async function loadNewcomerAttendeesReport() {
+            if (!activeGatheringId) return;
+            const area = document.getElementById('ncReportAreaFilter').value || 'all';
+            const tbody = document.getElementById('ncReportTableBody');
+            tbody.innerHTML = `<tr><td colspan="12" style="padding: 2rem; text-align: center; color: #6b7280;"><i class="fa-solid fa-spinner fa-spin"></i> 새참자 참석현황을 불러오는 중...</td></tr>`;
+
+            try {
+                const res = await fetch(`/api/special-gatherings/${activeGatheringId}/newcomer-attendees?area=${encodeURIComponent(area)}`);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                loadedNewcomerReportData = json;
+                renderNewcomerReportTable(json, area);
+            } catch (err) {
+                console.error("loadNewcomerAttendeesReport error:", err);
+                tbody.innerHTML = `<tr><td colspan="12" style="padding: 2rem; text-align: center; color: #ef4444;">새참자 데이터 로드 실패: ${err.message}</td></tr>`;
+            }
+        }
+
+        // Render Paper Style Report Table (Tab 2)
+        function renderNewcomerReportTable(data, areaFilter) {
+            const { gathering, list, daily_counts } = data;
+            const dates = gathering.selected_dates || [];
+
+            // Title & Meta formatting
+            let titleText = '전도집회  참석현황';
+            if (areaFilter && areaFilter !== 'all') {
+                titleText = `${areaFilter}구역 전도집회  참석현황`;
+            }
+            document.getElementById('reportHeaderTitle').textContent = titleText;
+            document.getElementById('reportTargetScopeDisplay').textContent = areaFilter === 'all' ? '창원교회 전체' : `${areaFilter}구역`;
+
+            const sDate = (gathering.start_date || '').substring(0, 10).replace(/-/g, '.');
+            const eDate = (gathering.end_date || '').substring(0, 10).replace(/-/g, '.');
+            document.getElementById('reportPeriodDisplay').textContent = `${sDate}~${eDate}`;
+            
+            // Set speaker from master gathering instructor
+            const speakerName = gathering.instructor || '장관익 목사';
+            document.getElementById('reportSpeakerDisplay').textContent = speakerName;
+
+            // 1. Table Head
+            const thead = document.getElementById('ncReportTableHead');
+            let headerHtml = `
+                <tr>
+                    <th style="width: 48px;">번호</th>
+                    <th style="width: 80px;">인도자</th>
+                    <th style="width: 85px;">대상자</th>
+                    <th style="width: 80px;">관계</th>
+                    <th style="width: 70px;">지역</th>
+            `;
+            dates.forEach(d => {
+                const dObj = new Date(d);
+                const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
+                const dayNum = d.split('-')[2];
+                headerHtml += `<th style="width: 60px;">${dayOfWeek}(${parseInt(dayNum, 10)})</th>`;
+            });
+            headerHtml += `</tr>`;
+            thead.innerHTML = headerHtml;
+
+            // 2. Table Body
+            const tbody = document.getElementById('ncReportTableBody');
+            tbody.innerHTML = '';
+
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${5 + dates.length}" style="padding: 2.5rem 1rem; color: #6b7280; font-weight: 500;">
+                            선택된 조건에 해당하는 대집회 참석 새참자(1회 이상 출석)가 없습니다.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                list.forEach((item, idx) => {
+                    const tr = document.createElement('tr');
+                    let rowHtml = `
+                        <td style="font-weight: 600;">${idx + 1}</td>
+                        <td style="font-weight: 600;">${item.guide_name}</td>
+                        <td style="font-weight: 800;">${item.name}</td>
+                        <td>${item.relation}</td>
+                        <td>${item.location}</td>
+                    `;
+                    dates.forEach(d => {
+                        const isAtt = item.attendance[d];
+                        rowHtml += `<td class="mark-o">${isAtt ? 'O' : ''}</td>`;
+                    });
+                    tr.innerHTML = rowHtml;
+                    tbody.appendChild(tr);
+                });
+
+                // Add empty padding rows up to 10 rows for clean official paper look
+                if (list.length < 10) {
+                    for (let i = list.length + 1; i <= 10; i++) {
+                        const tr = document.createElement('tr');
+                        let emptyHtml = `
+                            <td style="color: #cbd5e1;">${i}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        `;
+                        dates.forEach(() => { emptyHtml += `<td></td>`; });
+                        tr.innerHTML = emptyHtml;
+                        tbody.appendChild(tr);
+                    }
+                }
+            }
+
+            // 3. Table Foot (참석자계)
+            const tfoot = document.getElementById('ncReportTableFoot');
+            let footHtml = `
+                <tr>
+                    <td colspan="5" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자계</td>
+            `;
+            dates.forEach(d => {
+                const count = daily_counts[d] || 0;
+                footHtml += `<td style="font-weight: 900; font-size: 1.05rem;">${count > 0 ? count : ''}</td>`;
+            });
+            footHtml += `</tr>`;
+            tfoot.innerHTML = footHtml;
+        }
+
+        // Export Tab 2 Newcomer Report to Excel (.xlsx with borders & styling)
+        function exportNewcomerReportToExcel() {
+            if (!loadedNewcomerReportData) {
+                alert('다운로드할 새참자 데이터가 없습니다.');
+                return;
+            }
+
+            const { gathering, list, daily_counts } = loadedNewcomerReportData;
+            const dates = gathering.selected_dates || [];
+            const speaker = gathering.instructor || '강사 미정';
+            const area = document.getElementById('ncReportAreaFilter').value || 'all';
+
+            const sDate = (gathering.start_date || '').substring(0, 10).replace(/-/g, '.');
+            const eDate = (gathering.end_date || '').substring(0, 10).replace(/-/g, '.');
+
+            let titleStr = area === 'all' ? '전도집회 참석현황' : `${area}구역 전도집회 참석현황`;
+            let subTitleStr = `강사: ${speaker} (${sDate}~${eDate})`;
+
+            // Construct worksheet matrix
+            const wsData = [];
+            wsData.push([titleStr]);
+            wsData.push([subTitleStr]);
+            wsData.push([]); // blank
+
+            // Header row
+            const headerRow = ['번호', '인도자', '대상자', '관계', '지역'];
+            dates.forEach(d => {
+                const dObj = new Date(d);
+                const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
+                const dayNum = d.split('-')[2];
+                headerRow.push(`${dayOfWeek}(${parseInt(dayNum, 10)})`);
+            });
+            wsData.push(headerRow);
+
+            // Data rows
+            list.forEach((item, idx) => {
+                const r = [
+                    idx + 1,
+                    item.guide_name,
+                    item.name,
+                    item.relation,
+                    item.location
+                ];
+                dates.forEach(d => {
+                    r.push(item.attendance[d] ? 'O' : '');
+                });
+                wsData.push(r);
+            });
+
+            // Footer row
+            const footRow = ['참석자계', '', '', '', ''];
+            dates.forEach(d => {
+                footRow.push(daily_counts[d] || 0);
+            });
+            wsData.push(footRow);
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Column widths
+            ws['!cols'] = [
+                { wch: 8 },  // 번호
+                { wch: 12 }, // 인도자
+                { wch: 14 }, // 대상자
+                { wch: 12 }, // 관계
+                { wch: 10 }, // 지역
+            ];
+            dates.forEach(() => {
+                ws['!cols'].push({ wch: 10 });
+            });
+
+            XLSX.utils.book_append_sheet(wb, ws, "새참자참석현황");
+            const fileName = `${gathering.title}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // Download Tab 2 Paper as PNG Image (html2canvas)
+        async function downloadNewcomerReportAsImage() {
+            const paperEl = document.getElementById('newcomerReportPaper');
+            if (!paperEl) return;
+
+            try {
+                const area = document.getElementById('ncReportAreaFilter').value || 'all';
+                const gTitle = (loadedNewcomerReportData && loadedNewcomerReportData.gathering) ? loadedNewcomerReportData.gathering.title : '대집회';
+                
+                // Temporary high-res canvas render
+                const canvas = await html2canvas(paperEl, {
+                    scale: 2, // High resolution
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    logging: false
+                });
+
+                const link = document.createElement('a');
+                link.download = `${gTitle}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error("downloadNewcomerReportAsImage error:", err);
+                alert(`이미지 저장 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        function scrollToCreate() {
+            document.getElementById('createCard').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('faithon_user');
+                location.href = '/login.html';
+            }
+        }
+
+        window.onload = initPage;
+    </script>
+</body>
+</html>
