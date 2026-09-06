@@ -924,7 +924,8 @@
             const grid = document.getElementById('calDaysGrid');
             grid.innerHTML = '';
 
-            const todayStr = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
             // 1. Previous month blank days
             for (let i = firstDayIndex - 1; i >= 0; i--) {
@@ -961,7 +962,8 @@
             btn.className = 'cal-day-btn';
             btn.textContent = dayNum;
 
-            const todayStr = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             if (dateStr === todayStr) btn.classList.add('today');
 
             const dayOfWeek = new Date(dateStr).getDay();
@@ -1019,7 +1021,10 @@
             let curr = new Date(startDate);
             const end = new Date(endDate);
             while (curr <= end) {
-                dates.push(curr.toISOString().split('T')[0]);
+                const yyyy = curr.getFullYear();
+                const mm = String(curr.getMonth() + 1).padStart(2, '0');
+                const dd = String(curr.getDate()).padStart(2, '0');
+                dates.push(`${yyyy}-${mm}-${dd}`);
                 curr.setDate(curr.getDate() + 1);
             }
             return dates;

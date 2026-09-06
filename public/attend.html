@@ -1178,20 +1178,33 @@
             return dates;
         }
 
-        // Get Special Gathering Dates (최신일이 먼저 나오도록 역순(내림차순) 정렬, 오늘 하이라이트 및 미래 일자 비활성화)
+        // Get Special Gathering Dates (오늘이 맨 앞, 지난 날 순으로 1개씩 노출되며 미래 일자는 표시하지 않음)
         function getSpecialGatheringDates() {
             if (!activeSpecialGathering || !Array.isArray(activeSpecialGathering.selected_dates)) return [];
             const dates = [];
-            const todayStr = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
             const dayNames = ['일','월','화','수','목','금','토'];
 
-            // Sort dates descending (최근일이 먼저 나오도록)
-            const sorted = [...activeSpecialGathering.selected_dates].sort().reverse();
-            sorted.forEach(dStr => {
+            // Sort dates descending (오늘 및 지난 날짜만 추출하여 최신일(오늘)이 맨 앞에 오도록 정렬)
+            const availableDates = activeSpecialGathering.selected_dates
+                .filter(dStr => dStr <= todayStr) // 미래 일자는 제외 (오늘 및 지난 날만)
+                .sort().reverse(); // 오늘 -> 어제 -> 그저께 순 내림차순
+
+            // 만약 대집회 전체 기간이 아직 시작 전(모두 미래)인 경우 최소한의 첫 일자만 안내용으로 표시
+            const targetList = availableDates.length > 0 
+                ? availableDates 
+                : [...activeSpecialGathering.selected_dates].sort().slice(0, 1);
+
+            targetList.forEach(dStr => {
                 const parts = dStr.split('-');
                 const m = parseInt(parts[1], 10);
                 const d = parseInt(parts[2], 10);
-                const dayIdx = new Date(dStr).getDay();
+                const dayDate = new Date(parseInt(parts[0], 10), m - 1, d);
+                const dayIdx = dayDate.getDay();
                 const dayName = dayNames[dayIdx];
                 const isFuture = dStr > todayStr;
                 const isToday = dStr === todayStr;
