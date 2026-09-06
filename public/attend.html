@@ -1029,9 +1029,13 @@
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">연락처</label>
                     <input type="tel" id="spNcPhone" class="form-input" placeholder="010-0000-0000" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
                 </div>
+                <div style="margin-bottom: 0.85rem;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">지역</label>
+                    <input type="text" id="spNcLocation" class="form-input" placeholder="예: 창원, 마산, 진해, 진영 등" value="창원" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                </div>
                 <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">메모</label>
-                    <input type="text" id="spNcMemo" class="form-input" placeholder="특이사항 등" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">비고(관계)</label>
+                    <input type="text" id="spNcMemo" class="form-input" placeholder="예: 직장동료, 가족, 친구, 지인 등" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
                 </div>
 
                 <div style="display: flex; gap: 0.5rem;">
@@ -1174,15 +1178,15 @@
             return dates;
         }
 
-        // Get Special Gathering Dates (up to 7 days, highlighting Today and disabling future dates)
+        // Get Special Gathering Dates (최신일이 먼저 나오도록 역순(내림차순) 정렬, 오늘 하이라이트 및 미래 일자 비활성화)
         function getSpecialGatheringDates() {
             if (!activeSpecialGathering || !Array.isArray(activeSpecialGathering.selected_dates)) return [];
             const dates = [];
             const todayStr = new Date().toISOString().split('T')[0];
             const dayNames = ['일','월','화','수','목','금','토'];
 
-            // Sort dates ascending
-            const sorted = [...activeSpecialGathering.selected_dates].sort();
+            // Sort dates descending (최근일이 먼저 나오도록)
+            const sorted = [...activeSpecialGathering.selected_dates].sort().reverse();
             sorted.forEach(dStr => {
                 const parts = dStr.split('-');
                 const m = parseInt(parts[1], 10);
@@ -1227,14 +1231,14 @@
             if (currentSessionType === 'special') {
                 dates = getSpecialGatheringDates();
                 if (dates.length > 0) {
-                    // 기본 선택: 오늘 날짜가 있으면 오늘, 없으면 미래가 아닌 가장 최근 일자, 없으면 첫 일자
+                    // 기본 선택: 오늘 날짜가 있으면 오늘, 없으면 미래가 아닌 가장 최근 일자(내림차순이므로 첫 번째 비미래 일자), 없으면 첫 일자
                     if (!currentSelectedDate || !dates.some(d => d.value === currentSelectedDate)) {
                         const todayObj = dates.find(d => d.isToday);
                         if (todayObj) {
                             currentSelectedDate = todayObj.value;
                         } else {
                             const pastDates = dates.filter(d => !d.isFuture);
-                            currentSelectedDate = pastDates.length > 0 ? pastDates[pastDates.length - 1].value : dates[0].value;
+                            currentSelectedDate = pastDates.length > 0 ? pastDates[0].value : dates[0].value;
                         }
                     }
                 }
@@ -1355,12 +1359,8 @@
                         if (specialTabTitle) specialTabTitle.textContent = activeSpecialGathering.title || '대집회';
                     }
 
-                    // 집회 기간이 시작되었거나 오늘이 집회 기간에 포함되어 있으면 대집회 탭 우선 활성화
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const sDates = activeSpecialGathering.selected_dates || [];
-                    if (sDates.length > 0 && todayStr >= sDates[0]) {
-                        currentSessionType = 'special';
-                    }
+                    // 대집회 탭이 활성화되어 있으면 수요일/주일이 도래했어도 대집회 탭 우선 선택
+                    currentSessionType = 'special';
                 } else {
                     activeSpecialGathering = null;
                     if (tabSpecial) tabSpecial.style.display = 'none';
@@ -2182,6 +2182,8 @@
             document.getElementById('spNcName').value = '';
             document.getElementById('spNcGuide').value = '';
             document.getElementById('spNcPhone').value = '';
+            const locEl = document.getElementById('spNcLocation');
+            if (locEl) locEl.value = '창원';
             document.getElementById('spNcMemo').value = '';
         }
 
@@ -2192,6 +2194,7 @@
             const name = document.getElementById('spNcName').value.trim();
             const guide_name = document.getElementById('spNcGuide').value.trim();
             const phone = document.getElementById('spNcPhone').value.trim();
+            const location = (document.getElementById('spNcLocation')?.value || '창원').trim();
             const memo = document.getElementById('spNcMemo').value.trim();
 
             try {
@@ -2203,6 +2206,7 @@
                         name,
                         guide_name,
                         phone,
+                        location,
                         memo,
                         created_by: currentUser.name
                     })

@@ -163,11 +163,16 @@ async function initializeTables() {
                 name VARCHAR(100) NOT NULL,
                 guide_name VARCHAR(100) NULL,
                 phone VARCHAR(100) NULL,
+                location VARCHAR(100) NULL,
                 memo VARCHAR(255) NULL,
                 created_by VARCHAR(100) NULL,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
+
+        try {
+            await conn.query(`ALTER TABLE faithon_special_newcomers ADD COLUMN location VARCHAR(100) NULL AFTER phone`);
+        } catch (e) {}
 
         console.log("[FaithOn DB] Initialized custom tables successfully.");
     } catch (err) {
