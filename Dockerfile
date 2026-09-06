@@ -1,5 +1,9 @@
 FROM node:20-alpine
 
+# Set Timezone to Asia/Seoul
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Seoul
+
 # Set working directory
 WORKDIR /app
 

@@ -11,6 +11,7 @@ services:
     volumes:
       - ./uploads:/app/server/uploads
     environment:
+      - TZ=Asia/Seoul
       - PORT=3033
       - NODE_ENV=production
       - DATABASE_URL=mysql://changwon:Changwon0691!@jbchcw.com:3307/jbchcwDB

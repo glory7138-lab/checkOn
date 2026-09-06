@@ -8,8 +8,21 @@ BigInt.prototype.toJSON = function() {
     return Number(this);
 };
 
+process.env.TZ = process.env.TZ || 'Asia/Seoul';
+
 const app = express();
 const PORT = process.env.PORT || 3033;
+
+// Helper: 서버 시간대(UTC/NAS)에 상관없이 항상 정확한 한국 시간(KST, UTC+9) 'YYYY-MM-DD' 반환
+function getKSTTodayStr() {
+    const d = new Date();
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+    const kst = new Date(utc + (9 * 60 * 60000));
+    const yyyy = kst.getFullYear();
+    const mm = String(kst.getMonth() + 1).padStart(2, '0');
+    const dd = String(kst.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
 
 // CORS 설정 (외부 모듈 의존성 없이 네이티브 처리)
 app.use((req, res, next) => {
@@ -2701,12 +2714,8 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
         return res.status(400).json({ success: false, error: '날짜 및 출석 체크 목록을 전달해주세요.' });
     }
 
-    // 도래하지 않은 미래 일자 입력 방지 (한국 로컬 시간 기준 판별)
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
+    // 도래하지 않은 미래 일자 입력 방지 (서버 환경에 무관하게 한국 시간 KST 기준 판별)
+    const todayStr = getKSTTodayStr();
     if (date > todayStr) {
         return res.status(400).json({ success: false, error: '도래하지 않은 미래 날짜는 출석 체크를 할 수 없습니다.' });
     }
