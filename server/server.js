@@ -2701,8 +2701,12 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
         return res.status(400).json({ success: false, error: '날짜 및 출석 체크 목록을 전달해주세요.' });
     }
 
-    // 도래하지 않은 미래 일자 입력 방지
-    const todayStr = new Date().toISOString().split('T')[0];
+    // 도래하지 않은 미래 일자 입력 방지 (한국 로컬 시간 기준 판별)
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
     if (date > todayStr) {
         return res.status(400).json({ success: false, error: '도래하지 않은 미래 날짜는 출석 체크를 할 수 없습니다.' });
     }
@@ -2720,14 +2724,14 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
         }
 
         const gathering = gRows[0];
-        // 9월에 개최된 집회는 9월 내에만 체크 가능 (해당 월이 지난 경우 마감)
-        const gDate = new Date(gathering.start_date);
-        const now = new Date();
-        const gYearMonth = gDate.getFullYear() * 12 + gDate.getMonth();
-        const curYearMonth = now.getFullYear() * 12 + now.getMonth();
-        if (curYearMonth > gYearMonth) {
-            await conn.rollback();
-            return res.status(400).json({ success: false, error: '해당 대집회의 출석 체크 기간(해당 월)이 마감되었습니다.' });
+        // 종료일(end_date) + 14일까지 출석 체크 및 수정 가능 (14일 초과 시 마감)
+        if (gathering.end_date) {
+            const endDateObj = new Date(gathering.end_date);
+            const expireDate = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 14, 23, 59, 59);
+            if (now > expireDate) {
+                await conn.rollback();
+                return res.status(400).json({ success: false, error: '해당 대집회의 출석 체크 기간(종료일+14일)이 마감되었습니다.' });
+            }
         }
 
         for (const item of attendanceList) {
