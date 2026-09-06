@@ -1524,7 +1524,7 @@
                     <th style="width: 70px;">지역</th>
             `;
             dates.forEach(d => {
-                const dObj = new Date(d);
+                const dObj = new Date(d + 'T00:00:00');
                 const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
                 const dayNum = d.split('-')[2];
                 headerHtml += `<th style="width: 60px;">${dayOfWeek}(${parseInt(dayNum, 10)})</th>`;
@@ -1625,7 +1625,7 @@
             // Header row
             const headerRow = ['번호', '구역', '인도자', '대상자', '관계', '지역'];
             dates.forEach(d => {
-                const dObj = new Date(d);
+                const dObj = new Date(d + 'T00:00:00');
                 const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
                 const dayNum = d.split('-')[2];
                 headerRow.push(`${dayOfWeek}(${parseInt(dayNum, 10)})`);
