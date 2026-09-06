@@ -2735,6 +2735,7 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
         const gathering = gRows[0];
         // 종료일(end_date) + 14일까지 출석 체크 및 수정 가능 (14일 초과 시 마감)
         if (gathering.end_date) {
+            const now = new Date();
             const endDateObj = new Date(gathering.end_date);
             const expireDate = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 14, 23, 59, 59);
             if (now > expireDate) {
