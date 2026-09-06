@@ -693,11 +693,11 @@
                     <div class="form-row">
                         <div class="form-col" style="flex: 2;">
                             <label class="form-label">대집회 명칭 (예: 9월 대집회, 2026 가을 전도집회)</label>
-                            <input type="text" class="form-input" id="gatheringTitleInput" placeholder="예: 9월 대집회" value="9월 대집회">
+                            <input type="text" class="form-input" id="gatheringTitleInput" placeholder="예: 9월 대집회">
                         </div>
                         <div class="form-col" style="flex: 1.5;">
                             <label class="form-label">강사명 (예: 장관익 목사)</label>
-                            <input type="text" class="form-input" id="gatheringInstructorInput" placeholder="예: 장관익 목사" value="장관익 목사">
+                            <input type="text" class="form-input" id="gatheringInstructorInput" placeholder="예: 장관익 목사">
                         </div>
                         <div class="form-col" style="flex: 1;">
                             <label class="form-label">구역 탭 노출 여부</label>
@@ -754,7 +754,7 @@
                                 </div>
                             </div>
                             <button type="button" class="btn-outline-blue" onclick="exportStatsToExcel()">
-                                <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드 (.csv)
+                                <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드 (.xlsx)
                             </button>
                         </div>
 
@@ -1069,6 +1069,7 @@
                         <div style="min-width: 260px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                                 <strong style="font-size: 1.05rem; color: var(--text-primary);">${g.title}</strong>
+                                ${g.instructor ? `<span style="font-size: 0.85rem; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px;">강사: ${g.instructor}</span>` : ''}
                                 ${statusBadge}
                             </div>
                             <div style="font-size: 0.84rem; color: var(--text-secondary);">
@@ -1182,8 +1183,8 @@
         function cancelEditGathering() {
             editingGatheringId = null;
             document.getElementById('formCardTitle').textContent = '대집회 일정 및 기간 등록';
-            document.getElementById('gatheringTitleInput').value = '9월 대집회';
-            document.getElementById('gatheringInstructorInput').value = '장관익 목사';
+            document.getElementById('gatheringTitleInput').value = '';
+            document.getElementById('gatheringInstructorInput').value = '';
             document.getElementById('gatheringActiveSelect').value = 'true';
             document.getElementById('btnSaveGathering').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 대집회 등록하기';
             document.getElementById('btnCancelEdit').style.display = 'none';
@@ -1255,6 +1256,11 @@
                 if (currentStatsSubTab === 'newcomer') {
                     await loadNewcomerAttendeesReport();
                 }
+
+                // Scroll to statsCard
+                setTimeout(() => {
+                    card.scrollIntoView({ behavior: 'smooth' });
+                }, 50);
             } catch (err) {
                 console.error("loadStats error:", err);
                 alert(`통계 로드 실패: ${err.message}`);
@@ -1359,6 +1365,92 @@
             tfoot.innerHTML = footHtml;
         }
 
+        // Export Tab 1 Gathering Stats to Excel (.xlsx)
+        function exportStatsToExcel() {
+            if (!loadedStatsData) {
+                alert('다운로드할 통계 데이터가 없습니다.');
+                return;
+            }
+
+            const { gathering, areas, stats_by_area, daily_summary } = loadedStatsData;
+            const dates = gathering.selected_dates || [];
+
+            const wsData = [];
+            wsData.push([`${gathering.title} 종합 출석 통계`]);
+            wsData.push([`기간: ${(gathering.start_date || '').substring(0, 10)} ~ ${(gathering.end_date || '').substring(0, 10)} (${dates.length}일간)`]);
+            wsData.push([]); // blank line
+
+            // Header row
+            const headerRow = ['구역', '정규 성도', '정규 새참', '집회 새참', '총원'];
+            dates.forEach(d => {
+                const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
+                const dayNum = d.split('-')[2];
+                headerRow.push(`${dayOfWeek}(${parseInt(dayNum, 10)}) 출석`);
+                headerRow.push(`${dayOfWeek}(${parseInt(dayNum, 10)}) 출석률`);
+            });
+            wsData.push(headerRow);
+
+            // Data rows by area
+            areas.forEach(area => {
+                const stat = stats_by_area[area];
+                const r = [
+                    `${area}구역`,
+                    stat.reg_count,
+                    stat.nc_count,
+                    stat.sp_nc_count,
+                    stat.target_total
+                ];
+                dates.forEach(d => {
+                    const dStat = (stat.dates && stat.dates[d]) ? stat.dates[d] : { attended: 0, rate: 0 };
+                    r.push(dStat.attended);
+                    r.push(`${dStat.rate}%`);
+                });
+                wsData.push(r);
+            });
+
+            // Footer row (Total)
+            let totalReg = 0, totalNc = 0, totalSpNc = 0, totalTarget = 0;
+            areas.forEach(a => {
+                totalReg += stats_by_area[a].reg_count;
+                totalNc += stats_by_area[a].nc_count;
+                totalSpNc += stats_by_area[a].sp_nc_count;
+                totalTarget += stats_by_area[a].target_total;
+            });
+
+            const footRow = [
+                '합계',
+                totalReg,
+                totalNc,
+                totalSpNc,
+                totalTarget
+            ];
+            dates.forEach(d => {
+                const sum = daily_summary[d] || { attended: 0, rate: 0 };
+                footRow.push(sum.attended);
+                footRow.push(`${sum.rate}%`);
+            });
+            wsData.push(footRow);
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            ws['!cols'] = [
+                { wch: 10 }, // 구역
+                { wch: 12 }, // 정규 성도
+                { wch: 12 }, // 정규 새참
+                { wch: 12 }, // 집회 새참
+                { wch: 10 }, // 총원
+            ];
+            dates.forEach(() => {
+                ws['!cols'].push({ wch: 12 });
+                ws['!cols'].push({ wch: 12 });
+            });
+
+            XLSX.utils.book_append_sheet(wb, ws, "종합출석통계");
+            const fileName = `${gathering.title}_종합출석통계.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
         let currentStatsSubTab = 'all'; // 'all' or 'newcomer'
         let loadedNewcomerReportData = null;
         let activeGatheringId = null;
@@ -1400,7 +1492,6 @@
         // Render Paper Style Report Table (Tab 2)
         function renderNewcomerReportTable(data, areaFilter) {
             const { gathering, list, daily_counts } = data;
-            const dates = gathering.selected_dates || [];
 
             // Title & Meta formatting
             let titleText = '전도집회  참석현황';
@@ -1418,11 +1509,15 @@
             const speakerName = gathering.instructor || '장관익 목사';
             document.getElementById('reportSpeakerDisplay').textContent = speakerName;
 
+            // Dates for print/paper report should be chronological (1,2,3 순 오름차순)
+            const dates = [...(gathering.selected_dates || [])].sort();
+
             // 1. Table Head
             const thead = document.getElementById('ncReportTableHead');
             let headerHtml = `
                 <tr>
                     <th style="width: 48px;">번호</th>
+                    <th style="width: 60px;">구역</th>
                     <th style="width: 80px;">인도자</th>
                     <th style="width: 85px;">대상자</th>
                     <th style="width: 80px;">관계</th>
@@ -1444,7 +1539,7 @@
             if (!list || list.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="${5 + dates.length}" style="padding: 2.5rem 1rem; color: #6b7280; font-weight: 500;">
+                        <td colspan="${6 + dates.length}" style="padding: 2.5rem 1rem; color: #6b7280; font-weight: 500;">
                             선택된 조건에 해당하는 대집회 참석 새참자(1회 이상 출석)가 없습니다.
                         </td>
                     </tr>
@@ -1452,12 +1547,14 @@
             } else {
                 list.forEach((item, idx) => {
                     const tr = document.createElement('tr');
+                    const areaDisplay = item.area_code ? `${item.area_code}구역` : '';
                     let rowHtml = `
                         <td style="font-weight: 600;">${idx + 1}</td>
-                        <td style="font-weight: 600;">${item.guide_name}</td>
-                        <td style="font-weight: 800;">${item.name}</td>
-                        <td>${item.relation}</td>
-                        <td>${item.location}</td>
+                        <td style="font-weight: 600; color: #2563eb;">${areaDisplay}</td>
+                        <td style="font-weight: 600;">${item.guide_name || ''}</td>
+                        <td style="font-weight: 800;">${item.name || ''}</td>
+                        <td>${item.relation || ''}</td>
+                        <td>${item.location || ''}</td>
                     `;
                     dates.forEach(d => {
                         const isAtt = item.attendance[d];
@@ -1477,6 +1574,7 @@
                             <td></td>
                             <td></td>
                             <td></td>
+                            <td></td>
                         `;
                         dates.forEach(() => { emptyHtml += `<td></td>`; });
                         tr.innerHTML = emptyHtml;
@@ -1489,7 +1587,7 @@
             const tfoot = document.getElementById('ncReportTableFoot');
             let footHtml = `
                 <tr>
-                    <td colspan="5" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자계</td>
+                    <td colspan="6" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자계</td>
             `;
             dates.forEach(d => {
                 const count = daily_counts[d] || 0;
@@ -1507,7 +1605,8 @@
             }
 
             const { gathering, list, daily_counts } = loadedNewcomerReportData;
-            const dates = gathering.selected_dates || [];
+            // Dates for export should be chronological (1,2,3 순 오름차순)
+            const dates = [...(gathering.selected_dates || [])].sort();
             const speaker = gathering.instructor || '강사 미정';
             const area = document.getElementById('ncReportAreaFilter').value || 'all';
 
@@ -1524,7 +1623,7 @@
             wsData.push([]); // blank
 
             // Header row
-            const headerRow = ['번호', '인도자', '대상자', '관계', '지역'];
+            const headerRow = ['번호', '구역', '인도자', '대상자', '관계', '지역'];
             dates.forEach(d => {
                 const dObj = new Date(d);
                 const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
@@ -1535,12 +1634,14 @@
 
             // Data rows
             list.forEach((item, idx) => {
+                const areaDisplay = item.area_code ? `${item.area_code}구역` : '';
                 const r = [
                     idx + 1,
-                    item.guide_name,
-                    item.name,
-                    item.relation,
-                    item.location
+                    areaDisplay,
+                    item.guide_name || '',
+                    item.name || '',
+                    item.relation || '',
+                    item.location || ''
                 ];
                 dates.forEach(d => {
                     r.push(item.attendance[d] ? 'O' : '');
@@ -1549,7 +1650,7 @@
             });
 
             // Footer row
-            const footRow = ['참석자계', '', '', '', ''];
+            const footRow = ['참석자계', '', '', '', '', ''];
             dates.forEach(d => {
                 footRow.push(daily_counts[d] || 0);
             });
@@ -1561,6 +1662,7 @@
             // Column widths
             ws['!cols'] = [
                 { wch: 8 },  // 번호
+                { wch: 10 }, // 구역
                 { wch: 12 }, // 인도자
                 { wch: 14 }, // 대상자
                 { wch: 12 }, // 관계

@@ -2746,7 +2746,7 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
 // 8. 구역용: 대집회 전용 새참자 등록 (독립 보관)
 app.post('/api/special-gatherings/:id/newcomers', async (req, res) => {
     const { id } = req.params;
-    const { area_code, name, guide_name, phone, memo, created_by } = req.body;
+    const { area_code, name, guide_name, phone, location, memo, created_by } = req.body;
 
     if (!area_code || !name) {
         return res.status(400).json({ success: false, error: '구역과 이름을 입력해주세요.' });
@@ -2756,9 +2756,9 @@ app.post('/api/special-gatherings/:id/newcomers', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const result = await conn.query(`
-            INSERT INTO faithon_special_newcomers (gathering_id, area_code, name, guide_name, phone, memo, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [id, area_code, name.trim(), guide_name || null, phone || null, memo || null, created_by || '구역임원']);
+            INSERT INTO faithon_special_newcomers (gathering_id, area_code, name, guide_name, phone, location, memo, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [id, area_code, name.trim(), guide_name || null, phone || null, location || null, memo || null, created_by || '구역임원']);
 
         res.json({ success: true, message: '대집회 새참자가 등록되었습니다.', id: result.insertId });
     } catch (err) {
@@ -2807,7 +2807,12 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
         }
         const gathering = gRows[0];
         let selectedDates = [];
-        try { selectedDates = JSON.parse(gathering.selected_dates || '[]'); } catch (e) {}
+        try { 
+            selectedDates = JSON.parse(gathering.selected_dates || '[]'); 
+            if (Array.isArray(selectedDates)) {
+                selectedDates = [...selectedDates].sort();
+            }
+        } catch (e) {}
 
         // 2) 구역 목록
         const areaRows = await conn.query(`
@@ -2953,6 +2958,7 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
             gathering: {
                 id: gathering.id,
                 title: gathering.title,
+                instructor: gathering.instructor || '',
                 start_date: gathering.start_date,
                 end_date: gathering.end_date,
                 selected_dates: selectedDates,
@@ -2987,7 +2993,12 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
         }
         const gathering = gRows[0];
         let selectedDates = [];
-        try { selectedDates = JSON.parse(gathering.selected_dates || '[]'); } catch (e) {}
+        try { 
+            selectedDates = JSON.parse(gathering.selected_dates || '[]'); 
+            if (Array.isArray(selectedDates)) {
+                selectedDates = [...selectedDates].sort();
+            }
+        } catch (e) {}
 
         // 2) 1회 이상 출석한 새참자 목록 및 일자별 출석
         let query = `
@@ -2995,7 +3006,8 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
                 a.member_code,
                 COALESCE(nc.guide_name, snc.guide_name, '') as guide_name,
                 COALESCE(nc.name, snc.name) as name,
-                COALESCE(nc.memo, snc.memo, '지인') as relation,
+                COALESCE(snc.memo, nc.memo, '') as relation,
+                COALESCE(snc.location, '') as custom_location,
                 COALESCE(nc.area_code, nc.temp_area, snc.area_code) as area_code,
                 COALESCE(nc.phone, snc.phone, '') as phone,
                 CASE WHEN a.member_code LIKE 'SNC_%' THEN '대집회새참' ELSE '구역새참' END as newcomer_type,
@@ -3023,19 +3035,35 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
         rows.forEach(r => {
             const key = r.member_code;
             if (!attendeeMap[key]) {
-                let location = '창원';
-                if (r.relation && (r.relation.includes('마산') || r.relation.includes('진영') || r.relation.includes('진해') || r.relation.includes('북면') || r.relation.includes('동읍') || r.relation.includes('자여'))) {
-                    location = r.relation;
+                let loc = (r.custom_location || '').trim();
+                if (!loc) {
+                    loc = '창원';
+                    if (r.relation && (r.relation.includes('마산') || r.relation.includes('진영') || r.relation.includes('진해') || r.relation.includes('북면') || r.relation.includes('동읍') || r.relation.includes('자여'))) {
+                        loc = r.relation;
+                    }
+                }
+
+                // 비고(관계) 처리: 내용이 있으면 표시하되, 시스템 자동 등록 메모('엑셀 출석부...')만 공란 처리
+                let rel = r.relation ? String(r.relation).trim() : '';
+                if (rel.startsWith('엑셀 출석부') || rel.includes('엑셀 출석부')) {
+                    rel = '';
+                }
+
+                // 인도자 처리: 인도자와 대상자가 동일하면 공란
+                let gName = (r.guide_name || '').trim();
+                const tName = (r.name || '').trim();
+                if (gName === tName || gName === '-') {
+                    gName = '';
                 }
 
                 attendeeMap[key] = {
                     member_code: r.member_code,
-                    guide_name: r.guide_name || '-',
-                    name: r.name,
-                    relation: r.relation || '지인',
-                    area_code: r.area_code || '-',
+                    guide_name: gName,
+                    name: tName,
+                    relation: rel,
+                    area_code: r.area_code || '',
                     phone: r.phone || '',
-                    location: location,
+                    location: loc,
                     newcomer_type: r.newcomer_type,
                     attendance: {},
                     total_attended: 0
