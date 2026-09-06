@@ -2234,23 +2234,6 @@
             }
         }
 
-        async function deleteSpecialNewcomer(id, name) {
-            if (!confirm(`대집회 새참자 '${name}' 님을 삭제하시겠습니까?`)) return;
-            if (!activeSpecialGathering) return;
-
-            try {
-                const res = await fetch(`/api/special-gatherings/${activeSpecialGathering.id}/newcomers/${id}`, {
-                    method: 'DELETE'
-                });
-                const json = await res.json();
-                if (!json.success) throw new Error(json.error);
-
-                await fetchMembersAndAttendance();
-            } catch (err) {
-                alert(`삭제 실패: ${err.message}`);
-            }
-        }
-
         // [Admin] KakaoTalk Attendance Urge Sharing
         async function sendKakaoUrge(areaCode, leaderName, position) {
             const dayName = currentSessionType === 'sunday' ? '주일말씀' : (currentSessionType === 'special' ? '대집회' : '수요말씀');
@@ -2283,10 +2266,12 @@
         }
 
         let pendingDeleteId = null;
+        let pendingDeleteType = 'regular'; // 'regular' | 'special'
         let currentVerificationCode = '';
 
         window.requestDeleteNewcomer = function(id, name) {
             pendingDeleteId = id;
+            pendingDeleteType = 'regular';
             // Generate 3-digit random number (100 ~ 999)
             currentVerificationCode = String(Math.floor(100 + Math.random() * 900));
 
@@ -2307,8 +2292,32 @@
             }, 100);
         };
 
+        window.deleteSpecialNewcomer = function(id, name) {
+            pendingDeleteId = id;
+            pendingDeleteType = 'special';
+            // Generate 3-digit random number (100 ~ 999)
+            currentVerificationCode = String(Math.floor(100 + Math.random() * 900));
+
+            const targetNameEl = document.getElementById('delTargetName');
+            const codeDispEl = document.getElementById('delRandomCodeDisplay');
+            const inputEl = document.getElementById('delCodeInput');
+            const errorDiv = document.getElementById('delCodeError');
+            const modalEl = document.getElementById('deleteConfirmModal');
+
+            if (targetNameEl) targetNameEl.textContent = `[대집회] ${name}`;
+            if (codeDispEl) codeDispEl.textContent = currentVerificationCode;
+            if (inputEl) inputEl.value = '';
+            if (errorDiv) errorDiv.style.display = 'none';
+            if (modalEl) modalEl.style.display = 'flex';
+
+            setTimeout(() => {
+                if (inputEl) inputEl.focus();
+            }, 100);
+        };
+
         window.closeDeleteModal = function() {
             pendingDeleteId = null;
+            pendingDeleteType = 'regular';
             currentVerificationCode = '';
             const modalEl = document.getElementById('deleteConfirmModal');
             if (modalEl) modalEl.style.display = 'none';
@@ -2333,7 +2342,14 @@
             }
 
             try {
-                const res = await fetch(`/api/newcomers/${pendingDeleteId}`, { method: 'DELETE' });
+                let res;
+                if (pendingDeleteType === 'special') {
+                    if (!activeSpecialGathering) throw new Error('대집회 정보가 없습니다.');
+                    res = await fetch(`/api/special-gatherings/${activeSpecialGathering.id}/newcomers/${pendingDeleteId}`, { method: 'DELETE' });
+                } else {
+                    res = await fetch(`/api/newcomers/${pendingDeleteId}`, { method: 'DELETE' });
+                }
+
                 const json = await res.json();
                 if (json.success) {
                     closeDeleteModal();
@@ -2345,7 +2361,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                errorDiv.textContent = '삭제 처리 중 서버 오류가 발생했습니다.';
+                errorDiv.textContent = '삭제 처리 중 서버 오류가 발생했습니다: ' + err.message;
                 errorDiv.style.display = 'block';
             }
         }
