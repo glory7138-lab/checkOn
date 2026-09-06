@@ -2316,6 +2316,8 @@ app.delete('/api/admin/revoke/:name', async (req, res) => {
 // ==========================================
 
 // 1. 현재 활성화된 대집회 정보 조회 (구역 출석체크 화면 연동)
+// - 관리자가 is_active = TRUE 로 설정한 집회 중
+// - 종료일(end_date) + 14일까지만 구역 탭에 노출 및 수정 가능하며, 14일 경과 시 자동으로 숨김 처리
 app.get('/api/special-gatherings/active', async (req, res) => {
     let conn;
     try {
@@ -2333,6 +2335,24 @@ app.get('/api/special-gatherings/active', async (req, res) => {
             } catch (e) {
                 selectedDates = [];
             }
+
+            // 종료일 기준 + 14일 만료 체크
+            // (종료일이 2026-09-13이면 2026-09-27까지 수정 가능, 28일부터 자동 비노출)
+            let isExpired = false;
+            if (gathering.end_date) {
+                const endDateObj = new Date(gathering.end_date);
+                const expireDate = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 14, 23, 59, 59);
+                const now = new Date();
+                if (now > expireDate) {
+                    isExpired = true;
+                }
+            }
+
+            if (isExpired) {
+                res.json({ success: true, active: false, gathering: null, expired: true });
+                return;
+            }
+
             res.json({
                 success: true,
                 active: true,
