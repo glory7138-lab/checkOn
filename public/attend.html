@@ -553,6 +553,70 @@
             background: var(--surface-hover);
         }
 
+        /* Dedicated Newcomer Add Card Button (Matches member-card size with dashed border & highlight) */
+        .newcomer-add-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0.85rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .newcomer-add-card.special-mode {
+            background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+            border: 1.5px dashed #ea580c;
+            box-shadow: 0 2px 6px rgba(234, 88, 12, 0.08);
+            animation: pulseGlowSpecial 2.4s infinite ease-in-out;
+        }
+
+        .newcomer-add-card.special-mode:hover, .newcomer-add-card.special-mode:active {
+            background: #ffedd5;
+            border-color: #c2410c;
+            transform: translateY(-1px);
+            animation-play-state: paused;
+        }
+
+        .newcomer-add-card.regular-mode {
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+            border: 1.5px dashed var(--accent-color);
+            box-shadow: 0 2px 6px rgba(20, 40, 160, 0.06);
+            animation: pulseGlowRegular 2.4s infinite ease-in-out;
+        }
+
+        .newcomer-add-card.regular-mode:hover, .newcomer-add-card.regular-mode:active {
+            background: #dbeafe;
+            border-color: #1d4ed8;
+            transform: translateY(-1px);
+            animation-play-state: paused;
+        }
+
+        @keyframes pulseGlowSpecial {
+            0%, 100% {
+                border-color: rgba(234, 88, 12, 0.45);
+                box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
+            }
+            50% {
+                border-color: rgba(234, 88, 12, 1);
+                box-shadow: 0 0 10px 2px rgba(234, 88, 12, 0.2);
+            }
+        }
+
+        @keyframes pulseGlowRegular {
+            0%, 100% {
+                border-color: rgba(20, 40, 160, 0.4);
+                box-shadow: 0 0 0 0 rgba(20, 40, 160, 0);
+            }
+            50% {
+                border-color: rgba(20, 40, 160, 0.95);
+                box-shadow: 0 0 10px 2px rgba(20, 40, 160, 0.18);
+            }
+        }
+
         .member-info-col {
             display: flex;
             align-items: center;
@@ -801,7 +865,7 @@
                     <i class="fa-solid fa-calendar-star"></i>
                     <span>대집회 관리</span>
                 </a>
-                <a href="/newcomer.html" class="nav-item" id="navNewcomer">
+                <a href="javascript:void(0)" onclick="handleNewcomerNavClick(event)" class="nav-item" id="navNewcomer">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>새참자 관리</span>
                 </a>
@@ -858,9 +922,6 @@
                         <span style="display: flex; align-items: center; gap: 4px;">
                             <i class="fa-regular fa-calendar-check"></i> <span id="dateContainerTitle">출석 일자</span>
                         </span>
-                        <button type="button" id="btnOpenSpecialNewcomerModal" onclick="openSpecialNewcomerModal()" style="display: none; background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
-                            <i class="fa-solid fa-user-plus"></i> 대집회 새참자 등록
-                        </button>
                     </div>
                     <div class="date-buttons-scroll" id="recentDatesContainer">
                         <!-- JS Will Render Date Buttons -->
@@ -1059,7 +1120,7 @@
                 <i class="fa-solid fa-clipboard-user"></i>
                 <span>출석체크</span>
             </a>
-            <a href="/newcomer.html" class="mobile-nav-item">
+            <a href="javascript:void(0)" onclick="handleNewcomerNavClick(event)" class="mobile-nav-item">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>새참자</span>
             </a>
@@ -1140,7 +1201,6 @@
         const tabWednesday = document.getElementById('tabWednesday');
         const tabSpecial = document.getElementById('tabSpecial');
         const specialTabTitle = document.getElementById('specialTabTitle');
-        const btnOpenSpecialNewcomerModal = document.getElementById('btnOpenSpecialNewcomerModal');
         const dateContainerTitle = document.getElementById('dateContainerTitle');
         const areaCodeEl = document.getElementById('areaCode');
         const userNameDisplay = document.getElementById('userNameDisplay');
@@ -1256,14 +1316,12 @@
                     }
                 }
                 if (dateContainerTitle) dateContainerTitle.textContent = `${activeSpecialGathering ? activeSpecialGathering.title : '대집회'} 일자`;
-                if (btnOpenSpecialNewcomerModal) btnOpenSpecialNewcomerModal.style.display = 'inline-flex';
             } else {
                 dates = getRecentServiceDates(currentSessionType);
                 if (!currentSelectedDate || !dates.some(d => d.value === currentSelectedDate)) {
                     currentSelectedDate = dates[0].value;
                 }
                 if (dateContainerTitle) dateContainerTitle.textContent = '출석 일자';
-                if (btnOpenSpecialNewcomerModal) btnOpenSpecialNewcomerModal.style.display = 'none';
             }
 
             recentDatesContainer.innerHTML = '';
@@ -1422,14 +1480,14 @@
                         <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
                         <a href="/attend.html" class="mobile-quick-item active"><i class="fa-solid fa-clipboard-user"></i> 출석체크현황</a>
                         <a href="/admin_gathering.html" class="mobile-quick-item"><i class="fa-solid fa-calendar-star"></i> 대집회</a>
-                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="javascript:void(0)" onclick="handleNewcomerNavClick(event)" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
                         <a href="/reserve.html" class="mobile-quick-item"><i class="fa-solid fa-users-slash"></i> 예비명단</a>
                         <a href="/admin_users.html" class="mobile-quick-item"><i class="fa-solid fa-user-shield"></i> 관리자</a>
                     `;
                 } else {
                     quickNav.innerHTML = `
                         <a href="/attend.html" class="mobile-quick-item active"><i class="fa-solid fa-clipboard-user"></i> 출석체크</a>
-                        <a href="/newcomer.html" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
+                        <a href="javascript:void(0)" onclick="handleNewcomerNavClick(event)" class="mobile-quick-item"><i class="fa-solid fa-user-plus"></i> 새참자</a>
                         <a href="/?view=dashboard" class="mobile-quick-item"><i class="fa-solid fa-chart-pie"></i> 통계</a>
                     `;
                 }
@@ -1820,7 +1878,8 @@
 
             FELLOW_GROUPS.forEach(g => {
                 const list = grouped[g.key] || [];
-                if (list.length === 0 && g.key === 'etc') return;
+                // 대집회 모드이거나 일반 모드에서 새참자 탭은 명단이 0명이어도 탭과 섹션을 노출하여 등록 버튼을 이용할 수 있도록 함
+                if (list.length === 0 && g.key !== 'newcomer') return;
 
                 if (!firstRenderedSectionKey) firstRenderedSectionKey = g.key;
 
@@ -1837,7 +1896,7 @@
             membersContainer.innerHTML = '';
             updateTotalAttendanceBadge();
 
-            if (membersData.length === 0) {
+            if (membersData.length === 0 && currentSessionType !== 'special') {
                 membersContainer.innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary); width: 100%;">
                         <i class="fa-solid fa-users fa-2x" style="color: var(--text-muted); margin-bottom: 0.5rem;"></i>
@@ -1851,7 +1910,8 @@
 
             FELLOW_GROUPS.forEach(g => {
                 const list = grouped[g.key] || [];
-                if (list.length === 0) return;
+                // 새참자 탭은 0명이어도 대집회 모드 또는 일반 모드에서 등록할 수 있도록 섹션 생성
+                if (list.length === 0 && g.key !== 'newcomer') return;
 
                 const section = document.createElement('section');
                 section.className = 'fellow-section';
@@ -1871,6 +1931,55 @@
                 `;
 
                 const listContainer = section.querySelector(`#list-fellow-${g.key}`);
+
+                // 새참자 탭일 때 최상단에 출석체크 카드 크기의 독립 액션 카드 버튼 배치 (관리자가 아닐 때)
+                if (g.key === 'newcomer' && !isAdmin) {
+                    const addCard = document.createElement('div');
+                    if (currentSessionType === 'special') {
+                        addCard.className = 'newcomer-add-card special-mode';
+                        addCard.onclick = () => openSpecialNewcomerModal();
+                        addCard.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="width: 36px; height: 36px; border-radius: 9px; background: #ea580c; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(234, 88, 12, 0.3);">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #c2410c;">대집회 새참자 추가하기</div>
+                                    <div style="font-size: 0.75rem; color: #ea580c; font-weight: 500;">터치하여 새로운 새참자를 바로 등록합니다</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 800; color: #ea580c; background: #ffffff; padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                <span>등록</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+                            </div>
+                        `;
+                    } else {
+                        addCard.className = 'newcomer-add-card regular-mode';
+                        addCard.onclick = () => { window.location.href = '/newcomer.html'; };
+                        addCard.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="width: 36px; height: 36px; border-radius: 9px; background: var(--accent-color); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(20, 40, 160, 0.25);">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: var(--accent-color);">구역 새참자 관리 / 등록</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">새로운 구역 새참자를 등록하고 관리합니다</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 800; color: var(--accent-color); background: #ffffff; padding: 6px 12px; border-radius: 20px; border: 1px solid #bfdbfe; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                <span>이동</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+                            </div>
+                        `;
+                    }
+                    listContainer.appendChild(addCard);
+                }
+
+                if (list.length === 0 && g.key === 'newcomer' && isAdmin) {
+                    listContainer.innerHTML = `
+                        <div style="text-align: center; padding: 1.5rem 1rem; color: var(--text-secondary); background: #f8fafc; border-radius: 10px; border: 1px dashed var(--border-color);">
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">등록된 새참자가 없습니다.</div>
+                        </div>
+                    `;
+                }
 
                 list.forEach((member) => {
                     const pos = (member.POSITION || '').trim();
@@ -2363,6 +2472,23 @@
                 console.error(err);
                 errorDiv.textContent = '삭제 처리 중 서버 오류가 발생했습니다: ' + err.message;
                 errorDiv.style.display = 'block';
+            }
+        }
+
+        // Top/Bottom Nav Newcomer Click Router:
+        // 대집회 활성화 상태일 경우 -> 즉시 대집회 새참자 등록 모달 오픈 (또는 섹션으로 스크롤)
+        // 주일/수요 상태일 경우 -> 기존 새참자 관리 페이지(/newcomer.html)로 이동
+        function handleNewcomerNavClick(e) {
+            if (e) e.preventDefault();
+            const isAdmin = currentUser.role === 'admin' || currentUser.scope_type === 'all';
+            if (currentSessionType === 'special') {
+                if (!isAdmin) {
+                    openSpecialNewcomerModal();
+                } else {
+                    window.location.href = '/newcomer.html';
+                }
+            } else {
+                window.location.href = '/newcomer.html';
             }
         }
 
