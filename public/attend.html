@@ -328,23 +328,27 @@
             .fellow-tabs-list {
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
-                gap: 2.5px;
+                gap: 2px;
             }
             .fellow-tab-pill {
-                padding: 0.45rem 0.1rem;
-                font-size: 0.92rem;
+                padding: 0.45rem 0.05rem;
+                font-size: 0.88rem;
                 border-radius: 7px;
                 gap: 2px;
-                letter-spacing: -0.5px;
+                letter-spacing: -0.6px;
             }
             .fellow-tab-pill.tab-pill-split {
                 padding: 0;
             }
             .tab-split-label {
-                padding: 0.45rem 0.1rem;
+                padding: 0.45rem 0.05rem;
+                font-size: 0.86rem;
+                letter-spacing: -0.6px;
             }
             .tab-split-action {
-                padding: 0.45rem 0.25rem;
+                padding: 0.45rem 0.18rem;
+                font-size: 0.82rem;
+                letter-spacing: -0.8px;
             }
             .fellow-tab-pill i {
                 font-size: 0.72rem;
@@ -647,6 +651,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.5rem;
             padding: 0.75rem 0.85rem;
             border-radius: 10px;
             cursor: pointer;
@@ -654,6 +659,27 @@
             text-decoration: none;
             box-sizing: border-box;
             width: 100%;
+        }
+
+        .newcomer-add-card .card-main-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .newcomer-add-card .card-btn-action {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            padding: 6px 12px;
+            border-radius: 20px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .newcomer-add-card.special-mode {
@@ -2052,16 +2078,16 @@
                         addCard.className = 'newcomer-add-card special-mode';
                         addCard.onclick = () => openSpecialNewcomerModal();
                         addCard.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <div style="width: 36px; height: 36px; border-radius: 9px; background: #ea580c; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(234, 88, 12, 0.3);">
+                            <div class="card-main-info">
+                                <div style="width: 36px; height: 36px; border-radius: 9px; background: #ea580c; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(234, 88, 12, 0.3); flex-shrink: 0;">
                                     <i class="fa-solid fa-user-plus"></i>
                                 </div>
-                                <div>
-                                    <div style="font-size: 0.95rem; font-weight: 800; color: #c2410c;">대집회 새참자 추가하기</div>
-                                    <div style="font-size: 0.75rem; color: #ea580c; font-weight: 500;">터치하여 새로운 새참자를 바로 등록합니다</div>
+                                <div style="min-width: 0;">
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #c2410c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">대집회 새참자 추가</div>
+                                    <div style="font-size: 0.75rem; color: #ea580c; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">터치하여 새참자 즉시 등록</div>
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 800; color: #ea580c; background: #ffffff; padding: 6px 12px; border-radius: 20px; border: 1px solid #fed7aa; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                            <div class="card-btn-action" style="color: #ea580c; background: #ffffff; border: 1px solid #fed7aa;">
                                 <span>등록</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
                             </div>
                         `;
@@ -2069,16 +2095,16 @@
                         addCard.className = 'newcomer-add-card regular-mode';
                         addCard.onclick = () => { window.location.href = '/newcomer.html'; };
                         addCard.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <div style="width: 36px; height: 36px; border-radius: 9px; background: var(--accent-color); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(20, 40, 160, 0.25);">
+                            <div class="card-main-info">
+                                <div style="width: 36px; height: 36px; border-radius: 9px; background: var(--accent-color); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 2px 5px rgba(20, 40, 160, 0.25); flex-shrink: 0;">
                                     <i class="fa-solid fa-user-plus"></i>
                                 </div>
-                                <div>
-                                    <div style="font-size: 0.95rem; font-weight: 800; color: var(--accent-color);">구역 새참자 관리 / 등록</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">새로운 구역 새참자를 등록하고 관리합니다</div>
+                                <div style="min-width: 0;">
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: var(--accent-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">구역 새참자 등록 / 관리</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">새로운 구역 새참자 등록 및 관리</div>
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 800; color: var(--accent-color); background: #ffffff; padding: 6px 12px; border-radius: 20px; border: 1px solid #bfdbfe; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                            <div class="card-btn-action" style="color: var(--accent-color); background: #ffffff; border: 1px solid #bfdbfe;">
                                 <span>이동</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
                             </div>
                         `;
