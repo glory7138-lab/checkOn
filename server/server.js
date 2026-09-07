@@ -3085,16 +3085,16 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
             }
         });
 
-        // 비율 계산
+        // 비율 계산 (탭 1은 성도 출석 통계이므로 성도 재적 reg_count 대비 출석률로 계산)
         areaCodes.forEach(area => {
-            const target = statsByArea[area].target_total;
+            const target = statsByArea[area].reg_count;
             selectedDates.forEach(d => {
-                const att = statsByArea[area].dates[d].attended;
+                const att = statsByArea[area].dates[d].regular_att || statsByArea[area].dates[d].attended;
                 statsByArea[area].dates[d].rate = target > 0 ? Math.round((att / target) * 100) : 0;
             });
         });
 
-        // 일자별 전체 합계 통계 계산
+        // 일자별 전체 합계 통계 계산 (성도 재적 및 성도 출석 기준 일관성 유지)
         const dailySummary = {};
         selectedDates.forEach(d => {
             let totAttended = 0;
@@ -3102,8 +3102,10 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
             let totReg = 0;
             let totNc = 0;
             let totSpNc = 0;
+            let totRegTarget = 0;
             areaCodes.forEach(area => {
                 totTarget += statsByArea[area].target_total;
+                totRegTarget += statsByArea[area].reg_count;
                 totAttended += statsByArea[area].dates[d].attended;
                 totReg += statsByArea[area].dates[d].regular_att;
                 totNc += statsByArea[area].dates[d].nc_att;
@@ -3111,11 +3113,12 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
             });
             dailySummary[d] = {
                 target_total: totTarget,
+                reg_target: totRegTarget,
                 attended: totAttended,
                 regular_att: totReg,
                 nc_att: totNc,
                 sp_nc_att: totSpNc,
-                rate: totTarget > 0 ? Math.round((totAttended / totTarget) * 100) : 0
+                rate: totRegTarget > 0 ? Math.round((totReg / totRegTarget) * 100) : (totTarget > 0 ? Math.round((totAttended / totTarget) * 100) : 0)
             };
         });
 
