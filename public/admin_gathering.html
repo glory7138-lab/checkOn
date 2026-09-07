@@ -760,14 +760,14 @@
                     <!-- 통계 서브 탭 그룹 -->
                     <div class="stats-tab-group">
                         <button type="button" class="stats-tab-btn active" id="tabBtnStatsAll" onclick="switchStatsTab('all')">
-                            <i class="fa-solid fa-chart-pie"></i> 탭 1: 구역별 성도 & 새참자 출석부 (종합 대시보드)
+                            <i class="fa-solid fa-chart-pie"></i> 탭 1: 구역별 성도 (종합 대시보드)
                         </button>
                         <button type="button" class="stats-tab-btn" id="tabBtnStatsNewcomer" onclick="switchStatsTab('newcomer')">
                             <i class="fa-solid fa-file-invoice"></i> 탭 2: 전도집회 새참자 참석현황 (창원교회 전체)
                         </button>
                     </div>
 
-                    <!-- [탭 1] 구역별 성도 & 새참자 종합 출석 대시보드 -->
+                    <!-- [탭 1] 구역별 성도 종합 출석 대시보드 -->
                     <div id="statsPanelAll">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
                             <div>
@@ -1378,10 +1378,7 @@
             let headerHtml = `
                 <tr>
                     <th rowspan="2" style="width: 80px;">구역</th>
-                    <th rowspan="2" style="width: 70px;">정규 성도</th>
-                    <th rowspan="2" style="width: 70px;">정규 새참</th>
-                    <th rowspan="2" style="width: 70px;">집회 새참</th>
-                    <th rowspan="2" style="width: 70px;">총원</th>
+                    <th rowspan="2" style="width: 80px;">성도</th>
             `;
             dates.forEach(d => {
                 const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
@@ -1398,10 +1395,7 @@
                 const tr = document.createElement('tr');
                 let rowHtml = `
                     <td style="font-weight: 800; color: var(--primary-blue);">${area}구역</td>
-                    <td>${stat.reg_count}</td>
-                    <td>${stat.nc_count}</td>
-                    <td style="color: #2563eb; font-weight: 700;">${stat.sp_nc_count}</td>
-                    <td style="font-weight: 800;">${stat.target_total}</td>
+                    <td style="font-weight: 600;">${stat.reg_count}</td>
                 `;
 
                 dates.forEach(d => {
@@ -1421,21 +1415,15 @@
 
             // 4. Table Foot (Total Summary)
             const tfoot = document.getElementById('statsTableFoot');
-            let totalReg = 0, totalNc = 0, totalSpNc = 0, totalTarget = 0;
+            let totalReg = 0;
             areas.forEach(a => {
                 totalReg += stats_by_area[a].reg_count;
-                totalNc += stats_by_area[a].nc_count;
-                totalSpNc += stats_by_area[a].sp_nc_count;
-                totalTarget += stats_by_area[a].target_total;
             });
 
             let footHtml = `
                 <tr>
                     <td>합계</td>
-                    <td>${totalReg}</td>
-                    <td>${totalNc}</td>
-                    <td style="color: #2563eb;">${totalSpNc}</td>
-                    <td>${totalTarget}</td>
+                    <td style="font-weight: 800;">${totalReg}</td>
             `;
 
             dates.forEach(d => {
@@ -1467,7 +1455,7 @@
             wsData.push([]); // blank line
 
             // Header row
-            const headerRow = ['구역', '정규 성도', '정규 새참', '집회 새참', '총원'];
+            const headerRow = ['구역', '성도'];
             dates.forEach(d => {
                 const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
                 const dayNum = d.split('-')[2];
@@ -1481,10 +1469,7 @@
                 const stat = stats_by_area[area];
                 const r = [
                     `${area}구역`,
-                    stat.reg_count,
-                    stat.nc_count,
-                    stat.sp_nc_count,
-                    stat.target_total
+                    stat.reg_count
                 ];
                 dates.forEach(d => {
                     const dStat = (stat.dates && stat.dates[d]) ? stat.dates[d] : { attended: 0, rate: 0 };
@@ -1495,20 +1480,14 @@
             });
 
             // Footer row (Total)
-            let totalReg = 0, totalNc = 0, totalSpNc = 0, totalTarget = 0;
+            let totalReg = 0;
             areas.forEach(a => {
                 totalReg += stats_by_area[a].reg_count;
-                totalNc += stats_by_area[a].nc_count;
-                totalSpNc += stats_by_area[a].sp_nc_count;
-                totalTarget += stats_by_area[a].target_total;
             });
 
             const footRow = [
                 '합계',
-                totalReg,
-                totalNc,
-                totalSpNc,
-                totalTarget
+                totalReg
             ];
             dates.forEach(d => {
                 const sum = daily_summary[d] || { attended: 0, rate: 0 };
@@ -1522,10 +1501,7 @@
 
             ws['!cols'] = [
                 { wch: 10 }, // 구역
-                { wch: 12 }, // 정규 성도
-                { wch: 12 }, // 정규 새참
-                { wch: 12 }, // 집회 새참
-                { wch: 10 }, // 총원
+                { wch: 12 }, // 성도
             ];
             dates.forEach(() => {
                 ws['!cols'].push({ wch: 12 });
