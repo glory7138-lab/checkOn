@@ -540,12 +540,18 @@
             background-color: #fef9c3 !important; /* Soft yellow highlight on hover */
         }
 
-        /* Hide edit buttons when capturing image or printing */
+        /* Hide edit buttons and styling when capturing image or printing */
         .is-capturing .btn-sp-nc-edit,
+        .is-capturing button,
+        .is-capturing i,
+        body.is-capturing .btn-sp-nc-edit,
         @media print {
-            .btn-sp-nc-edit {
+            .btn-sp-nc-edit, button.btn-sp-nc-edit {
                 display: none !important;
             }
+        }
+        .is-capturing td.editable-cell:hover {
+            background-color: transparent !important;
         }
 
         @media (max-width: 768px) {
@@ -1864,12 +1870,17 @@
                 // Add capture class to hide edit pencil buttons
                 paperEl.classList.add('is-capturing');
 
-                // High-res canvas render
+                // High-res canvas render with onclone cleanup
                 const canvas = await html2canvas(paperEl, {
                     scale: 2, // High resolution
                     backgroundColor: '#ffffff',
                     useCORS: true,
-                    logging: false
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        // Completely remove all edit buttons in the cloned element before capturing
+                        const editBtns = clonedDoc.querySelectorAll('.btn-sp-nc-edit, button, .fa-pen, .fa-pen-to-square');
+                        editBtns.forEach(el => el.remove());
+                    }
                 });
 
                 paperEl.classList.remove('is-capturing');
