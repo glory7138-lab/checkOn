@@ -540,18 +540,47 @@
             background-color: #fef9c3 !important; /* Soft yellow highlight on hover */
         }
 
-        /* Hide edit buttons and styling when capturing image or printing */
+        /* Hide edit buttons, exclude column, and styling when capturing image or printing */
         .is-capturing .btn-sp-nc-edit,
         .is-capturing button,
         .is-capturing i,
+        .is-capturing .report-col-exclude,
         body.is-capturing .btn-sp-nc-edit,
+        body.is-capturing .report-col-exclude,
         @media print {
-            .btn-sp-nc-edit, button.btn-sp-nc-edit {
+            .btn-sp-nc-edit, button.btn-sp-nc-edit, .report-col-exclude {
                 display: none !important;
             }
         }
         .is-capturing td.editable-cell:hover {
             background-color: transparent !important;
+        }
+
+        .report-table tr.row-excluded {
+            opacity: 0.55;
+            background-color: #f8fafc;
+        }
+
+        .btn-exclude-toggle {
+            padding: 2px 7px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #64748b;
+            transition: all 0.15s ease;
+        }
+
+        .btn-exclude-toggle:hover {
+            border-color: #94a3b8;
+        }
+
+        .btn-exclude-toggle.is-active-excluded {
+            background: #fee2e2;
+            color: #dc2626;
+            border-color: #fca5a5;
         }
 
         @media (max-width: 768px) {
@@ -921,6 +950,16 @@
                     <div>
                         <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">연락처</label>
                         <input type="tel" id="adminSpNcPhone" class="form-input" placeholder="010-0000-0000" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.25rem; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 0.65rem 0.85rem;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.86rem; font-weight: 700; color: #be123c;">
+                        <input type="checkbox" id="adminSpNcIsExcluded" style="width: 18px; height: 18px; cursor: pointer;">
+                        <span>보고서(엑셀 / 이미지) 출력에서 제외</span>
+                    </label>
+                    <div style="font-size: 0.74rem; color: #9f1239; margin-top: 3px; margin-left: 26px;">
+                        체크 시 미리보기 표에는 제외 표시가 되며, 엑셀 및 이미지 다운로드 시에는 완전히 제외됩니다.
                     </div>
                 </div>
 
@@ -1585,6 +1624,7 @@
                 <tr>
                     <th style="width: 48px;">번호</th>
                     <th style="width: 60px;">구역</th>
+                    <th class="report-col-exclude" style="width: 52px; color: #dc2626; font-size: 0.82rem;">제외</th>
                     <th style="width: 80px;">인도자</th>
                     <th style="width: 85px;">대상자</th>
                     <th style="width: 80px;">관계</th>
@@ -1606,7 +1646,7 @@
             if (!list || list.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="${6 + dates.length}" style="padding: 2.5rem 1rem; color: #6b7280; font-weight: 500;">
+                        <td colspan="${7 + dates.length}" style="padding: 2.5rem 1rem; color: #6b7280; font-weight: 500;">
                             선택된 조건에 해당하는 대집회 참석 새참자(1회 이상 출석)가 없습니다.
                         </td>
                     </tr>
@@ -1616,15 +1656,27 @@
                     const tr = document.createElement('tr');
                     const areaDisplay = item.area_code ? `${item.area_code}구역` : '';
                     const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                    const isEx = !!item.is_excluded;
+
+                    if (isEx) {
+                        tr.classList.add('row-excluded');
+                    }
+
+                    const excludeBtnHtml = `
+                        <button type="button" class="btn-exclude-toggle ${isEx ? 'is-active-excluded' : ''}" onclick="toggleAttendeeExclusion('${item.member_code}', ${!isEx})" title="${isEx ? '출력 포함으로 변경' : '출력 제외로 변경'}">
+                            ${isEx ? '<i class="fa-solid fa-ban"></i> 제외' : '포함'}
+                        </button>
+                    `;
 
                     let rowHtml = `
                         <td style="font-weight: 600;">${idx + 1}</td>
                         <td style="font-weight: 600; color: #1e40af;">${areaDisplay}</td>
+                        <td class="report-col-exclude" style="text-align: center;">${excludeBtnHtml}</td>
                         <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer; font-weight: 600;">
                             <span>${item.guide_name || ''}</span>
                         </td>
                         <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
-                            <span style="font-weight: 800;">${item.name || ''}</span>
+                            <span style="font-weight: 800; ${isEx ? 'text-decoration: line-through; color: #94a3b8;' : ''}">${item.name || ''}</span>
                             <button type="button" class="btn-outline-blue btn-sp-nc-edit" title="정보 수정" style="padding: 1px 5px; font-size: 0.68rem; margin-left: 3px; border-radius: 4px; vertical-align: middle;"><i class="fa-solid fa-pen"></i></button>
                         </td>
                         <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
@@ -1649,6 +1701,7 @@
                         let emptyHtml = `
                             <td style="color: #9ca3af;">${i}</td>
                             <td></td>
+                            <td class="report-col-exclude"></td>
                             <td></td>
                             <td></td>
                             <td></td>
@@ -1661,11 +1714,13 @@
                 }
             }
 
-            // 3. Table Foot (참석자계)
+            // 3. Table Foot (참석자계 - 제외된 인원은 제외하고 계산된 합계)
             const tfoot = document.getElementById('ncReportTableFoot');
             let footHtml = `
                 <tr>
-                    <td colspan="6" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자계</td>
+                    <td colspan="2" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자계</td>
+                    <td class="report-col-exclude"></td>
+                    <td colspan="4"></td>
             `;
             dates.forEach(d => {
                 const count = daily_counts[d] || 0;
@@ -1673,6 +1728,24 @@
             });
             footHtml += `</tr>`;
             tfoot.innerHTML = footHtml;
+        }
+
+        // Quick toggle exclusion from table button
+        async function toggleAttendeeExclusion(memberCode, isExcluded) {
+            if (!activeGatheringId) return;
+            try {
+                const res = await fetch(`/api/special-gatherings/${activeGatheringId}/toggle-exclusion`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ member_code: memberCode, is_excluded: isExcluded })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+
+                await loadNewcomerAttendeesReport();
+            } catch (err) {
+                alert(`제외 상태 변경 실패: ${err.message}`);
+            }
         }
 
         // Export Tab 2 Newcomer Report to Excel (.xlsx with borders, colors & styling matching sample)
@@ -1683,6 +1756,9 @@
             }
 
             const { gathering, list, daily_counts } = loadedNewcomerReportData;
+            // Only export NON-EXCLUDED members
+            const exportList = (list || []).filter(item => !item.is_excluded);
+
             // Dates for export should be chronological (1,2,3 순 오름차순)
             const dates = [...(gathering.selected_dates || [])].sort();
             const speaker = gathering.instructor || '신용철 목사';
@@ -1700,7 +1776,7 @@
             // Row 1: Subtitle on right (Placed in start cell of merge)
             wsData.push([subTitleStr]);
 
-            // Row 2: Header row
+            // Row 2: Header row (Without '제외' column)
             const headerRow = ['번호', '구역', '인도자', '대상자', '관계', '지역'];
             dates.forEach(d => {
                 const dObj = new Date(d + 'T00:00:00');
@@ -1711,7 +1787,7 @@
             wsData.push(headerRow);
 
             // Data rows (Row 3 ~ )
-            list.forEach((item, idx) => {
+            exportList.forEach((item, idx) => {
                 const areaDisplay = item.area_code ? `${item.area_code}구역` : '';
                 const r = [
                     idx + 1,
@@ -1843,7 +1919,7 @@
                 const area = document.getElementById('ncReportAreaFilter').value || 'all';
                 const gTitle = (loadedNewcomerReportData && loadedNewcomerReportData.gathering) ? loadedNewcomerReportData.gathering.title : '대집회';
                 
-                // Add capture class to hide edit pencil buttons
+                // Add capture class to hide edit pencil buttons and exclude column
                 paperEl.classList.add('is-capturing');
 
                 // High-res canvas render with onclone cleanup
@@ -1853,9 +1929,24 @@
                     useCORS: true,
                     logging: false,
                     onclone: (clonedDoc) => {
-                        // Completely remove all edit buttons in the cloned element before capturing
-                        const editBtns = clonedDoc.querySelectorAll('.btn-sp-nc-edit, button, .fa-pen, .fa-pen-to-square');
+                        // Completely remove all edit buttons and .report-col-exclude elements
+                        const editBtns = clonedDoc.querySelectorAll('.btn-sp-nc-edit, button, .fa-pen, .fa-pen-to-square, .report-col-exclude');
                         editBtns.forEach(el => el.remove());
+
+                        // Remove excluded rows entirely from output image
+                        const excludedRows = clonedDoc.querySelectorAll('tr.row-excluded');
+                        excludedRows.forEach(el => el.remove());
+
+                        // Renumber rows for clean presentation
+                        const dataRows = clonedDoc.querySelectorAll('#ncReportTableBody tr');
+                        let count = 0;
+                        dataRows.forEach(tr => {
+                            const firstTd = tr.querySelector('td:first-child');
+                            if (firstTd && firstTd.textContent.trim() && !isNaN(parseInt(firstTd.textContent.trim(), 10))) {
+                                count++;
+                                firstTd.textContent = count;
+                            }
+                        });
                     }
                 });
 
@@ -1895,6 +1986,7 @@
             document.getElementById('adminSpNcPhone').value = item.phone || '';
             document.getElementById('adminSpNcLocation').value = item.location || '창원';
             document.getElementById('adminSpNcMemo').value = item.relation || '';
+            document.getElementById('adminSpNcIsExcluded').checked = !!item.is_excluded;
             modal.style.display = 'flex';
         }
 
@@ -1908,6 +2000,7 @@
             if (!activeGatheringId) return;
 
             const editId = document.getElementById('adminSpNcId').value;
+            const memberCode = document.getElementById('adminSpNcMemberCode').value;
             const isSpecial = document.getElementById('adminSpNcIsSpecial').value === 'true';
             const area_code = document.getElementById('adminSpNcArea').value.trim();
             const name = document.getElementById('adminSpNcName').value.trim();
@@ -1915,6 +2008,7 @@
             const phone = document.getElementById('adminSpNcPhone').value.trim();
             const location = document.getElementById('adminSpNcLocation').value.trim();
             const memo = document.getElementById('adminSpNcMemo').value.trim();
+            const isExcluded = document.getElementById('adminSpNcIsExcluded').checked;
 
             if (!name) {
                 alert('대상자 성명을 입력해주세요.');
@@ -1952,6 +2046,15 @@
 
                 const json = await res.json();
                 if (!json.success) throw new Error(json.error);
+
+                // Update exclusion status
+                if (memberCode) {
+                    await fetch(`/api/special-gatherings/${activeGatheringId}/toggle-exclusion`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ member_code: memberCode, is_excluded: isExcluded })
+                    });
+                }
 
                 closeAdminSpNcEditModal();
                 alert('새참자 정보가 성공적으로 수정되었습니다.');
