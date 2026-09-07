@@ -1396,17 +1396,18 @@
             const { gathering, areas, stats_by_area, daily_summary } = data;
             const dates = gathering.selected_dates || [];
 
-            // 1. Daily Summary Pills
+            // 1. Daily Summary Pills (성도 출석 기준)
             const pillsContainer = document.getElementById('statsSummaryPills');
             pillsContainer.innerHTML = '';
             dates.forEach(d => {
-                const sum = daily_summary[d] || { target_total: 0, attended: 0, rate: 0 };
+                const sum = daily_summary[d] || { target_total: 0, attended: 0, regular_att: 0, rate: 0 };
                 const dayOfWeek = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
+                const regAtt = (sum.regular_att !== undefined) ? sum.regular_att : sum.attended;
                 const pill = document.createElement('div');
                 pill.style.cssText = 'background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 6px 12px; min-width: 110px; flex-shrink: 0; text-align: center;';
                 pill.innerHTML = `
                     <div style="font-size: 0.76rem; color: #1e40af; font-weight: 700;">${d.substring(5)} (${dayOfWeek})</div>
-                    <div style="font-size: 1.05rem; font-weight: 800; color: var(--primary-blue);">${sum.attended}명</div>
+                    <div style="font-size: 1.05rem; font-weight: 800; color: var(--primary-blue);">${regAtt}명</div>
                     <div style="font-size: 0.72rem; color: #64748b;">${sum.rate}% 출석</div>
                 `;
                 pillsContainer.appendChild(pill);
@@ -1426,7 +1427,7 @@
             headerHtml += `</tr>`;
             thead.innerHTML = headerHtml;
 
-            // 3. Table Body
+            // 3. Table Body (성도 출석 regular_att 표시)
             const tbody = document.getElementById('statsTableBody');
             tbody.innerHTML = '';
             areas.forEach(area => {
@@ -1438,11 +1439,12 @@
                 `;
 
                 dates.forEach(d => {
-                    const dStat = stat.dates[d] || { attended: 0, rate: 0 };
+                    const dStat = stat.dates[d] || { attended: 0, regular_att: 0, rate: 0 };
+                    const regAtt = (dStat.regular_att !== undefined) ? dStat.regular_att : dStat.attended;
                     let rateClass = dStat.rate >= 80 ? 'high' : (dStat.rate >= 50 ? 'mid' : '');
                     rowHtml += `
                         <td>
-                            <strong>${dStat.attended}</strong>
+                            <strong>${regAtt}</strong>
                             <span class="rate-pill ${rateClass}">${dStat.rate}%</span>
                         </td>
                     `;
@@ -1452,7 +1454,7 @@
                 tbody.appendChild(tr);
             });
 
-            // 4. Table Foot (Total Summary)
+            // 4. Table Foot (Total Summary - 성도 기준)
             const tfoot = document.getElementById('statsTableFoot');
             let totalReg = 0;
             areas.forEach(a => {
@@ -1466,10 +1468,11 @@
             `;
 
             dates.forEach(d => {
-                const sum = daily_summary[d] || { attended: 0, rate: 0 };
+                const sum = daily_summary[d] || { attended: 0, regular_att: 0, rate: 0 };
+                const regAtt = (sum.regular_att !== undefined) ? sum.regular_att : sum.attended;
                 footHtml += `
                     <td>
-                        <strong>${sum.attended}</strong>
+                        <strong>${regAtt}</strong>
                         <span class="rate-pill high">${sum.rate}%</span>
                     </td>
                 `;
@@ -1511,8 +1514,9 @@
                     stat.reg_count
                 ];
                 dates.forEach(d => {
-                    const dStat = (stat.dates && stat.dates[d]) ? stat.dates[d] : { attended: 0, rate: 0 };
-                    r.push(dStat.attended);
+                    const dStat = (stat.dates && stat.dates[d]) ? stat.dates[d] : { attended: 0, regular_att: 0, rate: 0 };
+                    const regAtt = (dStat.regular_att !== undefined) ? dStat.regular_att : dStat.attended;
+                    r.push(regAtt);
                     r.push(`${dStat.rate}%`);
                 });
                 wsData.push(r);
@@ -1529,8 +1533,9 @@
                 totalReg
             ];
             dates.forEach(d => {
-                const sum = daily_summary[d] || { attended: 0, rate: 0 };
-                footRow.push(sum.attended);
+                const sum = daily_summary[d] || { attended: 0, regular_att: 0, rate: 0 };
+                const regAtt = (sum.regular_att !== undefined) ? sum.regular_att : sum.attended;
+                footRow.push(regAtt);
                 footRow.push(`${sum.rate}%`);
             });
             wsData.push(footRow);
