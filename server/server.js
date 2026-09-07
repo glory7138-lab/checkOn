@@ -1010,7 +1010,7 @@ app.post('/api/newcomers/:id/restore', async (req, res) => {
 // 새참자 수정
 app.put('/api/newcomers/:id', async (req, res) => {
     const id = req.params.id;
-    const { name, guide_name, phone, area_code, memo, is_hidden } = req.body;
+    const { name, guide_name, phone, area_code, memo, location, is_hidden } = req.body;
     if (!name || !area_code) {
         return res.status(400).json({ success: false, error: '이름과 배정 구역은 필수 항목입니다.' });
     }
@@ -1033,11 +1033,22 @@ app.put('/api/newcomers/:id', async (req, res) => {
         }
 
         // 2. 새참자 정보 업데이트 (이름/정보가 변경되어도 ID 기반으로 과거 출석 기록 자동 보존)
+        let effectiveMemo = memo !== undefined ? (memo ? memo.trim() : null) : null;
+        if (location && location.trim() && location.trim() !== '창원') {
+            if (effectiveMemo) {
+                if (!effectiveMemo.includes(location.trim())) {
+                    effectiveMemo = `${location.trim()} / ${effectiveMemo}`;
+                }
+            } else {
+                effectiveMemo = location.trim();
+            }
+        }
+
         let updateSql = `
             UPDATE faithon_newcomer
             SET name = ?, guide_name = ?, phone = ?, area_code = ?, memo = ?
         `;
-        const updateParams = [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), memo ? memo.trim() : null];
+        const updateParams = [name.trim(), effectiveGuide, phone ? phone.trim() : null, area_code.trim(), effectiveMemo];
 
         if (is_hidden !== undefined) {
             updateSql += `, is_hidden = ?`;
