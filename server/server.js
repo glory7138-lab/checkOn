@@ -2487,7 +2487,7 @@ app.post('/api/special-gatherings', async (req, res) => {
 // 4. 대집회 수정 (관리자용 - 제목, 강사명, 일정, 활성화 여부)
 app.put('/api/special-gatherings/:id', async (req, res) => {
     const { id } = req.params;
-    const { title, instructor, start_date, end_date, selected_dates, is_active } = req.body;
+    const { title, instructor, start_date, end_date, selected_dates, excluded_members, is_active } = req.body;
 
     let conn;
     try {
@@ -2523,6 +2523,10 @@ app.put('/api/special-gatherings/:id', async (req, res) => {
             updates.push('selected_dates = ?');
             params.push(JSON.stringify(selected_dates));
         }
+        if (excluded_members !== undefined) {
+            updates.push('excluded_members = ?');
+            params.push(JSON.stringify(excluded_members));
+        }
         if (is_active !== undefined) {
             if (is_active) {
                 await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE WHERE id != ?`, [id]);
@@ -2541,6 +2545,49 @@ app.put('/api/special-gatherings/:id', async (req, res) => {
     } catch (err) {
         if (conn) await conn.rollback();
         console.error("PUT /api/special-gatherings/:id error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 4-1. 대집회 새참자 출력 제외/포함 토글 (관리자용)
+app.post('/api/special-gatherings/:id/toggle-exclusion', async (req, res) => {
+    const { id } = req.params;
+    const { member_code, is_excluded } = req.body;
+
+    if (!member_code) {
+        return res.status(400).json({ success: false, error: '대상자 식별자(member_code)가 필요합니다.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const gRows = await conn.query(`SELECT excluded_members FROM faithon_special_gatherings WHERE id = ?`, [id]);
+        if (!gRows || gRows.length === 0) {
+            return res.status(404).json({ success: false, error: '대집회 정보를 찾을 수 없습니다.' });
+        }
+
+        let excludedSet = new Set();
+        try {
+            const arr = JSON.parse(gRows[0].excluded_members || '[]');
+            if (Array.isArray(arr)) {
+                arr.forEach(k => excludedSet.add(k));
+            }
+        } catch (e) {}
+
+        if (is_excluded) {
+            excludedSet.add(member_code);
+        } else {
+            excludedSet.delete(member_code);
+        }
+
+        const newArr = Array.from(excludedSet);
+        await conn.query(`UPDATE faithon_special_gatherings SET excluded_members = ? WHERE id = ?`, [JSON.stringify(newArr), id]);
+
+        res.json({ success: true, is_excluded: !!is_excluded, excluded_members: newArr });
+    } catch (err) {
+        console.error("POST /api/special-gatherings/:id/toggle-exclusion error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
@@ -3199,14 +3246,27 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
             }
         });
 
-        const list = Object.values(attendeeMap);
+        // Parse excluded members list
+        let excludedMembers = [];
+        try {
+            excludedMembers = JSON.parse(gathering.excluded_members || '[]');
+            if (!Array.isArray(excludedMembers)) excludedMembers = [];
+        } catch (e) {}
+        const excludedSet = new Set(excludedMembers);
 
-        // Daily counts for attendees
+        const list = Object.values(attendeeMap).map(item => {
+            return {
+                ...item,
+                is_excluded: excludedSet.has(item.member_code)
+            };
+        });
+
+        // Daily counts for attendees (only counting non-excluded for output/total report)
         const dailyCounts = {};
         selectedDates.forEach(d => {
             let cnt = 0;
             list.forEach(item => {
-                if (item.attendance[d]) cnt++;
+                if (!item.is_excluded && item.attendance[d]) cnt++;
             });
             dailyCounts[d] = cnt;
         });
@@ -3219,7 +3279,8 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
                 instructor: gathering.instructor || '',
                 start_date: formatDateYMD(gathering.start_date),
                 end_date: formatDateYMD(gathering.end_date),
-                selected_dates: selectedDates
+                selected_dates: selectedDates,
+                excluded_members: excludedMembers
             },
             total_attendees: list.length,
             daily_counts: dailyCounts,

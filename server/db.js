@@ -134,11 +134,16 @@ async function initializeTables() {
                 start_date DATE NOT NULL,
                 end_date DATE NOT NULL,
                 selected_dates LONGTEXT NOT NULL, -- JSON array of dates e.g. ["2026-09-07", ...]
+                excluded_members LONGTEXT NULL, -- JSON array of member codes excluded from newcomer report
                 is_active BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
+
+        try {
+            await conn.query(`ALTER TABLE faithon_special_gatherings ADD COLUMN excluded_members LONGTEXT NULL AFTER selected_dates`);
+        } catch (e) {}
 
         // 7. 대집회 출석 기록 테이블 (완전 분리)
         await conn.query(`
