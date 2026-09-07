@@ -532,6 +532,14 @@
             color: #000000;
         }
 
+        .report-table td.editable-cell {
+            transition: background-color 0.15s ease;
+        }
+
+        .report-table td.editable-cell:hover {
+            background-color: #fef9c3 !important; /* Soft yellow highlight on hover */
+        }
+
         /* Hide edit buttons when capturing image or printing */
         .is-capturing .btn-sp-nc-edit,
         @media print {
@@ -864,39 +872,50 @@
 
     <!-- Modal for Admin Special Gathering Newcomer Edit -->
     <div class="modal-overlay" id="adminSpNcEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
-        <div class="modal-content" style="max-width: 420px; background: #fff; padding: 1.5rem; border-radius: 16px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <div class="modal-content" style="max-width: 440px; background: #fff; padding: 1.5rem; border-radius: 16px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
                 <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #ea580c; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-pen-to-square"></i> 대집회 새참자 정보 수정
+                    <i class="fa-solid fa-pen-to-square"></i> 새참자 참석현황 정보 수정
                 </h3>
                 <button type="button" onclick="closeAdminSpNcEditModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">&times;</button>
             </div>
             
             <form onsubmit="submitAdminSpNcEdit(event)">
                 <input type="hidden" id="adminSpNcId" value="">
-                <div style="margin-bottom: 0.85rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">구역</label>
-                    <input type="text" id="adminSpNcArea" class="form-input" placeholder="구역 번호 (예: 21)" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                <input type="hidden" id="adminSpNcMemberCode" value="">
+                <input type="hidden" id="adminSpNcIsSpecial" value="true">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">구역 (필수)</label>
+                        <input type="text" id="adminSpNcArea" required class="form-input" placeholder="예: 12, 21" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">지역 (창원/마산/진해 등)</label>
+                        <input type="text" id="adminSpNcLocation" class="form-input" placeholder="예: 창원, 마산, 진해" value="창원" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
                 </div>
-                <div style="margin-bottom: 0.85rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">성명 (필수)</label>
-                    <input type="text" id="adminSpNcName" required class="form-input" placeholder="새참자 성명 입력" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">대상자(성명, 필수)</label>
+                        <input type="text" id="adminSpNcName" required class="form-input" placeholder="새참자 이름" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">인도자</label>
+                        <input type="text" id="adminSpNcGuide" class="form-input" placeholder="인도자 이름" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
                 </div>
-                <div style="margin-bottom: 0.85rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">인도자</label>
-                    <input type="text" id="adminSpNcGuide" class="form-input" placeholder="인도자 성도명" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
-                </div>
-                <div style="margin-bottom: 0.85rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">연락처</label>
-                    <input type="tel" id="adminSpNcPhone" class="form-input" placeholder="010-0000-0000" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
-                </div>
-                <div style="margin-bottom: 0.85rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">지역</label>
-                    <input type="text" id="adminSpNcLocation" class="form-input" placeholder="예: 창원, 마산, 진해, 진영 등" value="창원" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
-                </div>
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">비고(관계)</label>
-                    <input type="text" id="adminSpNcMemo" class="form-input" placeholder="예: 직장동료, 가족, 친구, 지인 등" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">관계 (가족/지인/동료 등)</label>
+                        <input type="text" id="adminSpNcMemo" class="form-input" placeholder="예: 가족, 지인, 직장동료" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">연락처</label>
+                        <input type="tel" id="adminSpNcPhone" class="form-input" placeholder="010-0000-0000" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+                    </div>
                 </div>
 
                 <div style="display: flex; gap: 0.5rem;">
@@ -1614,20 +1633,24 @@
                 list.forEach((item, idx) => {
                     const tr = document.createElement('tr');
                     const areaDisplay = item.area_code ? `${item.area_code}구역` : '';
-                    const isSpecial = !!item.is_special_newcomer;
-                    
-                    let nameCellHtml = `<span style="font-weight: 800;">${item.name || ''}</span>`;
-                    if (isSpecial) {
-                        nameCellHtml += ` <button type="button" class="btn-outline-blue btn-sp-nc-edit" onclick="openAdminSpNcEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="정보 수정" style="padding: 1px 5px; font-size: 0.68rem; margin-left: 3px; border-radius: 4px; vertical-align: middle;"><i class="fa-solid fa-pen"></i></button>`;
-                    }
+                    const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
 
                     let rowHtml = `
                         <td style="font-weight: 600;">${idx + 1}</td>
                         <td style="font-weight: 600; color: #1e40af;">${areaDisplay}</td>
-                        <td style="font-weight: 600;">${item.guide_name || ''}</td>
-                        <td>${nameCellHtml}</td>
-                        <td>${item.relation || ''}</td>
-                        <td>${item.location || ''}</td>
+                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer; font-weight: 600;">
+                            <span>${item.guide_name || ''}</span>
+                        </td>
+                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                            <span style="font-weight: 800;">${item.name || ''}</span>
+                            <button type="button" class="btn-outline-blue btn-sp-nc-edit" title="정보 수정" style="padding: 1px 5px; font-size: 0.68rem; margin-left: 3px; border-radius: 4px; vertical-align: middle;"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                            <span>${item.relation || ''}</span>
+                        </td>
+                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                            <span>${item.location || ''}</span>
+                        </td>
                     `;
                     dates.forEach(d => {
                         const isAtt = item.attendance[d];
@@ -1866,7 +1889,19 @@
         function openAdminSpNcEditModal(item) {
             const modal = document.getElementById('adminSpNcEditModal');
             if (!modal) return;
-            document.getElementById('adminSpNcId').value = item.special_newcomer_id || (item.member_code ? item.member_code.replace('SNC_', '') : '');
+            
+            const isSpecial = item.is_special_newcomer !== undefined ? item.is_special_newcomer : (item.member_code && item.member_code.startsWith('SNC_'));
+            let rawId = '';
+            if (isSpecial) {
+                rawId = item.special_newcomer_id || (item.member_code ? item.member_code.replace('SNC_', '') : '');
+            } else {
+                rawId = item.id || (item.member_code ? item.member_code.replace('NC_', '') : '');
+            }
+
+            document.getElementById('adminSpNcId').value = rawId;
+            document.getElementById('adminSpNcMemberCode').value = item.member_code || '';
+            document.getElementById('adminSpNcIsSpecial').value = isSpecial ? 'true' : 'false';
+
             document.getElementById('adminSpNcArea').value = item.area_code || '';
             document.getElementById('adminSpNcName').value = item.name || '';
             document.getElementById('adminSpNcGuide').value = item.guide_name || '';
@@ -1886,12 +1921,22 @@
             if (!activeGatheringId) return;
 
             const editId = document.getElementById('adminSpNcId').value;
+            const isSpecial = document.getElementById('adminSpNcIsSpecial').value === 'true';
             const area_code = document.getElementById('adminSpNcArea').value.trim();
             const name = document.getElementById('adminSpNcName').value.trim();
             const guide_name = document.getElementById('adminSpNcGuide').value.trim();
             const phone = document.getElementById('adminSpNcPhone').value.trim();
             const location = document.getElementById('adminSpNcLocation').value.trim();
             const memo = document.getElementById('adminSpNcMemo').value.trim();
+
+            if (!name) {
+                alert('대상자 성명을 입력해주세요.');
+                return;
+            }
+            if (!area_code) {
+                alert('구역을 입력해주세요.');
+                return;
+            }
 
             const payload = {
                 area_code,
@@ -1903,11 +1948,21 @@
             };
 
             try {
-                const res = await fetch(`/api/special-gatherings/${activeGatheringId}/newcomers/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                let res;
+                if (isSpecial) {
+                    res = await fetch(`/api/special-gatherings/${activeGatheringId}/newcomers/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch(`/api/newcomers/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
                 const json = await res.json();
                 if (!json.success) throw new Error(json.error);
 
