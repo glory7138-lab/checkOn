@@ -3085,11 +3085,11 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
             }
         });
 
-        // 비율 계산 (탭 1은 성도 출석 통계이므로 성도 재적 reg_count 대비 출석률로 계산)
+        // 비율 계산 (탭 1은 성도 출석 통계이므로 성도 재적 reg_count 대비 성도 출석 수 regular_att 기준 출석률로 계산)
         areaCodes.forEach(area => {
             const target = statsByArea[area].reg_count;
             selectedDates.forEach(d => {
-                const att = statsByArea[area].dates[d].regular_att || statsByArea[area].dates[d].attended;
+                const att = statsByArea[area].dates[d].regular_att;
                 statsByArea[area].dates[d].rate = target > 0 ? Math.round((att / target) * 100) : 0;
             });
         });
