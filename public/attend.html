@@ -1182,17 +1182,18 @@
         </main>
     </div>
 
-    <!-- Modal for Special Gathering Newcomer Registration -->
+    <!-- Modal for Special Gathering Newcomer Registration / Edit -->
     <div class="modal-overlay" id="specialNewcomerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
         <div class="modal-content" style="max-width: 420px; background: #fff; padding: 1.5rem; border-radius: 16px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #ea580c; display: flex; align-items: center; gap: 6px;">
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #ea580c; display: flex; align-items: center; gap: 6px;" id="spNcModalTitle">
                     <i class="fa-solid fa-fire"></i> 대집회 새참자 등록
                 </h3>
                 <button type="button" onclick="closeSpecialNewcomerModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">&times;</button>
             </div>
             
             <form onsubmit="submitSpecialNewcomer(event)">
+                <input type="hidden" id="spNcEditId" value="">
                 <div style="margin-bottom: 0.85rem;">
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">성명 (필수)</label>
                     <input type="text" id="spNcName" required class="form-input" placeholder="새참자 성명 입력" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border-radius: 8px; border: 1px solid #cbd5e1;">
@@ -1216,7 +1217,7 @@
 
                 <div style="display: flex; gap: 0.5rem;">
                     <button type="button" class="btn btn-outline" style="flex: 1; padding: 0.6rem;" onclick="closeSpecialNewcomerModal()">취소</button>
-                    <button type="submit" class="btn" style="flex: 2; padding: 0.6rem; background: #ea580c; color: #fff; font-weight: 700; border: none; border-radius: 8px; cursor: pointer;">
+                    <button type="submit" id="spNcSubmitBtn" class="btn" style="flex: 2; padding: 0.6rem; background: #ea580c; color: #fff; font-weight: 700; border: none; border-radius: 8px; cursor: pointer;">
                         <i class="fa-solid fa-check"></i> 등록하기
                     </button>
                 </div>
@@ -2164,6 +2165,11 @@
                                     <span class="member-name">${member.NAME}</span>
                                     ${badgeHtml}
                                     ${isNewcomer ? `
+                                    ${isSpecialNewcomer ? `
+                                    <button type="button" class="btn-edit-nc" onclick="editSpecialNewcomer(${JSON.stringify(member).replace(/"/g, '&quot;')})" title="새참자 수정" style="margin-left: 4px; padding: 2px 7px; font-size: 0.72rem; color: #2563eb; background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25); border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                                        <i class="fa-solid fa-pen"></i> <span>수정</span>
+                                    </button>
+                                    ` : ''}
                                     <button type="button" class="btn-delete-nc" onclick="${isSpecialNewcomer ? `deleteSpecialNewcomer('${targetNcId}', '${safeName}')` : `window.requestDeleteNewcomer('${targetNcId}', '${safeName}')`}" title="새참자 삭제" style="margin-left: 4px; padding: 2px 7px; font-size: 0.72rem; color: var(--danger-color); background: rgba(220, 53, 69, 0.08); border: 1px solid rgba(220, 53, 69, 0.25); border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                                         <i class="fa-solid fa-trash-can"></i> <span>삭제</span>
                                     </button>
@@ -2431,15 +2437,35 @@
             updateTotalAttendanceBadge();
         }
 
-        // 대집회 전용 새참자 등록 모달 제어
+        // 대집회 전용 새참자 등록/수정 모달 제어
         function openSpecialNewcomerModal() {
             const modal = document.getElementById('specialNewcomerModal');
-            if (modal) modal.style.display = 'flex';
+            if (modal) {
+                document.getElementById('spNcEditId').value = '';
+                document.getElementById('spNcModalTitle').innerHTML = '<i class="fa-solid fa-fire"></i> 대집회 새참자 등록';
+                document.getElementById('spNcSubmitBtn').innerHTML = '<i class="fa-solid fa-check"></i> 등록하기';
+                modal.style.display = 'flex';
+            }
+        }
+
+        function editSpecialNewcomer(member) {
+            const modal = document.getElementById('specialNewcomerModal');
+            if (!modal) return;
+            document.getElementById('spNcEditId').value = member.special_newcomer_id || (member.CODE_NO ? member.CODE_NO.replace('SNC_', '') : '');
+            document.getElementById('spNcName').value = member.NAME || '';
+            document.getElementById('spNcGuide').value = member.guide_name || '';
+            document.getElementById('spNcPhone').value = member.PHONE || '';
+            document.getElementById('spNcLocation').value = member.location || '창원';
+            document.getElementById('spNcMemo').value = member.memo || '';
+            document.getElementById('spNcModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 대집회 새참자 정보 수정';
+            document.getElementById('spNcSubmitBtn').innerHTML = '<i class="fa-solid fa-check"></i> 수정사항 저장';
+            modal.style.display = 'flex';
         }
 
         function closeSpecialNewcomerModal() {
             const modal = document.getElementById('specialNewcomerModal');
             if (modal) modal.style.display = 'none';
+            document.getElementById('spNcEditId').value = '';
             document.getElementById('spNcName').value = '';
             document.getElementById('spNcGuide').value = '';
             document.getElementById('spNcPhone').value = '';
@@ -2452,33 +2478,45 @@
             e.preventDefault();
             if (!activeSpecialGathering) return;
 
+            const editId = document.getElementById('spNcEditId').value;
             const name = document.getElementById('spNcName').value.trim();
             const guide_name = document.getElementById('spNcGuide').value.trim();
             const phone = document.getElementById('spNcPhone').value.trim();
             const location = (document.getElementById('spNcLocation')?.value || '창원').trim();
             const memo = document.getElementById('spNcMemo').value.trim();
 
+            const payload = {
+                area_code: currentAreaCode,
+                name,
+                guide_name,
+                phone,
+                location,
+                memo,
+                created_by: currentUser.name
+            };
+
             try {
-                const res = await fetch(`/api/special-gatherings/${activeSpecialGathering.id}/newcomers`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        area_code: currentAreaCode,
-                        name,
-                        guide_name,
-                        phone,
-                        location,
-                        memo,
-                        created_by: currentUser.name
-                    })
-                });
+                let res;
+                if (editId) {
+                    res = await fetch(`/api/special-gatherings/${activeSpecialGathering.id}/newcomers/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch(`/api/special-gatherings/${activeSpecialGathering.id}/newcomers`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
                 const json = await res.json();
                 if (!json.success) throw new Error(json.error);
 
                 closeSpecialNewcomerModal();
                 await fetchMembersAndAttendance();
             } catch (err) {
-                alert(`등록 실패: ${err.message}`);
+                alert(`처리 실패: ${err.message}`);
             }
         }
 
