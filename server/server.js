@@ -3192,7 +3192,7 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
             params.push(area);
         }
 
-        query += ` ORDER BY CAST(COALESCE(nc.area_code, nc.temp_area, snc.area_code) AS UNSIGNED) ASC, area_code ASC, name ASC `;
+        query += ` ORDER BY CAST(COALESCE(nc.area_code, nc.temp_area, snc.area_code) AS UNSIGNED) ASC, area_code ASC, COALESCE(nc.guide_name, snc.guide_name, '') ASC, name ASC `;
 
         const rows = await conn.query(query, params);
 
@@ -3254,11 +3254,29 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
         } catch (e) {}
         const excludedSet = new Set(excludedMembers);
 
-        const list = Object.values(attendeeMap).map(item => {
+        let list = Object.values(attendeeMap).map(item => {
             return {
                 ...item,
                 is_excluded: excludedSet.has(item.member_code)
             };
+        });
+
+        // Sort by area_code (number/string), guide_name (empty last or alphabetical), name
+        list.sort((a, b) => {
+            const areaA = parseInt(a.area_code, 10) || 999;
+            const areaB = parseInt(b.area_code, 10) || 999;
+            if (areaA !== areaB) return areaA - areaB;
+            if (a.area_code !== b.area_code) return String(a.area_code).localeCompare(String(b.area_code));
+            
+            const guideA = a.guide_name ? a.guide_name.trim() : '';
+            const guideB = b.guide_name ? b.guide_name.trim() : '';
+            if (guideA !== guideB) {
+                if (!guideA) return 1; // blank guide names placed after named guides
+                if (!guideB) return -1;
+                return guideA.localeCompare(guideB, 'ko');
+            }
+
+            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
         });
 
         // Daily counts for attendees (only counting non-excluded for output/total report)
