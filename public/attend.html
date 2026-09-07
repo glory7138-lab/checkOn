@@ -257,55 +257,68 @@
             box-shadow: 0 2px 6px var(--accent-glow);
         }
 
-        /* Newcomer Tab +등록 badge style (또렷하고 큼직한 폰트 & 확실한 색상 대비) */
-        .tab-badge-register {
-            font-size: 0.76rem;
-            font-weight: 900;
-            padding: 1px 4px;
-            border-radius: 4px;
-            line-height: 1.2;
+        /* Newcomer Split Two-Tone Tab Button */
+        .fellow-tab-pill.tab-pill-split {
+            padding: 0;
             display: inline-flex;
+            align-items: stretch;
+            justify-content: stretch;
+            overflow: hidden;
+        }
+
+        .tab-split-label {
+            flex: 1;
+            display: flex;
             align-items: center;
-            margin-left: 2px;
-            letter-spacing: -0.3px;
-            vertical-align: middle;
+            justify-content: center;
+            padding: 0.48rem 0.1rem;
+            color: inherit;
         }
 
-        /* Default (inactive) state: eye-catching badge */
-        .tab-badge-special {
-            background: #ea580c;
+        .tab-split-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.48rem 0.35rem;
+            font-size: 0.88em;
+            font-weight: 900;
+            letter-spacing: -0.5px;
             color: #ffffff;
-            border: 1px solid #c2410c;
-            box-shadow: 0 1px 3px rgba(234, 88, 12, 0.35);
+            transition: all 0.15s ease;
         }
 
-        .tab-badge-regular {
-            background: #2563eb;
+        /* Default (inactive) state background colors */
+        .tab-split-action.bg-special {
+            background: #ea580c; /* Vivid Orange for Special Gathering */
+        }
+
+        .tab-split-action.bg-regular {
+            background: #2563eb; /* Vivid Blue for Regular Gathering */
+        }
+
+        /* Active state for Split Tab: Left gets primary theme color, Right gets high-contrast accent */
+        .fellow-tab-pill.tab-pill-split.active .tab-split-label {
+            background: var(--accent-color);
             color: #ffffff;
-            border: 1px solid #1d4ed8;
-            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
         }
 
-        /* When tab is active: clean white badge with vivid color text */
-        .fellow-tab-pill.active .tab-badge-special {
-            background: #ffffff;
-            color: #ea580c;
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        .fellow-tab-pill.tab-pill-split.active .tab-split-action.bg-special {
+            background: #9a3412; /* Deeper burnt orange for prominent contrast */
+            color: #fef08a; /* Golden bright text */
+            box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.25);
         }
 
-        .fellow-tab-pill.active .tab-badge-regular {
-            background: #ffffff;
-            color: var(--accent-color);
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        .fellow-tab-pill.tab-pill-split.active .tab-split-action.bg-regular {
+            background: #1e40af; /* Deeper navy blue */
+            color: #bae6fd; /* Light sky blue text */
+            box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.25);
         }
 
-        /* Subtle orange glow tint on newcomer tab in special gathering mode */
+        /* Subtle tint on inactive newcomer tab in special gathering mode */
         body.theme-special #tab-fellow-newcomer:not(.active) {
             background: #fff7ed;
             border-color: #ea580c;
-            color: #c2410c;
+            color: #9a3412;
         }
 
         @media (max-width: 480px) {
@@ -324,12 +337,17 @@
                 gap: 2px;
                 letter-spacing: -0.5px;
             }
+            .fellow-tab-pill.tab-pill-split {
+                padding: 0;
+            }
+            .tab-split-label {
+                padding: 0.45rem 0.1rem;
+            }
+            .tab-split-action {
+                padding: 0.45rem 0.25rem;
+            }
             .fellow-tab-pill i {
                 font-size: 0.72rem;
-            }
-            .tab-badge-register {
-                font-size: 0.68rem;
-                padding: 1px 3px;
             }
         }
 
@@ -1977,12 +1995,13 @@
                     formattedLabel = `${prefix}<small style="font-size: 0.76em; opacity: 0.82; margin-left: 0.5px;">회</small>`;
                 }
                 
-                let tabLabelHtml = `<span>${formattedLabel}</span>`;
                 if (g.key === 'newcomer') {
-                    const badgeClass = currentSessionType === 'special' ? 'tab-badge-special' : 'tab-badge-regular';
-                    tabLabelHtml = `<span>${g.label}</span><span class="tab-badge-register ${badgeClass}">+등록</span>`;
+                    tabBtn.classList.add('tab-pill-split');
+                    const bgClass = currentSessionType === 'special' ? 'bg-special' : 'bg-regular';
+                    tabBtn.innerHTML = `<span class="tab-split-label">${g.label}</span><span class="tab-split-action ${bgClass}">등록</span>`;
+                } else {
+                    tabBtn.innerHTML = `<i class="fa-solid ${g.icon}"></i> <span>${formattedLabel}</span>`;
                 }
-                tabBtn.innerHTML = `<i class="fa-solid ${g.icon}"></i> ${tabLabelHtml}`;
                 fellowTabsContainer.appendChild(tabBtn);
             });
 
