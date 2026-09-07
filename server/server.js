@@ -2328,6 +2328,19 @@ app.delete('/api/admin/revoke/:name', async (req, res) => {
 // 대집회(Special Gathering) 전용 API Routes
 // ==========================================
 
+// Helper: Ensure DATE columns are converted to 'YYYY-MM-DD' strings without timezone offset shifts
+function formatDateYMD(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val.substring(0, 10);
+    if (val instanceof Date) {
+        // Date objects from driver are in UTC representation (e.g. 2026-09-06T15:00:00.000Z for 2026-09-07 KST)
+        // Convert using Korean Standard Time (UTC+9)
+        const kstDate = new Date(val.getTime() + (9 * 60 * 60 * 1000));
+        return kstDate.toISOString().substring(0, 10);
+    }
+    return String(val).substring(0, 10);
+}
+
 // 1. 현재 활성화된 대집회 정보 조회 (구역 출석체크 화면 연동)
 // - 관리자가 is_active = TRUE 로 설정한 집회 중
 // - 종료일(end_date) + 14일까지만 구역 탭에 노출 및 수정 가능하며, 14일 경과 시 자동으로 숨김 처리
@@ -2349,12 +2362,15 @@ app.get('/api/special-gatherings/active', async (req, res) => {
                 selectedDates = [];
             }
 
+            const startDateStr = formatDateYMD(gathering.start_date);
+            const endDateStr = formatDateYMD(gathering.end_date);
+
             // 종료일 기준 + 14일 만료 체크
             // (종료일이 2026-09-13이면 2026-09-27까지 수정 가능, 28일부터 자동 비노출)
             let isExpired = false;
-            if (gathering.end_date) {
-                const endDateObj = new Date(gathering.end_date);
-                const expireDate = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 14, 23, 59, 59);
+            if (endDateStr) {
+                const [ey, em, ed] = endDateStr.split('-').map(Number);
+                const expireDate = new Date(ey, em - 1, ed + 14, 23, 59, 59);
                 const now = new Date();
                 if (now > expireDate) {
                     isExpired = true;
@@ -2373,8 +2389,8 @@ app.get('/api/special-gatherings/active', async (req, res) => {
                     id: gathering.id,
                     title: gathering.title,
                     instructor: gathering.instructor || '',
-                    start_date: gathering.start_date,
-                    end_date: gathering.end_date,
+                    start_date: startDateStr,
+                    end_date: endDateStr,
                     selected_dates: selectedDates,
                     is_active: !!gathering.is_active,
                     created_at: gathering.created_at
@@ -2407,8 +2423,8 @@ app.get('/api/special-gatherings', async (req, res) => {
                 id: r.id,
                 title: r.title,
                 instructor: r.instructor || '',
-                start_date: r.start_date,
-                end_date: r.end_date,
+                start_date: formatDateYMD(r.start_date),
+                end_date: formatDateYMD(r.end_date),
                 selected_dates: sDates,
                 is_active: !!r.is_active,
                 created_at: r.created_at,
@@ -2656,6 +2672,7 @@ app.get('/api/special-gatherings/:id/roster', async (req, res) => {
             guide_name: snc.guide_name,
             AREA_CODE: snc.area_code,
             PHONE: snc.phone,
+            location: snc.location || '창원',
             memo: snc.memo,
             member_type: 'SPECIAL_NEWCOMER',
             is_newcomer: true,
@@ -2683,8 +2700,8 @@ app.get('/api/special-gatherings/:id/roster', async (req, res) => {
             gathering: {
                 id: gathering.id,
                 title: gathering.title,
-                start_date: gathering.start_date,
-                end_date: gathering.end_date,
+                start_date: formatDateYMD(gathering.start_date),
+                end_date: formatDateYMD(gathering.end_date),
                 selected_dates: selectedDates,
                 is_active: !!gathering.is_active
             },
@@ -2803,7 +2820,64 @@ app.post('/api/special-gatherings/:id/newcomers', async (req, res) => {
     }
 });
 
-// 9. 구역용: 대집회 전용 새참자 삭제 (독립)
+// 9. 구역용/관리자용: 대집회 전용 새참자 정보 수정
+app.put('/api/special-gatherings/:id/newcomers/:newcomerId', async (req, res) => {
+    const { id, newcomerId } = req.params;
+    const { name, guide_name, phone, location, memo, area_code } = req.body;
+
+    if (!name || !name.trim()) {
+        return res.status(400).json({ success: false, error: '이름을 입력해주세요.' });
+    }
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const updates = [];
+        const params = [];
+
+        updates.push('name = ?');
+        params.push(name.trim());
+
+        if (guide_name !== undefined) {
+            updates.push('guide_name = ?');
+            params.push(guide_name || null);
+        }
+        if (phone !== undefined) {
+            updates.push('phone = ?');
+            params.push(phone || null);
+        }
+        if (location !== undefined) {
+            updates.push('location = ?');
+            params.push(location || null);
+        }
+        if (memo !== undefined) {
+            updates.push('memo = ?');
+            params.push(memo || null);
+        }
+        if (area_code !== undefined) {
+            updates.push('area_code = ?');
+            params.push(area_code);
+        }
+
+        params.push(newcomerId);
+        params.push(id);
+
+        await conn.query(`
+            UPDATE faithon_special_newcomers 
+            SET ${updates.join(', ')} 
+            WHERE id = ? AND gathering_id = ?
+        `, params);
+
+        res.json({ success: true, message: '대집회 새참자 정보가 수정되었습니다.' });
+    } catch (err) {
+        console.error("PUT /api/special-gatherings/:id/newcomers/:newcomerId error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 10. 구역용: 대집회 전용 새참자 삭제 (독립)
 app.delete('/api/special-gatherings/:id/newcomers/:newcomerId', async (req, res) => {
     const { id, newcomerId } = req.params;
     let conn;
@@ -2993,8 +3067,8 @@ app.get('/api/special-gatherings/:id/stats', async (req, res) => {
                 id: gathering.id,
                 title: gathering.title,
                 instructor: gathering.instructor || '',
-                start_date: gathering.start_date,
-                end_date: gathering.end_date,
+                start_date: formatDateYMD(gathering.start_date),
+                end_date: formatDateYMD(gathering.end_date),
                 selected_dates: selectedDates,
                 is_active: !!gathering.is_active
             },
@@ -3099,6 +3173,8 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
                     phone: r.phone || '',
                     location: loc,
                     newcomer_type: r.newcomer_type,
+                    is_special_newcomer: r.member_code.startsWith('SNC_'),
+                    special_newcomer_id: r.member_code.startsWith('SNC_') ? parseInt(r.member_code.replace('SNC_', ''), 10) : null,
                     attendance: {},
                     total_attended: 0
                 };
@@ -3130,8 +3206,8 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
                 id: gathering.id,
                 title: gathering.title,
                 instructor: gathering.instructor || '',
-                start_date: gathering.start_date,
-                end_date: gathering.end_date,
+                start_date: formatDateYMD(gathering.start_date),
+                end_date: formatDateYMD(gathering.end_date),
                 selected_dates: selectedDates
             },
             total_attendees: list.length,
