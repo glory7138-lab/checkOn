@@ -428,22 +428,22 @@
         /* Stats Tab Nav */
         .stats-tab-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             background: #f1f5f9;
-            padding: 5px;
+            padding: 4px;
             border-radius: 12px;
             margin-bottom: 1rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .stats-tab-btn {
-            flex: 1;
-            min-width: 180px;
-            padding: 0.65rem 1rem;
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0.65rem 0.6rem;
             border-radius: 9px;
             border: none;
             background: transparent;
-            font-size: 0.92rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #64748b;
             cursor: pointer;
@@ -452,6 +452,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
+            white-space: nowrap;
         }
 
         .stats-tab-btn.active {
@@ -556,12 +557,12 @@
             background: #e8d009;
         }
 
-        /* Paper Scroll Wrapper for responsive container alignment */
-        .report-paper-scroll-wrapper {
+        /* Table Scroll Wrapper for responsive container alignment */
+        .report-table-scroll-wrapper {
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            margin-top: 0.75rem;
+            margin-top: 0.5rem;
             box-sizing: border-box;
         }
 
@@ -703,6 +704,27 @@
                 font-size: 1.15rem;
             }
 
+            /* Simplified Tab Buttons on Mobile */
+            .stats-tab-group {
+                gap: 5px;
+                padding: 4px;
+                flex-wrap: nowrap !important;
+                margin-bottom: 0.75rem;
+            }
+            .stats-tab-btn {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+                padding: 0.55rem 0.35rem !important;
+                font-size: 0.82rem !important;
+                text-align: center;
+                justify-content: center;
+                white-space: nowrap !important;
+                gap: 4px !important;
+            }
+            .stats-tab-btn i {
+                font-size: 0.85rem !important;
+            }
+
             /* Responsive Control Bar & Action Buttons */
             .nc-report-ctrl-bar {
                 padding: 0.6rem 0.75rem;
@@ -714,7 +736,7 @@
             }
             .nc-report-filter-select {
                 flex: 1;
-                max-width: 200px;
+                max-width: 180px;
             }
             .report-action-buttons {
                 width: 100%;
@@ -731,124 +753,229 @@
                 font-size: 0.95rem !important;
             }
 
-            /* Report Paper & Mobile Scrollable Wrapper */
-            .report-paper-scroll-wrapper {
-                margin-top: 0.5rem;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
-                background: #ffffff;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            /* Report Paper Card (Fits 100% within mobile viewport, perfectly centered) */
+            .report-paper {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                padding: 1.1rem 0.65rem !important;
+                margin-top: 0.5rem !important;
+                border-radius: 12px !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+                overflow: hidden !important;
             }
+            .report-header-title {
+                font-size: 1.25rem !important;
+                letter-spacing: 1.5px !important;
+                margin-bottom: 0.35rem !important;
+                text-align: center !important;
+                line-height: 1.35 !important;
+                word-break: keep-all !important;
+            }
+            .report-meta-row {
+                justify-content: center !important;
+                text-align: center !important;
+                font-size: 0.8rem !important;
+                margin-bottom: 0.6rem !important;
+                color: #475569 !important;
+                word-break: keep-all !important;
+            }
+
+            /* Scroll Guide Badge */
             .mobile-scroll-badge {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                gap: 6px;
-                font-size: 0.76rem;
+                gap: 5px;
+                font-size: 0.74rem;
                 font-weight: 700;
                 color: #2563eb;
                 background: #eff6ff;
-                padding: 0.4rem 0.75rem;
-                border-radius: 8px;
+                padding: 0.35rem 0.6rem;
+                border-radius: 6px;
                 margin-bottom: 0.5rem;
                 border: 1px dashed #bfdbfe;
-            }
-            .report-paper {
-                padding: 1rem 0.5rem;
-                min-width: 680px; /* Ensure table columns have room to scroll smoothly */
-            }
-            .report-header-title {
-                font-size: 1.25rem;
-                margin-bottom: 0.75rem;
+                text-align: center;
+                line-height: 1.3;
             }
 
-            /* Sticky Columns 1 to 5 up to 대상자 */
-            .report-table th:nth-child(1),
-            .report-table td:nth-child(1) {
-                position: sticky;
-                left: 0;
-                z-index: 3;
-                background-color: #ffffff;
-                min-width: 34px;
-                max-width: 34px;
-                width: 34px;
+            /* Table Horizontal Scroll Container */
+            .report-table-scroll-wrapper {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                position: relative;
             }
 
-            .report-table th:nth-child(2),
-            .report-table td:nth-child(2) {
-                position: sticky;
-                left: 34px;
-                z-index: 3;
-                background-color: #ffffff;
-                min-width: 48px;
-                max-width: 48px;
-                width: 48px;
+            .report-table {
+                table-layout: fixed !important;
+                border-collapse: separate !important;
+                border-spacing: 0 !important;
+                width: max-content !important;
             }
 
-            .report-table th:nth-child(3),
-            .report-table td:nth-child(3) {
-                position: sticky;
-                left: 82px;
-                z-index: 3;
-                background-color: #ffffff;
-                min-width: 42px;
-                max-width: 42px;
-                width: 42px;
+            /* Hide pencil edit icon button on mobile to prevent text wrapping */
+            .btn-sp-nc-edit {
+                display: none !important;
             }
 
-            .report-table th:nth-child(4),
-            .report-table td:nth-child(4) {
-                position: sticky;
-                left: 124px;
-                z-index: 3;
-                background-color: #ffffff;
-                min-width: 58px;
-                max-width: 58px;
-                width: 58px;
+            /* Column 1: 번호 (32px, left: 0) */
+            .col-num {
+                width: 32px !important;
+                min-width: 32px !important;
+                max-width: 32px !important;
+                position: sticky !important;
+                left: 0px !important;
+                z-index: 10 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                text-align: center !important;
+                padding: 6px 1px !important;
+                font-size: 0.78rem !important;
+                white-space: nowrap !important;
             }
 
-            .report-table th:nth-child(5),
-            .report-table td:nth-child(5) {
-                position: sticky;
-                left: 182px;
-                z-index: 3;
-                background-color: #ffffff;
-                min-width: 76px;
-                max-width: 76px;
-                width: 76px;
+            /* Column 2: 구역 (44px, left: 32px) */
+            .col-area {
+                width: 44px !important;
+                min-width: 44px !important;
+                max-width: 44px !important;
+                position: sticky !important;
+                left: 32px !important;
+                z-index: 10 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                text-align: center !important;
+                padding: 6px 2px !important;
+                font-size: 0.76rem !important;
+                letter-spacing: -0.5px !important;
+                white-space: nowrap !important;
+            }
+
+            /* Column 3: 제외 (36px, left: 76px) */
+            .col-exclude {
+                width: 36px !important;
+                min-width: 36px !important;
+                max-width: 36px !important;
+                position: sticky !important;
+                left: 76px !important;
+                z-index: 10 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                text-align: center !important;
+                padding: 4px 1px !important;
+            }
+
+            /* Column 4: 인도자 (52px, left: 112px) */
+            .col-guide {
+                width: 52px !important;
+                min-width: 52px !important;
+                max-width: 52px !important;
+                position: sticky !important;
+                left: 112px !important;
+                z-index: 10 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                text-align: center !important;
+                padding: 6px 2px !important;
+                font-size: 0.82rem !important;
+                white-space: nowrap !important;
+            }
+
+            /* Column 5: 대상자 (60px, left: 164px) */
+            .col-name {
+                width: 60px !important;
+                min-width: 60px !important;
+                max-width: 60px !important;
+                position: sticky !important;
+                left: 164px !important;
+                z-index: 10 !important;
+                background-color: #ffffff !important;
+                box-sizing: border-box !important;
+                text-align: center !important;
+                padding: 6px 2px !important;
+                font-size: 0.84rem !important;
+                font-weight: 800 !important;
+                white-space: nowrap !important;
                 border-right: 2.5px solid #2563eb !important;
-                box-shadow: 4px 0 8px rgba(0, 0, 0, 0.08);
+                box-shadow: 4px 0 8px rgba(0, 0, 0, 0.12) !important;
             }
 
-            /* Sticky th headers have beige background */
-            .report-table th:nth-child(1),
-            .report-table th:nth-child(2),
-            .report-table th:nth-child(3),
-            .report-table th:nth-child(4),
-            .report-table th:nth-child(5) {
-                z-index: 5;
+            /* Header cells (th) have solid beige background & highest z-index */
+            thead th.col-num,
+            thead th.col-area,
+            thead th.col-exclude,
+            thead th.col-guide,
+            thead th.col-name {
+                z-index: 25 !important;
                 background-color: #f2f5e8 !important;
+                font-size: 0.78rem !important;
+                padding: 7px 2px !important;
             }
 
-            /* Sticky Footer Title Cell */
+            /* Footer Sticky Title Cell (32 + 44 + 36 + 52 + 60 = 224px) */
             #ncReportFootTitleCell {
-                position: sticky;
-                left: 0;
-                z-index: 4;
+                width: 224px !important;
+                min-width: 224px !important;
+                max-width: 224px !important;
+                position: sticky !important;
+                left: 0px !important;
+                z-index: 20 !important;
                 background-color: #f2f5e8 !important;
-                min-width: 258px;
-                max-width: 258px;
                 border-right: 2.5px solid #2563eb !important;
-                box-shadow: 4px 0 8px rgba(0, 0, 0, 0.08);
+                box-shadow: 4px 0 8px rgba(0, 0, 0, 0.12) !important;
+                text-align: center !important;
+                letter-spacing: 3px !important;
+                font-weight: 800 !important;
+                font-size: 0.95rem !important;
+                box-sizing: border-box !important;
             }
 
-            /* Sticky cells background for excluded rows */
-            .report-table tr.row-excluded td:nth-child(1),
-            .report-table tr.row-excluded td:nth-child(2),
-            .report-table tr.row-excluded td:nth-child(3),
-            .report-table tr.row-excluded td:nth-child(4),
-            .report-table tr.row-excluded td:nth-child(5) {
-                background-color: #f8fafc;
+            /* Excluded row sticky cells background */
+            tr.row-excluded td.col-num,
+            tr.row-excluded td.col-area,
+            tr.row-excluded td.col-exclude,
+            tr.row-excluded td.col-guide,
+            tr.row-excluded td.col-name {
+                background-color: #f8fafc !important;
+            }
+
+            /* Compact toggle button */
+            .btn-exclude-toggle {
+                padding: 2px 4px !important;
+                font-size: 0.7rem !important;
+                border-radius: 4px !important;
+                min-width: 24px !important;
+            }
+
+            /* Non-sticky scrollable columns */
+            .col-relation {
+                width: 65px !important;
+                min-width: 65px !important;
+                box-sizing: border-box !important;
+                font-size: 0.78rem !important;
+                position: relative;
+                z-index: 1 !important;
+            }
+            .col-location {
+                width: 48px !important;
+                min-width: 48px !important;
+                box-sizing: border-box !important;
+                font-size: 0.78rem !important;
+                position: relative;
+                z-index: 1 !important;
+            }
+            .col-date {
+                width: 48px !important;
+                min-width: 48px !important;
+                box-sizing: border-box !important;
+                font-size: 0.8rem !important;
+                position: relative;
+                z-index: 1 !important;
             }
         }
     </style>
@@ -1040,10 +1167,10 @@
                     <!-- 통계 서브 탭 그룹 -->
                     <div class="stats-tab-group">
                         <button type="button" class="stats-tab-btn active" id="tabBtnStatsAll" onclick="switchStatsTab('all')">
-                            <i class="fa-solid fa-chart-pie"></i> 탭 1: 구역별 성도 (종합 대시보드)
+                            <i class="fa-solid fa-chart-pie"></i> 성도 종합 통계
                         </button>
                         <button type="button" class="stats-tab-btn" id="tabBtnStatsNewcomer" onclick="switchStatsTab('newcomer')">
-                            <i class="fa-solid fa-file-invoice"></i> 탭 2: 전도집회 새참자 참석현황 (창원교회 전체)
+                            <i class="fa-solid fa-file-invoice"></i> 새참자 참석현황
                         </button>
                     </div>
 
@@ -1115,23 +1242,24 @@
                             </div>
                         </div>
 
-                        <!-- 모바일 안내 뱃지 -->
-                        <div class="mobile-scroll-badge">
-                            <i class="fa-solid fa-arrows-left-right"></i> 대상자 우측으로 가로 스크롤하여 일자별 출석을 확인하세요
-                        </div>
-
                         <!-- 캡처 대상 보고서 본문 (A4 / 공문 양식 디자인) -->
-                        <div class="report-paper-scroll-wrapper">
-                            <div class="report-paper" id="newcomerReportPaper">
-                                <div class="report-header-title" id="reportHeaderTitle">
-                                    대전도집회 참석현황
+                        <div class="report-paper" id="newcomerReportPaper">
+                            <div class="report-header-title" id="reportHeaderTitle">
+                                대전도집회 참석현황
+                            </div>
+                            <div class="report-meta-row">
+                                <div>
+                                    강사: <span id="reportSpeakerDisplay">신용철 목사</span> (<span id="reportPeriodDisplay">2026.09.07~2026.09.13</span>)
                                 </div>
-                                <div class="report-meta-row">
-                                    <div>
-                                        강사: <span id="reportSpeakerDisplay">신용철 목사</span> (<span id="reportPeriodDisplay">2026.09.07~2026.09.13</span>)
-                                    </div>
-                                </div>
+                            </div>
 
+                            <!-- 모바일 안내 뱃지 -->
+                            <div class="mobile-scroll-badge">
+                                <i class="fa-solid fa-arrows-left-right"></i> 대상자 우측으로 가로 스크롤하여 일자별 출석을 확인하세요
+                            </div>
+
+                            <!-- 표 가로 스크롤 컨테이너 -->
+                            <div class="report-table-scroll-wrapper">
                                 <table class="report-table" id="newcomerReportTable">
                                     <thead id="ncReportTableHead">
                                         <!-- JS Render Head -->
@@ -1902,12 +2030,16 @@
             const { gathering, list, daily_counts } = data;
 
             // Title & Meta formatting
-            let titleText = '대전도집회 참석현황';
+            let gTitle = (gathering && gathering.title) ? gathering.title.trim() : '대전도집회';
+            let reportTitle = gTitle;
+            if (!reportTitle.includes('참석현황')) {
+                reportTitle = `${reportTitle} 참석현황`;
+            }
             if (areaFilter && areaFilter !== 'all') {
-                titleText = `${areaFilter}구역 대전도집회 참석현황`;
+                reportTitle = `${areaFilter}구역 ${reportTitle}`;
             }
             const titleEl = document.getElementById('reportHeaderTitle');
-            if (titleEl) titleEl.textContent = titleText;
+            if (titleEl) titleEl.textContent = reportTitle;
 
             const scopeEl = document.getElementById('reportTargetScopeDisplay');
             if (scopeEl) scopeEl.textContent = areaFilter === 'all' ? '창원교회 전체' : `${areaFilter}구역`;
@@ -1929,19 +2061,19 @@
             const thead = document.getElementById('ncReportTableHead');
             let headerHtml = `
                 <tr>
-                    <th style="width: 48px;">번호</th>
-                    <th style="width: 60px;">구역</th>
-                    <th class="report-col-exclude" style="width: 52px; color: #dc2626; font-size: 0.82rem;">제외</th>
-                    <th style="width: 80px;">인도자</th>
-                    <th style="width: 85px;">대상자</th>
-                    <th style="width: 80px;">관계</th>
-                    <th style="width: 70px;">지역</th>
+                    <th class="col-num">번호</th>
+                    <th class="col-area">구역</th>
+                    <th class="col-exclude report-col-exclude" style="color: #dc2626; font-size: 0.78rem;">제외</th>
+                    <th class="col-guide">인도자</th>
+                    <th class="col-name">대상자</th>
+                    <th class="col-relation">관계</th>
+                    <th class="col-location">지역</th>
             `;
             dates.forEach(d => {
                 const dObj = new Date(d + 'T00:00:00');
                 const dayOfWeek = ['일','월','화','수','목','금','토'][dObj.getDay()];
                 const dayNum = d.split('-')[2];
-                headerHtml += `<th style="width: 60px;">${dayOfWeek}(${parseInt(dayNum, 10)})</th>`;
+                headerHtml += `<th class="col-date">${dayOfWeek}(${parseInt(dayNum, 10)})</th>`;
             });
             headerHtml += `</tr>`;
             thead.innerHTML = headerHtml;
@@ -1971,31 +2103,31 @@
 
                     const excludeBtnHtml = `
                         <button type="button" class="btn-exclude-toggle ${isEx ? 'is-active-excluded' : ''}" onclick="toggleAttendeeExclusion('${item.member_code}', ${!isEx})" title="${isEx ? '출력 포함으로 변경' : '출력 제외로 변경'}">
-                            ${isEx ? '<i class="fa-solid fa-ban"></i> 제외' : '포함'}
+                            ${isEx ? '<i class="fa-solid fa-ban"></i>' : '<i class="fa-solid fa-check" style="color: #16a34a;"></i>'}
                         </button>
                     `;
 
                     let rowHtml = `
-                        <td style="font-weight: 600;">${idx + 1}</td>
-                        <td style="font-weight: 600; color: #1e40af;">${areaDisplay}</td>
-                        <td class="report-col-exclude" style="text-align: center;">${excludeBtnHtml}</td>
-                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer; font-weight: 600;">
+                        <td class="col-num" style="font-weight: 600;">${idx + 1}</td>
+                        <td class="col-area" style="font-weight: 600; color: #1e40af;">${areaDisplay}</td>
+                        <td class="col-exclude report-col-exclude" style="text-align: center;">${excludeBtnHtml}</td>
+                        <td class="col-guide editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer; font-weight: 600;">
                             <span>${item.guide_name || ''}</span>
                         </td>
-                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                        <td class="col-name editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
                             <span style="font-weight: 800; ${isEx ? 'text-decoration: line-through; color: #94a3b8;' : ''}">${item.name || ''}</span>
-                            <button type="button" class="btn-outline-blue btn-sp-nc-edit" title="정보 수정" style="padding: 1px 5px; font-size: 0.68rem; margin-left: 3px; border-radius: 4px; vertical-align: middle;"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="btn-outline-blue btn-sp-nc-edit" title="정보 수정" style="padding: 1px 3px; font-size: 0.6rem; margin-left: 2px; border-radius: 3px; vertical-align: middle;"><i class="fa-solid fa-pen"></i></button>
                         </td>
-                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                        <td class="col-relation editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
                             <span>${item.relation || ''}</span>
                         </td>
-                        <td class="editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
+                        <td class="col-location editable-cell" onclick="openAdminSpNcEditModal(${itemJson})" title="클릭하여 정보 수정" style="cursor: pointer;">
                             <span>${item.location || ''}</span>
                         </td>
                     `;
                     dates.forEach(d => {
                         const isAtt = item.attendance[d];
-                        rowHtml += `<td class="mark-o">${isAtt ? 'O' : ''}</td>`;
+                        rowHtml += `<td class="col-date mark-o">${isAtt ? 'O' : ''}</td>`;
                     });
                     tr.innerHTML = rowHtml;
                     tbody.appendChild(tr);
@@ -2006,15 +2138,15 @@
                     for (let i = list.length + 1; i <= 10; i++) {
                         const tr = document.createElement('tr');
                         let emptyHtml = `
-                            <td style="color: #9ca3af;">${i}</td>
-                            <td></td>
-                            <td class="report-col-exclude"></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td class="col-num" style="color: #9ca3af;">${i}</td>
+                            <td class="col-area"></td>
+                            <td class="col-exclude report-col-exclude"></td>
+                            <td class="col-guide"></td>
+                            <td class="col-name"></td>
+                            <td class="col-relation"></td>
+                            <td class="col-location"></td>
                         `;
-                        dates.forEach(() => { emptyHtml += `<td></td>`; });
+                        dates.forEach(() => { emptyHtml += `<td class="col-date"></td>`; });
                         tr.innerHTML = emptyHtml;
                         tbody.appendChild(tr);
                     }
@@ -2025,13 +2157,13 @@
             const tfoot = document.getElementById('ncReportTableFoot');
             let footHtml = `
                 <tr>
-                    <td id="ncReportFootTitleCell" colspan="5" style="font-weight: 800; font-size: 1.02rem; text-align: center; letter-spacing: 4px;">참석자 계</td>
-                    <td class="foot-pad-col"></td>
-                    <td class="foot-pad-col"></td>
+                    <td id="ncReportFootTitleCell" colspan="5">참석자 계</td>
+                    <td class="col-relation foot-pad-col"></td>
+                    <td class="col-location foot-pad-col"></td>
             `;
             dates.forEach(d => {
                 const count = daily_counts[d] || 0;
-                footHtml += `<td style="font-weight: 900; font-size: 1.05rem;">${count > 0 ? count : ''}</td>`;
+                footHtml += `<td class="col-date" style="font-weight: 900; font-size: 1.05rem;">${count > 0 ? count : ''}</td>`;
             });
             footHtml += `</tr>`;
             tfoot.innerHTML = footHtml;
@@ -2069,7 +2201,12 @@
             const sDate = (gathering.start_date || '').substring(0, 10).replace(/-/g, '.');
             const eDate = (gathering.end_date || '').substring(0, 10).replace(/-/g, '.');
 
-            let titleStr = area === 'all' ? '대전도집회 참석현황' : `${area}구역 대전도집회 참석현황`;
+            let gTitle = (gathering && gathering.title) ? gathering.title.trim() : '대전도집회';
+            let reportTitle = gTitle;
+            if (!reportTitle.includes('참석현황')) {
+                reportTitle = `${reportTitle} 참석현황`;
+            }
+            let titleStr = area === 'all' ? reportTitle : `${area}구역 ${reportTitle}`;
             let subTitleStr = `강사: ${speaker} (${sDate}~${eDate})`;
 
             const wsData = [];
@@ -2344,6 +2481,15 @@
                             clonedPaper.style.margin = '0 auto';
                             clonedPaper.style.background = '#ffffff';
 
+                            // Ensure table scroll wrapper expands without scrolling or borders in print/image
+                            const scrollWrap = clonedPaper.querySelector('.report-table-scroll-wrapper');
+                            if (scrollWrap) {
+                                scrollWrap.style.overflow = 'visible';
+                                scrollWrap.style.width = '100%';
+                                scrollWrap.style.border = 'none';
+                                scrollWrap.style.borderRadius = '0';
+                            }
+
                             // Ensure parent wrappers don't restrict width or cause clipping
                             let p = clonedPaper.parentElement;
                             while (p && p !== clonedDoc.body) {
@@ -2354,6 +2500,10 @@
                                 p = p.parentElement;
                             }
                         }
+
+                        // Remove mobile scroll guide badge
+                        const badgeEl = clonedDoc.querySelector('.mobile-scroll-badge');
+                        if (badgeEl) badgeEl.remove();
 
                         // 3. Force header title & meta styles
                         const titleEl = clonedDoc.getElementById('reportHeaderTitle');
@@ -2379,6 +2529,7 @@
                         const tableEl = clonedDoc.getElementById('newcomerReportTable');
                         if (tableEl) {
                             tableEl.style.width = '100%';
+                            tableEl.style.tableLayout = 'auto';
                             tableEl.style.borderCollapse = 'collapse';
                         }
 
