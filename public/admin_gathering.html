@@ -460,6 +460,30 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
+        /* KakaoTalk Share Button Styling */
+        .btn-kakao-share {
+            background: #fee500;
+            color: #371d1e;
+            border: none;
+            border-left: 1px solid #e0c800;
+            font-size: 0.84rem;
+            padding: 0.5rem 0.75rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s ease;
+        }
+
+        .btn-kakao-share:hover {
+            background: #fada0a;
+        }
+
+        .btn-kakao-share:active {
+            background: #e8d009;
+        }
+
         /* Report Paper Sheet Styling for Tab 2 (Matches Sample Document) */
         .report-paper {
             background: #ffffff;
@@ -840,13 +864,27 @@
                                 </select>
                             </div>
                             
-                            <div style="display: flex; gap: 8px;">
-                                <button type="button" class="btn-primary-blue" style="background: #16a34a; font-size: 0.86rem; padding: 0.5rem 1rem;" onclick="exportNewcomerReportToExcel()">
-                                    <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드 (.xlsx)
-                                </button>
-                                <button type="button" class="btn-primary-blue" style="background: #ea580c; font-size: 0.86rem; padding: 0.5rem 1rem;" onclick="downloadNewcomerReportAsImage()">
-                                    <i class="fa-solid fa-file-image"></i> 이미지 저장 (.png)
-                                </button>
+                            <!-- 엑셀 / 이미지 다운로드 및 카톡 공유 버튼 그룹 -->
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <!-- 엑셀 그룹 -->
+                                <div style="display: inline-flex; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+                                    <button type="button" class="btn-primary-blue" style="background: #16a34a; border-radius: 0; font-size: 0.84rem; padding: 0.5rem 0.85rem;" onclick="exportNewcomerReportToExcel()" title="엑셀 파일 다운로드">
+                                        <i class="fa-solid fa-file-excel"></i> 엑셀 다운
+                                    </button>
+                                    <button type="button" class="btn-kakao-share" onclick="shareNewcomerReportExcel()" title="엑셀 파일 카카오톡으로 바로 공유">
+                                        <i class="fa-solid fa-comment"></i> 카톡 공유
+                                    </button>
+                                </div>
+
+                                <!-- 이미지 그룹 -->
+                                <div style="display: inline-flex; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+                                    <button type="button" class="btn-primary-blue" style="background: #ea580c; border-radius: 0; font-size: 0.84rem; padding: 0.5rem 0.85rem;" onclick="downloadNewcomerReportAsImage()" title="A4 고해상도 이미지로 저장">
+                                        <i class="fa-solid fa-file-image"></i> 이미지 저장
+                                    </button>
+                                    <button type="button" class="btn-kakao-share" onclick="shareNewcomerReportImage()" title="A4 보고서 이미지 카카오톡으로 바로 공유">
+                                        <i class="fa-solid fa-comment"></i> 카톡 공유
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1751,13 +1789,8 @@
             }
         }
 
-        // Export Tab 2 Newcomer Report to Excel (.xlsx with borders, colors & styling matching sample)
-        function exportNewcomerReportToExcel() {
-            if (!loadedNewcomerReportData) {
-                alert('다운로드할 새참자 데이터가 없습니다.');
-                return;
-            }
-
+        // Build Tab 2 Newcomer Report Excel Workbook
+        function buildNewcomerReportWorkbook() {
             const { gathering, list, daily_counts } = loadedNewcomerReportData;
             // Only export NON-EXCLUDED members
             const exportList = (list || []).filter(item => !item.is_excluded);
@@ -1910,22 +1943,68 @@
 
             XLSX.utils.book_append_sheet(wb, ws, "새참자참석현황");
             const fileName = `${gathering.title}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.xlsx`;
+            return { wb, fileName, gathering, area };
+        }
+
+        // Export Tab 2 Newcomer Report to Excel (.xlsx file download)
+        function exportNewcomerReportToExcel() {
+            if (!loadedNewcomerReportData) {
+                alert('다운로드할 새참자 데이터가 없습니다.');
+                return;
+            }
+            const { wb, fileName } = buildNewcomerReportWorkbook();
             XLSX.writeFile(wb, fileName);
         }
 
-        // Download Tab 2 Paper as PNG Image (html2canvas with forced PC A4 desktop layout)
-        async function downloadNewcomerReportAsImage() {
-            const paperEl = document.getElementById('newcomerReportPaper');
-            if (!paperEl) return;
+        // Share Tab 2 Newcomer Report Excel via KakaoTalk
+        async function shareNewcomerReportExcel() {
+            if (!loadedNewcomerReportData) {
+                alert('공유할 새참자 데이터가 없습니다.');
+                return;
+            }
 
             try {
-                const area = document.getElementById('ncReportAreaFilter').value || 'all';
-                const gTitle = (loadedNewcomerReportData && loadedNewcomerReportData.gathering) ? loadedNewcomerReportData.gathering.title : '대집회';
-                
-                // Add capture class to hide edit pencil buttons and exclude column
-                paperEl.classList.add('is-capturing');
+                const { wb, fileName, gathering, area } = buildNewcomerReportWorkbook();
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                const blob = new Blob([wbout], { type: mimeType });
+                const file = new File([blob], fileName, { type: mimeType });
 
-                // High-res canvas render with desktop fixed width emulation
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: `${gathering.title} 새참자 참석현황`,
+                            text: `[${gathering.title}] 새참자 참석현황 (${area === 'all' ? '창원교회 전체' : area + '구역'}) 엑셀 서식 파일입니다.`
+                        });
+                        return;
+                    } catch (shareErr) {
+                        if (shareErr.name === 'AbortError') return; // 사용자가 공유창 취소
+                        console.warn("navigator.share failed, fallback to download:", shareErr);
+                    }
+                }
+
+                // Fallback (PC 브라우저 등)
+                XLSX.writeFile(wb, fileName);
+                alert("엑셀 파일이 다운로드되었습니다!\n카카오톡 대화방에 해당 파일을 드래그하거나 [파일 첨부]로 전송해주세요.");
+            } catch (err) {
+                console.error("shareNewcomerReportExcel error:", err);
+                alert(`엑셀 카톡 공유 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        // Render High-Res Desktop A4 Paper Canvas for Tab 2
+        async function renderNewcomerReportCanvas() {
+            const paperEl = document.getElementById('newcomerReportPaper');
+            if (!paperEl) throw new Error('보고서 용지를 찾을 수 없습니다.');
+
+            const area = document.getElementById('ncReportAreaFilter').value || 'all';
+            const gTitle = (loadedNewcomerReportData && loadedNewcomerReportData.gathering) ? loadedNewcomerReportData.gathering.title : '대집회';
+            
+            // Add capture class to hide edit pencil buttons and exclude column
+            paperEl.classList.add('is-capturing');
+
+            try {
                 const canvas = await html2canvas(paperEl, {
                     scale: 2, // High resolution
                     backgroundColor: '#ffffff',
@@ -2049,11 +2128,18 @@
                         });
                     }
                 });
-
+                return { canvas, gTitle, area };
+            } finally {
                 paperEl.classList.remove('is-capturing');
+            }
+        }
 
-                // Cross-device download handler (supports mobile blob & standard a.click)
+        // Download Tab 2 Paper as PNG Image (.png file download)
+        async function downloadNewcomerReportAsImage() {
+            try {
+                const { canvas, gTitle, area } = await renderNewcomerReportCanvas();
                 const fileName = `${gTitle}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.png`;
+
                 if (canvas.toBlob) {
                     canvas.toBlob((blob) => {
                         if (!blob) {
@@ -2079,9 +2165,52 @@
                     link.click();
                 }
             } catch (err) {
-                paperEl.classList.remove('is-capturing');
                 console.error("downloadNewcomerReportAsImage error:", err);
                 alert(`이미지 저장 중 오류가 발생했습니다: ${err.message}`);
+            }
+        }
+
+        // Share Tab 2 Paper Image via KakaoTalk
+        async function shareNewcomerReportImage() {
+            try {
+                const { canvas, gTitle, area } = await renderNewcomerReportCanvas();
+                const fileName = `${gTitle}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.png`;
+
+                canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        alert('이미지 생성에 실패했습니다.');
+                        return;
+                    }
+                    const file = new File([blob], fileName, { type: 'image/png' });
+
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                files: [file],
+                                title: `${gTitle} 새참자 참석현황`,
+                                text: `[${gTitle}] 새참자 참석현황 (${area === 'all' ? '창원교회 전체' : area + '구역'}) 보고서 이미지입니다.`
+                            });
+                            return;
+                        } catch (shareErr) {
+                            if (shareErr.name === 'AbortError') return;
+                            console.warn("navigator.share failed, fallback to download:", shareErr);
+                        }
+                    }
+
+                    // Fallback (PC 브라우저 등)
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = url;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    alert("이미지가 저장되었습니다!\n카카오톡 대화방에 해당 이미지를 드래그하거나 [사진 첨부]로 전송해주세요.");
+                }, 'image/png');
+            } catch (err) {
+                console.error("shareNewcomerReportImage error:", err);
+                alert(`이미지 카톡 공유 중 오류가 발생했습니다: ${err.message}`);
             }
         }
 
