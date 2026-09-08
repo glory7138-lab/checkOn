@@ -226,6 +226,74 @@
             border-color: var(--primary);
         }
 
+        /* Matrix Filter Tabs & Kakao Urge */
+        .matrix-filter-wrapper {
+            display: inline-flex;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 3px;
+            border-radius: 10px;
+            gap: 3px;
+        }
+
+        .matrix-tab-btn {
+            padding: 0.4rem 0.85rem;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .matrix-tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+        }
+
+        .matrix-tab-btn.pending {
+            color: #dc2626;
+        }
+        .matrix-tab-btn.pending.active {
+            background: #ffffff;
+            color: #dc2626;
+        }
+
+        .matrix-tab-btn.completed {
+            color: #16a34a;
+        }
+        .matrix-tab-btn.completed.active {
+            background: #ffffff;
+            color: #16a34a;
+        }
+
+        .btn-kakao-urge {
+            background: #fee500;
+            color: #371d1e;
+            border: 1px solid #fada0a;
+            border-radius: 6px;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: all 0.15s ease;
+        }
+
+        .btn-kakao-urge:hover {
+            background: #fdd800;
+            transform: translateY(-1px);
+        }
+
         .filter-select {
             padding: 0.5rem 0.9rem;
             border-radius: 8px;
@@ -652,10 +720,22 @@
 
             <!-- Matrix Table -->
             <div class="card-box">
-                <div class="card-header">
+                <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
                     <div class="card-title">
                         <i class="fa-solid fa-table"></i>
                         <span id="matrixTableTitle">조별 출석 현황표</span>
+                    </div>
+                    <!-- Filter Tabs: 전체보기 / 미체크 조만 / 완료 조만 -->
+                    <div class="matrix-filter-wrapper">
+                        <button type="button" class="matrix-tab-btn active" id="filterTabAll" onclick="setMatrixFilter('all')">
+                            전체보기 (<span id="matCntAll">0</span>)
+                        </button>
+                        <button type="button" class="matrix-tab-btn pending" id="filterTabPending" onclick="setMatrixFilter('pending')">
+                            <i class="fa-solid fa-clock"></i> 미체크 조만 (<span id="matCntPending">0</span>)
+                        </button>
+                        <button type="button" class="matrix-tab-btn completed" id="filterTabCompleted" onclick="setMatrixFilter('completed')">
+                            <i class="fa-solid fa-check"></i> 완료 조만 (<span id="matCntCompleted">0</span>)
+                        </button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -671,7 +751,7 @@
                                 <th>결석</th>
                                 <th>참석률</th>
                                 <th>체크상태</th>
-                                <th>상세보기</th>
+                                <th>독려 / 관리</th>
                             </tr>
                         </thead>
                         <tbody id="matrixTableBody">
@@ -801,61 +881,7 @@
                 </div>
             </div>
 
-            <!-- 4) 어머니회 관리자 권한 관리 -->
-            <div class="card-box">
-                <div class="card-header">
-                    <div class="card-title">
-                        <i class="fa-solid fa-user-shield"></i>
-                        <span>어머니회 관리자 권한 관리</span>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <form id="addAdminForm" onsubmit="handleAddMotherAdmin(event)">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label" for="newAdminName">관리자 성명</label>
-                                <input type="text" class="form-input" id="newAdminName" placeholder="예: 홍길동" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="newAdminPhone">휴대폰 번호 / 관리자 ID</label>
-                                <input type="text" class="form-input" id="newAdminPhone" placeholder="예: 01012345678" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="newAdminMemo">직책 / 메모 (선택)</label>
-                                <input type="text" class="form-input" id="newAdminMemo" placeholder="예: 어머니회 총무">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-primary-action">
-                            <i class="fa-solid fa-user-plus"></i> 관리자 권한 부여하기
-                        </button>
-                    </form>
 
-                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary); margin: 1.5rem 0 0.75rem 0;">
-                        현재 등록된 어머니회 관리자 목록
-                    </h4>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>성명</th>
-                                    <th>아이디/전화번호</th>
-                                    <th>직책/메모</th>
-                                    <th>등록일시</th>
-                                    <th>관리</th>
-                                </tr>
-                            </thead>
-                            <tbody id="motherAdminsTableBody">
-                                <tr>
-                                    <td colspan="5">관리자 목록을 불러오는 중...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted);">
-                        * 등록된 관리자는 어머니회 로그인 시 관리자 권한으로 접속되며 초기 비밀번호는 <code>069100</code>입니다. (첫 로그인 시 비밀번호 변경 필수)
-                    </div>
-                </div>
-            </div>
 
             <!-- 5) 어머니회 출석부 바로가기 -->
             <div class="card-box">
@@ -906,6 +932,7 @@
             alert('관리자 권한이 필요합니다. 관리자 계정으로 로그인해주세요.');
             window.location.href = '/login.html';
         }
+        localStorage.setItem('faithon_login_mode', 'mother');
 
         document.getElementById('adminUserBadge').textContent = `${currentUser.name || '관리자'}`;
 
@@ -1104,6 +1131,14 @@
                     document.getElementById('matAttendMembers').textContent = `${ov.attend_all || 0}명`;
                     document.getElementById('matOverallRate').textContent = `${ov.overall_rate || 0}%`;
 
+                    // 필터 뱃지 숫자 갱신
+                    const totalCnt = currentMatrixList.length;
+                    const pendingCnt = currentMatrixList.filter(r => !r.is_checked).length;
+                    const completedCnt = currentMatrixList.filter(r => r.is_checked).length;
+                    document.getElementById('matCntAll').textContent = totalCnt;
+                    document.getElementById('matCntPending').textContent = pendingCnt;
+                    document.getElementById('matCntCompleted').textContent = completedCnt;
+
                     renderMatrixTable();
                 } else {
                     tbody.innerHTML = `<tr><td colspan="10">${data.error || '조회 실패'}</td></tr>`;
@@ -1114,37 +1149,109 @@
             }
         }
 
+        let currentMatrixFilter = 'all'; // 'all' | 'pending' | 'completed'
+
+        function setMatrixFilter(filter) {
+            currentMatrixFilter = filter;
+            document.querySelectorAll('.matrix-tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (filter === 'all') document.getElementById('filterTabAll').classList.add('active');
+            else if (filter === 'pending') document.getElementById('filterTabPending').classList.add('active');
+            else if (filter === 'completed') document.getElementById('filterTabCompleted').classList.add('active');
+            renderMatrixTable();
+        }
+
         function renderMatrixTable() {
             const tbody = document.getElementById('matrixTableBody');
-            if (currentMatrixList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="padding: 1.5rem;">집계된 조가 없습니다.</td></tr>`;
+            let list = currentMatrixList;
+            if (currentMatrixFilter === 'pending') {
+                list = list.filter(r => !r.is_checked);
+            } else if (currentMatrixFilter === 'completed') {
+                list = list.filter(r => r.is_checked);
+            }
+
+            if (list.length === 0) {
+                const emptyMsg = currentMatrixFilter === 'pending'
+                    ? '🎉 모든 조의 출석체크가 완료되었습니다!'
+                    : (currentMatrixFilter === 'completed' ? '체크 완료된 조가 아직 없습니다.' : '집계된 조가 없습니다.');
+                tbody.innerHTML = `<tr><td colspan="10" style="padding: 1.5rem; color: var(--text-muted); font-weight: 700;">${emptyMsg}</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = currentMatrixList.map(r => {
+            const mType = document.getElementById('matrixMeetingTypeSelect').value;
+            const mDate = document.getElementById('matrixDateSelect').value;
+
+            tbody.innerHTML = list.map(r => {
                 const statusBadge = r.is_checked
                     ? `<span class="badge-status checked"><i class="fa-solid fa-check"></i> 완료</span>`
                     : `<span class="badge-status unchecked"><i class="fa-solid fa-clock"></i> 미체크</span>`;
 
+                // 조장 우선, 없으면 조총무, 없으면 서기
+                const urgeTargetName = r.leader_name || r.manager_name || r.clerk_name || '임원';
+                const urgeTargetDuty = r.leader_name ? '조장' : (r.manager_name ? '조총무' : '서기');
+                const urgeTargetPhone = r.leader_phone || r.manager_phone || r.clerk_phone || '';
+
+                const kakaoBtn = !r.is_checked
+                    ? `<button type="button" class="btn-kakao-urge" onclick="sendMotherKakaoUrge('${r.jo_code}', '${urgeTargetName}', '${urgeTargetDuty}', '${mType}', '${mDate}')" title="카톡 독려 (${urgeTargetName})">
+                           <i class="fa-solid fa-comment"></i> 독려
+                       </button>`
+                    : '';
+
                 return `
                     <tr>
                         <td style="font-weight: 800; color: var(--primary-dark);">${r.jo_code}</td>
-                        <td>${r.leader_name}</td>
-                        <td>${r.manager_name}</td>
-                        <td>${r.clerk_name}</td>
+                        <td>${r.leader_name || '-'}</td>
+                        <td>${r.manager_name || '-'}</td>
+                        <td>${r.clerk_name || '-'}</td>
                         <td>${r.total_cnt}명</td>
                         <td style="color: var(--primary); font-weight: 800;">${r.attend_cnt}명</td>
                         <td style="color: var(--text-muted);">${r.absent_cnt}명</td>
                         <td style="font-weight: 800;">${r.rate}%</td>
                         <td>${statusBadge}</td>
                         <td>
-                            <button type="button" class="btn-table-action" onclick="openJoDetail('${r.area_code}', '${r.jo_code}')">
-                                <i class="fa-solid fa-magnifying-glass"></i> 상세
-                            </button>
+                            <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: center;">
+                                ${kakaoBtn}
+                                <button type="button" class="btn-table-action" onclick="openJoDetail('${r.area_code}', '${r.jo_code}')">
+                                    <i class="fa-solid fa-magnifying-glass"></i> 상세
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        // 어머니회 미체크 조 카카오톡 독려 전송
+        async function sendMotherKakaoUrge(joCode, leaderName, duty, meetingType, meetingDate) {
+            const typeMap = { 'morning': '오전모임', 'jo': '조모임', 'monthly': '월례회' };
+            const typeKo = typeMap[meetingType] || '모임';
+            const dateKo = formatKoreanDate(meetingDate) || meetingDate;
+
+            const urgeMsg = `[FaithOn 어머니회 출석체크 독려]\n${joCode} ${duty} ${leaderName}님,\n${dateKo} 어머니회(${typeKo}) 출석체크 확인 및 완료 부탁드립니다.\n\n👉 어머니회 출석체크 바로가기: ${window.location.origin}/mother_attend.html`;
+
+            // 1. Web Share API (모바일 카카오톡 등 즉시 호출)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `[FaithOn] ${joCode} 어머니회 출석체크 독려`,
+                        text: urgeMsg
+                    });
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.log("Web Share API skipped, using clipboard fallback:", e);
+                    } else {
+                        return; // 취소한 경우
+                    }
+                }
+            }
+
+            // 2. Fallback: 클립보드 복사
+            try {
+                await navigator.clipboard.writeText(urgeMsg);
+                alert(`카카오톡 독려 문구가 클립보드에 복사되었습니다!\n\n카카오톡 대화방에 [붙여넣기]하여 ${leaderName}님께 전송해주세요.`);
+            } catch (err) {
+                prompt("아래 독려 문구를 복사하여 카카오톡으로 전송하세요:", urgeMsg);
+            }
         }
 
         // Export Matrix to Excel
@@ -1244,7 +1351,6 @@
             loadAllSchedulesTable();
             loadAllLeadersTable();
             loadMotherConfigAdmin();
-            loadMotherAdminsTable();
         }
 
         async function loadAllSchedulesTable() {
@@ -1398,90 +1504,9 @@
             }
         }
 
-        // 3-2. Mother Admins Management
-        async function loadMotherAdminsTable() {
-            const tbody = document.getElementById('motherAdminsTableBody');
-            if (!tbody) return;
-            try {
-                const res = await fetch('/api/mother/admin/admins');
-                const data = await res.json();
-
-                if (data.success && data.admins) {
-                    tbody.innerHTML = data.admins.map(a => {
-                        const isMainAdmin = (a.phone === 'rokmc775');
-                        const actionBtn = isMainAdmin
-                            ? `<span class="badge-status checked" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem;"><i class="fa-solid fa-shield"></i> 총괄관리자</span>`
-                            : `<button type="button" class="btn-header" style="color: var(--danger); border-color: #fecdd3; padding: 2px 8px; font-size: 0.75rem;" onclick="deleteMotherAdmin(${a.id}, '${a.name}')"><i class="fa-solid fa-trash"></i> 권한 회수</button>`;
-
-                        return `
-                            <tr>
-                                <td style="font-weight: 800; color: var(--primary);">${a.name}</td>
-                                <td style="font-weight: 700;">${a.phone}</td>
-                                <td>${a.memo || '-'}</td>
-                                <td style="color: var(--text-muted); font-size: 0.85rem;">${a.created_at || '-'}</td>
-                                <td>${actionBtn}</td>
-                            </tr>
-                        `;
-                    }).join('');
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="5">등록된 관리자가 없습니다.</td></tr>`;
-                }
-            } catch(e) {
-                tbody.innerHTML = `<tr><td colspan="5">관리자 목록 불러오기 실패</td></tr>`;
-            }
-        }
-
-        async function handleAddMotherAdmin(e) {
-            e.preventDefault();
-            const name = document.getElementById('newAdminName').value.trim();
-            const phone = document.getElementById('newAdminPhone').value.trim();
-            const memo = document.getElementById('newAdminMemo').value.trim();
-
-            if (!name || !phone) {
-                alert('이름과 휴대폰 번호(아이디)를 입력해주세요.');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/mother/admin/admins', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, phone, memo })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(`${name} 님께 어머니회 관리자 권한을 부여했습니다.\n(초기 비밀번호: 069100)`);
-                    document.getElementById('newAdminName').value = '';
-                    document.getElementById('newAdminPhone').value = '';
-                    document.getElementById('newAdminMemo').value = '';
-                    loadMotherAdminsTable();
-                } else {
-                    alert('등록 실패: ' + (data.error || '오류'));
-                }
-            } catch(e) {
-                alert('서버 연결 실패');
-            }
-        }
-
-        async function deleteMotherAdmin(id, name) {
-            if (!confirm(`${name} 님의 어머니회 관리자 권한을 회수(삭제)하시겠습니까?`)) return;
-
-            try {
-                const res = await fetch(`/api/mother/admin/admins/${id}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (data.success) {
-                    alert('관리자 권한이 성공적으로 회수되었습니다.');
-                    loadMotherAdminsTable();
-                } else {
-                    alert('삭제 실패: ' + (data.error || '오류'));
-                }
-            } catch(e) {
-                alert('서버 연결 실패');
-            }
-        }
-
         function logout() {
             if (confirm('관리자 로그아웃 하시겠습니까?')) {
+                localStorage.setItem('faithon_login_mode', 'mother');
                 localStorage.removeItem('faithon_user');
                 window.location.href = '/login.html';
             }

@@ -930,6 +930,7 @@
         if (!currentUser) {
             window.location.href = '/login.html';
         }
+        localStorage.setItem('faithon_login_mode', 'mother');
 
         // Setup user info
         const userAreaCode = (currentUser.area_code || '11').replace(/[^0-9]/g, '');
@@ -1393,6 +1394,7 @@
 
         function logout() {
             if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.setItem('faithon_login_mode', 'mother');
                 localStorage.removeItem('faithon_user');
                 window.location.href = '/login.html';
             }
