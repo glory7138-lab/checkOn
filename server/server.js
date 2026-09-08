@@ -3614,6 +3614,20 @@ app.post('/api/mother/attendance/toggle', async (req, res) => {
     if (!meeting_type || !meeting_date || !member_code) {
         return res.status(400).json({ success: false, error: '필수 파라미터가 누락되었습니다.' });
     }
+
+    // 도래하지 않은 미래 날짜 출석체크 방지 (한국시간 KST 기준)
+    const now = new Date();
+    const kstOffset = 9 * 60;
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const todayKST = new Date(utc + (kstOffset * 60000)).toISOString().substring(0, 10);
+
+    if (meeting_date > todayKST) {
+        return res.status(400).json({
+            success: false,
+            error: `모임 당일(${meeting_date})부터 출석체크가 가능합니다. 도래하지 않은 미래 일정은 체크할 수 없습니다.`
+        });
+    }
+
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -3637,6 +3651,20 @@ app.post('/api/mother/attendance/batch', async (req, res) => {
     if (!meeting_type || !meeting_date || !Array.isArray(items)) {
         return res.status(400).json({ success: false, error: '유효한 데이터 배열이 필요합니다.' });
     }
+
+    // 도래하지 않은 미래 날짜 출석체크 방지 (한국시간 KST 기준)
+    const now = new Date();
+    const kstOffset = 9 * 60;
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const todayKST = new Date(utc + (kstOffset * 60000)).toISOString().substring(0, 10);
+
+    if (meeting_date > todayKST) {
+        return res.status(400).json({
+            success: false,
+            error: `모임 당일(${meeting_date})부터 출석체크가 가능합니다. 도래하지 않은 미래 일정은 체크할 수 없습니다.`
+        });
+    }
+
     let conn;
     try {
         conn = await db.pool.getConnection();

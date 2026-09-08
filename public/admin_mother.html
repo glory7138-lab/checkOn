@@ -716,7 +716,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="newMeetingTitle">모임 명칭/메모 (선택)</label>
-                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 2차 오전모임">
+                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 모임">
                             </div>
                         </div>
                         <button type="submit" class="btn-primary-action">
@@ -958,6 +958,15 @@
         let matrixSchedules = [];
         let currentMatrixList = [];
 
+        function formatKoreanDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1;
+            const day = d.getDate();
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            return `${m}월 ${day}일(${dayNames[d.getDay()]})`;
+        }
+
         async function loadMatrixSchedules() {
             const mType = document.getElementById('matrixMeetingTypeSelect').value;
             try {
@@ -972,7 +981,7 @@
                     data.schedules.forEach(s => {
                         const opt = document.createElement('option');
                         opt.value = s.meeting_date;
-                        opt.textContent = `${s.meeting_date} (${s.title || '정기모임'})`;
+                        opt.textContent = `${formatKoreanDate(s.meeting_date)} (${s.meeting_date})`;
                         select.appendChild(opt);
                     });
                     loadMatrixData();
@@ -1167,7 +1176,7 @@
                     tbody.innerHTML = data.schedules.map(s => `
                         <tr>
                             <td style="font-weight: 800; color: var(--primary);">${typeMap[s.meeting_type] || s.meeting_type}</td>
-                            <td style="font-weight: 700;">${s.meeting_date}</td>
+                            <td style="font-weight: 700;">${formatKoreanDate(s.meeting_date)} <span style="font-size: 0.8rem; color: var(--text-muted);">(${s.meeting_date})</span></td>
                             <td>${s.title || '-'}</td>
                             <td>
                                 <button type="button" class="btn-header" style="color: var(--danger); border-color: #fecdd3; padding: 2px 8px; font-size: 0.75rem;" onclick="deleteSchedule(${s.id})">
