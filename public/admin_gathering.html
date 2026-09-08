@@ -1830,17 +1830,17 @@
                 { s: { r: totalRows - 1, c: 0 }, e: { r: totalRows - 1, c: 5 } }
             ];
 
-            // Column widths
+            // Column widths (Generous widths to prevent text truncation on mobile Excel viewers)
             ws['!cols'] = [
                 { wch: 8 },  // 번호
-                { wch: 10 }, // 구역
-                { wch: 11 }, // 인도자
-                { wch: 11 }, // 대상자
-                { wch: 10 }, // 관계
-                { wch: 9 },  // 지역
+                { wch: 11 }, // 구역
+                { wch: 12 }, // 인도자
+                { wch: 12 }, // 대상자
+                { wch: 16 }, // 관계
+                { wch: 10 }, // 지역
             ];
             dates.forEach(() => {
-                ws['!cols'].push({ wch: 9 });
+                ws['!cols'].push({ wch: 10 });
             });
 
             // Row heights
@@ -1913,7 +1913,7 @@
             XLSX.writeFile(wb, fileName);
         }
 
-        // Download Tab 2 Paper as PNG Image (html2canvas)
+        // Download Tab 2 Paper as PNG Image (html2canvas with forced PC A4 desktop layout)
         async function downloadNewcomerReportAsImage() {
             const paperEl = document.getElementById('newcomerReportPaper');
             if (!paperEl) return;
@@ -1925,22 +1925,81 @@
                 // Add capture class to hide edit pencil buttons and exclude column
                 paperEl.classList.add('is-capturing');
 
-                // High-res canvas render with onclone cleanup
+                // High-res canvas render with desktop fixed width emulation
                 const canvas = await html2canvas(paperEl, {
                     scale: 2, // High resolution
                     backgroundColor: '#ffffff',
                     useCORS: true,
                     logging: false,
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: 1200,
+                    windowHeight: Math.max(1600, paperEl.scrollHeight + 300),
                     onclone: (clonedDoc) => {
-                        // Completely remove all edit buttons and .report-col-exclude elements
+                        // 1. Force desktop viewport on cloned html/body
+                        clonedDoc.documentElement.style.width = '1200px';
+                        clonedDoc.body.style.width = '1200px';
+                        clonedDoc.body.style.minWidth = '1200px';
+                        clonedDoc.body.style.overflow = 'visible';
+
+                        // 2. Locate cloned paper and force fixed PC A4 dimensions
+                        const clonedPaper = clonedDoc.getElementById('newcomerReportPaper');
+                        if (clonedPaper) {
+                            clonedPaper.style.width = '1020px';
+                            clonedPaper.style.minWidth = '1020px';
+                            clonedPaper.style.maxWidth = '1020px';
+                            clonedPaper.style.boxSizing = 'border-box';
+                            clonedPaper.style.padding = '2.5rem 2rem';
+                            clonedPaper.style.margin = '0 auto';
+                            clonedPaper.style.background = '#ffffff';
+
+                            // Ensure parent wrappers don't restrict width or cause clipping
+                            let p = clonedPaper.parentElement;
+                            while (p && p !== clonedDoc.body) {
+                                p.style.width = '1200px';
+                                p.style.minWidth = '1200px';
+                                p.style.maxWidth = 'none';
+                                p.style.overflow = 'visible';
+                                p = p.parentElement;
+                            }
+                        }
+
+                        // 3. Force header title & meta styles
+                        const titleEl = clonedDoc.getElementById('reportHeaderTitle');
+                        if (titleEl) {
+                            titleEl.style.fontSize = '1.85rem';
+                            titleEl.style.fontWeight = '900';
+                            titleEl.style.letterSpacing = '4px';
+                            titleEl.style.marginBottom = '1.25rem';
+                            titleEl.style.textAlign = 'center';
+                        }
+
+                        const metaRow = clonedDoc.querySelector('.report-meta-row');
+                        if (metaRow) {
+                            metaRow.style.display = 'flex';
+                            metaRow.style.justifyContent = 'flex-end';
+                            metaRow.style.alignItems = 'center';
+                            metaRow.style.marginBottom = '0.5rem';
+                            metaRow.style.fontSize = '0.95rem';
+                            metaRow.style.fontWeight = '700';
+                        }
+
+                        // 4. Force table width & layout
+                        const tableEl = clonedDoc.getElementById('newcomerReportTable');
+                        if (tableEl) {
+                            tableEl.style.width = '100%';
+                            tableEl.style.borderCollapse = 'collapse';
+                        }
+
+                        // 5. Completely remove all edit buttons and .report-col-exclude elements
                         const editBtns = clonedDoc.querySelectorAll('.btn-sp-nc-edit, button, .fa-pen, .fa-pen-to-square, .report-col-exclude');
                         editBtns.forEach(el => el.remove());
 
-                        // Remove excluded rows entirely from output image
+                        // 6. Remove excluded rows entirely from output image
                         const excludedRows = clonedDoc.querySelectorAll('tr.row-excluded');
                         excludedRows.forEach(el => el.remove());
 
-                        // Renumber rows for clean presentation
+                        // 7. Renumber rows for clean presentation
                         const dataRows = clonedDoc.querySelectorAll('#ncReportTableBody tr');
                         let count = 0;
                         dataRows.forEach(tr => {
@@ -1951,20 +2010,74 @@
                             }
                         });
 
-                        // Set footer '참석자 계' cell colspan to 6 (번호, 구역, 인도자, 대상자, 관계, 지역)
+                        // 8. Set footer '참석자 계' cell colspan to 6 (번호, 구역, 인도자, 대상자, 관계, 지역)
                         const footTitleCell = clonedDoc.querySelector('#ncReportFootTitleCell');
                         if (footTitleCell) {
                             footTitleCell.setAttribute('colspan', '6');
+                            footTitleCell.style.letterSpacing = '4px';
+                            footTitleCell.style.fontWeight = '800';
+                            footTitleCell.style.fontSize = '1.02rem';
+                            footTitleCell.style.textAlign = 'center';
+                            footTitleCell.style.backgroundColor = '#f2f5e8';
+                            footTitleCell.style.border = '1px solid #666666';
                         }
+
+                        // 9. Ensure clean font and nowrap on header and cells
+                        const allTh = clonedDoc.querySelectorAll('#newcomerReportTable th');
+                        allTh.forEach(th => {
+                            th.style.fontSize = '0.93rem';
+                            th.style.fontWeight = '800';
+                            th.style.padding = '0.45rem 0.35rem';
+                            th.style.whiteSpace = 'nowrap';
+                            th.style.backgroundColor = '#f2f5e8';
+                            th.style.border = '1px solid #666666';
+                        });
+
+                        const allRows = clonedDoc.querySelectorAll('#newcomerReportTable tbody tr, #newcomerReportTable tfoot tr');
+                        allRows.forEach(r => {
+                            const tds = r.querySelectorAll('td');
+                            tds.forEach((td, idx) => {
+                                td.style.fontSize = '0.92rem';
+                                td.style.padding = '0.45rem 0.35rem';
+                                td.style.height = '28px';
+                                td.style.verticalAlign = 'middle';
+                                // idx 0(번호), 1(구역), 2(인도자), 3(대상자), 5(지역), and date columns (>=6) should be nowrap
+                                if (idx !== 4) { // idx 4 is 관계 which might wrap if long memo
+                                    td.style.whiteSpace = 'nowrap';
+                                }
+                            });
+                        });
                     }
                 });
 
                 paperEl.classList.remove('is-capturing');
 
-                const link = document.createElement('a');
-                link.download = `${gTitle}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                // Cross-device download handler (supports mobile blob & standard a.click)
+                const fileName = `${gTitle}_새참자참석현황_${area === 'all' ? '창원교회전체' : area + '구역'}.png`;
+                if (canvas.toBlob) {
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            const link = document.createElement('a');
+                            link.download = fileName;
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                            return;
+                        }
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.download = fileName;
+                        link.href = url;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    }, 'image/png');
+                } else {
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                }
             } catch (err) {
                 paperEl.classList.remove('is-capturing');
                 console.error("downloadNewcomerReportAsImage error:", err);
