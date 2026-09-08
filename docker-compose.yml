@@ -6,6 +6,8 @@ services:
     image: gospel_app:latest
     container_name: checkon_server
     restart: always
+    init: true
+    stop_grace_period: 10s
     ports:
       - "3033:3033"
     volumes:

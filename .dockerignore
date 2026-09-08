@@ -4,3 +4,8 @@ npm-debug.log
 .gitignore
 .env
 attCheck_ref
+nas_deploy
+scratch
+*.tar
+*.sql
+scratch_*.json

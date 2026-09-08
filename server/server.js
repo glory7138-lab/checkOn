@@ -188,68 +188,91 @@ function hashPassword(password, salt) {
 // 인증(Auth) API Routes
 // ==========================================
 
-// 로그인 (구역임원: 폰번호 + 구원일 8자리 / 관리자: 폰번호 + 비밀번호(초기: 069100, 즉시변경 필수))
+// 로그인 (구역임원: 폰번호 + 구원일 8자리 / 관리자: 폰번호/ID + 비밀번호(초기: 069100, 즉시변경 필수))
 app.post('/api/auth/login', async (req, res) => {
-    const { phone, password } = req.body;
+    const { phone, password, login_type } = req.body;
     if (!phone) {
-        return res.status(400).json({ success: false, error: '휴대폰 번호를 입력해주세요.' });
+        return res.status(400).json({ success: false, error: '휴대폰 번호 또는 관리자 아이디를 입력해주세요.' });
     }
     if (!password) {
         return res.status(400).json({ success: false, error: '비밀번호(구원일 8자리 또는 관리자 비밀번호)를 입력해주세요.' });
     }
-    let cleanPhone = phone.replace(/[^0-9]/g, '');
-    if (!cleanPhone) {
+
+    const isSpecialAdminId = (typeof phone === 'string' && phone.trim().toLowerCase() === 'rokmc775');
+    let cleanPhone = isSpecialAdminId ? 'rokmc775' : phone.replace(/[^0-9]/g, '');
+    if (!cleanPhone && !isSpecialAdminId) {
         return res.status(400).json({ success: false, error: '올바른 휴대폰 번호를 입력해주세요.' });
     }
+
+    const mode = login_type === 'mother' ? 'mother' : 'area';
 
     let conn;
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
 
-        // 1. CWTB_USER에서 최신 활성 연도 성도 번호 매칭 (DEL_YN = 'N')
-        const users = await conn.query(`
-            SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT, u.SERVICE_DEPT,
-                   u.SAL_Y, u.SAL_M, u.SAL_D, u.SALVATION_DATE,
-                   pa.POSITION as PA_POSITION, pa.AREA_CODE as PA_AREA_CODE
-            FROM CWTB_USER u
-            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
-            WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
-              AND u.YEAR = ?
-              AND u.DEL_YN = 'N'
-            LIMIT 1
-        `, [activeYear, cleanPhone, activeYear]);
-
-        if (!users || users.length === 0) {
-            return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
-        }
-
-        const user = users[0];
-        const effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
-        const effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
-
-        // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
+        let user;
+        let effectivePosition = '성도';
+        let effectiveArea = '11';
         let isAdmin = false;
-        try {
-            const phoneCheck = await conn.query(`
-                SELECT * FROM WEB_ADMIN_PHONES 
-                WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
-                LIMIT 1
-            `, [cleanPhone]);
-            if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
 
-            const adminCheck = await conn.query(`
-                SELECT * FROM CWTB_ADMIN 
-                WHERE NAME = ?
-                LIMIT 1
-            `, [user.NAME]);
-            if (adminCheck && adminCheck.length > 0) isAdmin = true;
-        } catch (e) {
-            console.error("Admin check query error:", e);
-        }
-
-        if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+        if (isSpecialAdminId) {
             isAdmin = true;
+            effectivePosition = '관리자';
+            effectiveArea = '11';
+            user = {
+                CODE_NO: 'rokmc775',
+                NAME: '관리자(rokmc775)',
+                PHONE: 'rokmc775',
+                AREA_CODE: '11',
+                POSITION: '관리자',
+                FELLOW_DEPT: '관리자',
+                PA_POSITION: '관리자'
+            };
+        } else {
+            // 1. CWTB_USER에서 최신 활성 연도 성도 번호 매칭 (DEL_YN = 'N')
+            const users = await conn.query(`
+                SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT, u.SERVICE_DEPT,
+                       u.SAL_Y, u.SAL_M, u.SAL_D, u.SALVATION_DATE,
+                       pa.POSITION as PA_POSITION, pa.AREA_CODE as PA_AREA_CODE
+                FROM CWTB_USER u
+                LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+                WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
+                  AND u.YEAR = ?
+                  AND u.DEL_YN = 'N'
+                LIMIT 1
+            `, [activeYear, cleanPhone, activeYear]);
+
+            if (!users || users.length === 0) {
+                return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
+            }
+
+            user = users[0];
+            effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
+            effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
+
+            // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
+            try {
+                const phoneCheck = await conn.query(`
+                    SELECT * FROM WEB_ADMIN_PHONES 
+                    WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                    LIMIT 1
+                `, [cleanPhone]);
+                if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
+
+                const adminCheck = await conn.query(`
+                    SELECT * FROM CWTB_ADMIN 
+                    WHERE NAME = ?
+                    LIMIT 1
+                `, [user.NAME]);
+                if (adminCheck && adminCheck.length > 0) isAdmin = true;
+            } catch (e) {
+                console.error("Admin check query error:", e);
+            }
+
+            if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+                isAdmin = true;
+            }
         }
 
         const hasPaRole = !!(user.PA_POSITION && user.PA_POSITION.trim() && user.PA_POSITION.trim() !== '-');
@@ -269,6 +292,36 @@ app.post('/api/auth/login', async (req, res) => {
                 success: false,
                 error: '접속 권한이 없는 사용자입니다. (구역 임원 및 관리자만 접속 가능)'
             });
+        }
+
+        // 로그인 모드별(구역 vs 어머니회) 권한 엄격 분기
+        const isMotherLeader = (
+            effectivePosition.includes('조장') || 
+            effectivePosition.includes('조총무') || 
+            effectivePosition.includes('서기')
+        );
+
+        const isAreaLeader = (
+            effectivePosition.includes('구역장') || 
+            effectivePosition.includes('부구역장') || 
+            effectivePosition.includes('지역장')
+        );
+
+        if (mode === 'mother') {
+            if (!isAdmin && !isMotherLeader) {
+                return res.status(403).json({
+                    success: false,
+                    error: '어머니회 출석체크는 각 조의 조장, 조총무, 서기 및 관리자만 접속 가능합니다.'
+                });
+            }
+        } else {
+            // mode === 'area'
+            if (!isAdmin && !isAreaLeader && isMotherLeader) {
+                return res.status(403).json({
+                    success: false,
+                    error: '어머니회 임원(조장/총무/서기)은 상단의 [어머니회(조) 출석체크] 탭으로 로그인해주세요.'
+                });
+            }
         }
 
         // 3. 비밀번호 / 구원일 인증 검증
@@ -313,15 +366,17 @@ app.post('/api/auth/login', async (req, res) => {
                         phone: user.PHONE,
                         position: effectivePosition,
                         area_code: effectiveArea,
+                        jo_code: `${effectiveArea.replace(/[^0-9]/g, '')}조`,
                         role: 'admin',
                         scope_type: 'all',
                         scope_code: null,
+                        login_type: mode,
                         active_year: activeYear
                     }
                 });
             }
         } else if (isLeader) {
-            // [구역임원 인증]: 주소록 구원일(8자리) 대조 (예: 20020302)
+            // [구역/어머니회 임원 인증]: 주소록 구원일(8자리) 대조 (예: 20020302)
             const cleanInput = String(password).replace(/[^0-9]/g, '');
             const expY = String(user.SAL_Y || '').trim().padStart(4, '0');
             const expM = String(user.SAL_M || '').trim().padStart(2, '0');
@@ -348,9 +403,11 @@ app.post('/api/auth/login', async (req, res) => {
                 phone: user.PHONE,
                 position: effectivePosition,
                 area_code: effectiveArea,
+                jo_code: `${effectiveArea.replace(/[^0-9]/g, '')}조`,
                 role,
                 scope_type,
                 scope_code,
+                login_type: mode,
                 active_year: activeYear
             }
         });
@@ -366,9 +423,10 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/change-password', async (req, res) => {
     const { phone, new_password } = req.body;
     if (!phone || !new_password) {
-        return res.status(400).json({ success: false, error: '휴대폰 번호와 새 비밀번호를 입력해주세요.' });
+        return res.status(400).json({ success: false, error: '휴대폰 번호 또는 관리자 아이디와 새 비밀번호를 입력해주세요.' });
     }
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const isSpecialAdminId = (typeof phone === 'string' && phone.trim().toLowerCase() === 'rokmc775');
+    const cleanPhone = isSpecialAdminId ? 'rokmc775' : phone.replace(/[^0-9]/g, '');
     const cleanNewPassword = String(new_password).trim();
 
     if (cleanNewPassword === '069100') {
@@ -388,16 +446,50 @@ app.post('/api/auth/change-password', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
 
-        // 성도 정보 확인
-        const users = await conn.query(`
-            SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION
-            FROM CWTB_USER u
-            WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
-              AND u.YEAR = ? AND u.DEL_YN = 'N'
-            LIMIT 1
-        `, [cleanPhone, activeYear]);
+        let userName = '관리자';
+        let userObj = null;
 
-        const userName = (users && users.length > 0) ? users[0].NAME : '관리자';
+        if (isSpecialAdminId) {
+            userName = '관리자(rokmc775)';
+            userObj = {
+                code_no: 'rokmc775',
+                name: '관리자(rokmc775)',
+                phone: 'rokmc775',
+                position: '관리자',
+                area_code: '11',
+                jo_code: '11조',
+                role: 'admin',
+                scope_type: 'all',
+                scope_code: null,
+                active_year: activeYear
+            };
+        } else {
+            // 성도 정보 확인
+            const users = await conn.query(`
+                SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION
+                FROM CWTB_USER u
+                WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
+                  AND u.YEAR = ? AND u.DEL_YN = 'N'
+                LIMIT 1
+            `, [cleanPhone, activeYear]);
+
+            if (users && users.length > 0) {
+                const u = users[0];
+                userName = u.NAME;
+                userObj = {
+                    code_no: u.CODE_NO,
+                    name: u.NAME,
+                    phone: u.PHONE,
+                    position: u.POSITION || '관리자',
+                    area_code: u.AREA_CODE || '11',
+                    jo_code: `${(u.AREA_CODE || '11').replace(/[^0-9]/g, '')}조`,
+                    role: 'admin',
+                    scope_type: 'all',
+                    scope_code: null,
+                    active_year: activeYear
+                };
+            }
+        }
 
         const salt = crypto.randomBytes(16).toString('hex');
         const hash = hashPassword(cleanNewPassword, salt);
@@ -411,25 +503,9 @@ app.post('/api/auth/change-password', async (req, res) => {
                 must_change_password = FALSE
         `, [cleanPhone, userName, hash, salt]);
 
-        let userObj = null;
-        if (users && users.length > 0) {
-            const u = users[0];
-            userObj = {
-                code_no: u.CODE_NO,
-                name: u.NAME,
-                phone: u.PHONE,
-                position: u.POSITION || '관리자',
-                area_code: u.AREA_CODE || '11',
-                role: 'admin',
-                scope_type: 'all',
-                scope_code: null,
-                active_year: activeYear
-            };
-        }
-
         res.json({
             success: true,
-            message: '관리자 비밀번호가 성공적으로 변경되었습니다.',
+            message: '비밀번호가 성공적으로 변경되었습니다.',
             user: userObj
         });
     } catch (err) {
@@ -3315,7 +3391,530 @@ app.get('/api/special-gatherings/:id/newcomer-attendees', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// ==========================================
+// 어머니회(조) 전용 API Routes
+// ==========================================
+
+// 1. 모임 일정 목록 조회
+app.get('/api/mother/schedules', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const type = req.query.type;
+        let query = `SELECT id, meeting_type, DATE_FORMAT(meeting_date, '%Y-%m-%d') as meeting_date, title, is_active FROM faithon_mother_schedules WHERE is_active = TRUE`;
+        const params = [];
+        if (type) {
+            query += ` AND meeting_type = ?`;
+            params.push(type);
+        }
+        query += ` ORDER BY meeting_date DESC, meeting_type ASC`;
+        const rows = await conn.query(query, params);
+        res.json({ success: true, schedules: rows });
+    } catch (err) {
+        console.error("GET /api/mother/schedules error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 2. 모임 일정 등록 (관리자용)
+app.post('/api/mother/schedules', async (req, res) => {
+    const { meeting_type, meeting_date, title } = req.body;
+    if (!meeting_type || !['morning', 'jo', 'monthly'].includes(meeting_type)) {
+        return res.status(400).json({ success: false, error: '올바른 모임 종류(morning, jo, monthly)를 지정해주세요.' });
+    }
+    if (!meeting_date) {
+        return res.status(400).json({ success: false, error: '모임 날짜(YYYY-MM-DD)를 입력해주세요.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_mother_schedules (meeting_type, meeting_date, title, is_active)
+            VALUES (?, ?, ?, TRUE)
+            ON DUPLICATE KEY UPDATE title = VALUES(title), is_active = TRUE
+        `, [meeting_type, meeting_date, title || '']);
+        res.json({ success: true, message: '모임 일정이 성공적으로 등록되었습니다.' });
+    } catch (err) {
+        console.error("POST /api/mother/schedules error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 3. 모임 일정 삭제 (관리자용)
+app.delete('/api/mother/schedules/:id', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`DELETE FROM faithon_mother_schedules WHERE id = ?`, [req.params.id]);
+        res.json({ success: true, message: '모임 일정이 삭제되었습니다.' });
+    } catch (err) {
+        console.error("DELETE /api/mother/schedules/:id error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 4. 조별 어머니회원 명단 조회
+app.get('/api/mother/members', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
+        const cleanArea = rawArea.replace(/[^0-9]/g, '');
+
+        if (!cleanArea) {
+            return res.status(400).json({ success: false, error: '조(구역) 번호를 입력해주세요.' });
+        }
+
+        const rows = await conn.query(`
+            SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT,
+                   pa.POSITION as PA_POSITION
+            FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ?
+              AND u.DEL_YN = 'N'
+              AND u.IS_HIDDEN = 'N'
+              AND r.member_code IS NULL
+              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+            ORDER BY
+              CASE
+                WHEN pa.POSITION = '조장' THEN 1
+                WHEN pa.POSITION = '조총무' THEN 2
+                WHEN pa.POSITION = '서기' THEN 3
+                ELSE 4
+              END ASC,
+              u.NAME ASC
+        `, [activeYear, activeYear, cleanArea, cleanArea]);
+
+        const members = rows.map(r => ({
+            code_no: r.CODE_NO,
+            name: r.NAME,
+            phone: r.PHONE,
+            area_code: cleanArea,
+            jo_code: `${cleanArea}조`,
+            fellow_dept: '어머니회',
+            duty: (r.PA_POSITION && ['조장', '조총무', '서기'].includes(r.PA_POSITION.trim())) ? r.PA_POSITION.trim() : (r.POSITION || '조원')
+        }));
+
+        res.json({
+            success: true,
+            area_code: cleanArea,
+            jo_code: `${cleanArea}조`,
+            total_cnt: members.length,
+            members
+        });
+    } catch (err) {
+        console.error("GET /api/mother/members error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 5. 모임/날짜별 조원 출석 현황 조회
+app.get('/api/mother/attendance', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        const { meeting_type, meeting_date } = req.query;
+        const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
+        const cleanArea = rawArea.replace(/[^0-9]/g, '');
+
+        if (!cleanArea || !meeting_type || !meeting_date) {
+            return res.status(400).json({ success: false, error: '모임종류, 날짜, 조 번호를 모두 입력해주세요.' });
+        }
+
+        // 1) 조원 명단 조회
+        const members = await conn.query(`
+            SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT,
+                   pa.POSITION as PA_POSITION
+            FROM CWTB_USER u
+            LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ?
+              AND u.DEL_YN = 'N'
+              AND u.IS_HIDDEN = 'N'
+              AND r.member_code IS NULL
+              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+            ORDER BY
+              CASE
+                WHEN pa.POSITION = '조장' THEN 1
+                WHEN pa.POSITION = '조총무' THEN 2
+                WHEN pa.POSITION = '서기' THEN 3
+                ELSE 4
+              END ASC,
+              u.NAME ASC
+        `, [activeYear, activeYear, cleanArea, cleanArea]);
+
+        // 2) 출석 기록 조회
+        const attRows = await conn.query(`
+            SELECT member_code, is_attended
+            FROM faithon_mother_attendance
+            WHERE meeting_type = ? AND meeting_date = ?
+        `, [meeting_type, meeting_date]);
+
+        const attMap = {};
+        attRows.forEach(a => {
+            attMap[a.member_code] = !!a.is_attended;
+        });
+
+        let attend_cnt = 0;
+        const list = members.map(r => {
+            const isAttended = attMap[r.CODE_NO] === true;
+            if (isAttended) attend_cnt++;
+            return {
+                code_no: r.CODE_NO,
+                name: r.NAME,
+                phone: r.PHONE,
+                area_code: cleanArea,
+                jo_code: `${cleanArea}조`,
+                duty: (r.PA_POSITION && ['조장', '조총무', '서기'].includes(r.PA_POSITION.trim())) ? r.PA_POSITION.trim() : (r.POSITION || '조원'),
+                is_attended: isAttended
+            };
+        });
+
+        const total_cnt = list.length;
+        const rate = total_cnt > 0 ? Math.round((attend_cnt / total_cnt) * 1000) / 10 : 0;
+
+        res.json({
+            success: true,
+            meeting_type,
+            meeting_date,
+            area_code: cleanArea,
+            jo_code: `${cleanArea}조`,
+            summary: {
+                total_cnt,
+                attend_cnt,
+                absent_cnt: total_cnt - attend_cnt,
+                rate
+            },
+            list
+        });
+    } catch (err) {
+        console.error("GET /api/mother/attendance error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 6. 개별 성도 출석 단건 토글 저장
+app.post('/api/mother/attendance/toggle', async (req, res) => {
+    const { meeting_type, meeting_date, member_code, is_attended } = req.body;
+    if (!meeting_type || !meeting_date || !member_code) {
+        return res.status(400).json({ success: false, error: '필수 파라미터가 누락되었습니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_mother_attendance (meeting_type, meeting_date, member_code, is_attended)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE is_attended = VALUES(is_attended), updated_at = CURRENT_TIMESTAMP
+        `, [meeting_type, meeting_date, member_code, !!is_attended]);
+        res.json({ success: true, is_attended: !!is_attended });
+    } catch (err) {
+        console.error("POST /api/mother/attendance/toggle error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 7. 출석 일괄 저장
+app.post('/api/mother/attendance/batch', async (req, res) => {
+    const { meeting_type, meeting_date, items } = req.body;
+    if (!meeting_type || !meeting_date || !Array.isArray(items)) {
+        return res.status(400).json({ success: false, error: '유효한 데이터 배열이 필요합니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        for (const item of items) {
+            if (item.member_code) {
+                await conn.query(`
+                    INSERT INTO faithon_mother_attendance (meeting_type, meeting_date, member_code, is_attended)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE is_attended = VALUES(is_attended), updated_at = CURRENT_TIMESTAMP
+                `, [meeting_type, meeting_date, item.member_code, !!item.is_attended]);
+            }
+        }
+        res.json({ success: true, message: '출석이 일괄 저장되었습니다.' });
+    } catch (err) {
+        console.error("POST /api/mother/attendance/batch error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 8. 조별/전체 출석 통계 (차트용)
+app.get('/api/mother/stats', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
+        const cleanArea = rawArea.replace(/[^0-9]/g, '');
+
+        // 1) 최근 스케줄 15건 조회
+        const schedules = await conn.query(`
+            SELECT meeting_type, DATE_FORMAT(meeting_date, '%Y-%m-%d') as meeting_date, title
+            FROM faithon_mother_schedules
+            WHERE is_active = TRUE
+            ORDER BY meeting_date DESC
+            LIMIT 15
+        `);
+
+        // 2) 대상 어머니회원 총원
+        let totalMotherQuery = `
+            SELECT COUNT(u.CODE_NO) as cnt
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+        `;
+        const totalParams = [activeYear];
+        if (cleanArea) {
+            totalMotherQuery += ` AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)`;
+            totalParams.push(cleanArea, cleanArea);
+        }
+        const totalRows = await conn.query(totalMotherQuery, totalParams);
+        const total_members = Number(totalRows[0]?.cnt || 0);
+
+        // 각 모임별 출석 인원 집계
+        const history = [];
+        for (const s of schedules) {
+            let attQuery = `
+                SELECT COUNT(a.id) as attend_cnt
+                FROM faithon_mother_attendance a
+                JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
+                LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+                WHERE a.meeting_type = ? AND a.meeting_date = ? AND a.is_attended = TRUE
+                  AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+                  AND u.FELLOW_DEPT IN ('어', '어머니회')
+            `;
+            const attParams = [activeYear, s.meeting_type, s.meeting_date];
+            if (cleanArea) {
+                attQuery += ` AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)`;
+                attParams.push(cleanArea, cleanArea);
+            }
+            const attRows = await conn.query(attQuery, attParams);
+            const attend_cnt = Number(attRows[0]?.attend_cnt || 0);
+            const rate = total_members > 0 ? Math.round((attend_cnt / total_members) * 1000) / 10 : 0;
+            history.push({
+                meeting_type: s.meeting_type,
+                meeting_date: s.meeting_date,
+                title: s.title,
+                total_members,
+                attend_cnt,
+                rate
+            });
+        }
+
+        res.json({
+            success: true,
+            area_code: cleanArea || 'all',
+            jo_code: cleanArea ? `${cleanArea}조` : '전체',
+            total_members,
+            history: history.reverse()
+        });
+    } catch (err) {
+        console.error("GET /api/mother/stats error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 9. 관리자용 전체 조별 출석체크현황 매트릭스
+app.get('/api/mother/admin/summary', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        const { meeting_type, meeting_date } = req.query;
+
+        if (!meeting_type || !meeting_date) {
+            return res.status(400).json({ success: false, error: '모임종류와 날짜를 지정해주세요.' });
+        }
+
+        // 1) 전체 조(구역) 목록 (어머니회 소속자가 있는 구역)
+        const areaRows = await conn.query(`
+            SELECT DISTINCT u.AREA_CODE
+            FROM CWTB_USER u
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND u.AREA_CODE IS NOT NULL AND u.AREA_CODE != ''
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+            ORDER BY CAST(u.AREA_CODE AS UNSIGNED) ASC, u.AREA_CODE ASC
+        `, [activeYear]);
+
+        // 2) 조별 어머니회 총원
+        const countRows = await conn.query(`
+            SELECT u.AREA_CODE, COUNT(u.CODE_NO) as total_cnt
+            FROM CWTB_USER u
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE u.YEAR = ? AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+            GROUP BY u.AREA_CODE
+        `, [activeYear]);
+        const countMap = {};
+        countRows.forEach(r => { countMap[r.AREA_CODE.trim()] = Number(r.total_cnt); });
+
+        // 3) 조별 출석 인원 및 체크 여부
+        const attRows = await conn.query(`
+            SELECT u.AREA_CODE, 
+                   COUNT(CASE WHEN a.is_attended = TRUE THEN 1 END) as attend_cnt,
+                   COUNT(a.id) as recorded_cnt,
+                   MAX(a.updated_at) as last_updated
+            FROM faithon_mother_attendance a
+            JOIN CWTB_USER u ON a.member_code = u.CODE_NO AND u.YEAR = ?
+            LEFT JOIN faithon_reserve r ON u.CODE_NO = r.member_code
+            WHERE a.meeting_type = ? AND a.meeting_date = ?
+              AND u.DEL_YN = 'N' AND u.IS_HIDDEN = 'N' AND r.member_code IS NULL
+              AND u.FELLOW_DEPT IN ('어', '어머니회')
+            GROUP BY u.AREA_CODE
+        `, [activeYear, meeting_type, meeting_date]);
+        const attMap = {};
+        attRows.forEach(r => {
+            attMap[r.AREA_CODE.trim()] = {
+                attend_cnt: Number(r.attend_cnt),
+                recorded_cnt: Number(r.recorded_cnt),
+                last_updated: r.last_updated
+            };
+        });
+
+        // 4) 조별 임원(조장, 조총무, 서기) 목록
+        const paRows = await conn.query(`
+            SELECT AREA_CODE, POSITION, NAME
+            FROM CWTB_PA
+            WHERE YEAR = ? AND POSITION IN ('조장', '조총무', '서기')
+        `, [activeYear]);
+        const paMap = {};
+        paRows.forEach(r => {
+            const a = (r.AREA_CODE || '').replace(/[^0-9]/g, '');
+            if (!paMap[a]) paMap[a] = {};
+            paMap[a][r.POSITION.trim()] = r.NAME;
+        });
+
+        let total_all = 0;
+        let attend_all = 0;
+        let checked_jos = 0;
+
+        const matrix = areaRows.map(r => {
+            const area = r.AREA_CODE.trim();
+            const cleanArea = area.replace(/[^0-9]/g, '');
+            const total_cnt = countMap[area] || 0;
+            const attInfo = attMap[area] || { attend_cnt: 0, recorded_cnt: 0, last_updated: null };
+            const is_checked = attInfo.recorded_cnt > 0;
+            const attend_cnt = attInfo.attend_cnt;
+            const rate = total_cnt > 0 ? Math.round((attend_cnt / total_cnt) * 1000) / 10 : 0;
+
+            total_all += total_cnt;
+            attend_all += attend_cnt;
+            if (is_checked) checked_jos++;
+
+            const leaders = paMap[cleanArea] || {};
+
+            return {
+                area_code: cleanArea,
+                jo_code: `${cleanArea}조`,
+                leader_name: leaders['조장'] || '-',
+                manager_name: leaders['조총무'] || '-',
+                clerk_name: leaders['서기'] || '-',
+                total_cnt,
+                attend_cnt,
+                absent_cnt: total_cnt - attend_cnt,
+                rate,
+                is_checked,
+                last_updated: attInfo.last_updated
+            };
+        });
+
+        const total_jos = matrix.length;
+        const overall_rate = total_all > 0 ? Math.round((attend_all / total_all) * 1000) / 10 : 0;
+
+        res.json({
+            success: true,
+            meeting_type,
+            meeting_date,
+            overall: {
+                total_jos,
+                checked_jos,
+                unchecked_jos: total_jos - checked_jos,
+                total_all,
+                attend_all,
+                overall_rate
+            },
+            matrix
+        });
+    } catch (err) {
+        console.error("GET /api/mother/admin/summary error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 10. 관리자용 전체 조별 임원(조장, 총무, 서기) 목록
+app.get('/api/mother/admin/leaders', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const activeYear = await getActiveYear(conn);
+        const rows = await conn.query(`
+            SELECT pa.AREA_CODE, pa.POSITION, pa.NAME, u.PHONE
+            FROM CWTB_PA pa
+            LEFT JOIN CWTB_USER u ON pa.NAME = u.NAME AND u.YEAR = ? AND u.DEL_YN = 'N'
+            WHERE pa.YEAR = ? AND pa.POSITION IN ('조장', '조총무', '서기')
+            ORDER BY CAST(REGEXP_REPLACE(pa.AREA_CODE, '[^0-9]', '') AS UNSIGNED) ASC,
+                     CASE WHEN pa.POSITION = '조장' THEN 1 WHEN pa.POSITION = '조총무' THEN 2 WHEN pa.POSITION = '서기' THEN 3 ELSE 4 END ASC
+        `, [activeYear, activeYear]);
+        res.json({ success: true, leaders: rows });
+    } catch (err) {
+        console.error("GET /api/mother/admin/leaders error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+const server = app.listen(PORT, () => {
     console.log(`[FaithOn] Server running at http://localhost:${PORT}`);
 });
+
+// Docker 컨테이너 종료(SIGTERM / SIGINT) 시 Graceful Shutdown 처리
+function handleShutdown(signal) {
+    console.log(`[FaithOn] Received ${signal}. Shutting down gracefully...`);
+    server.close(async () => {
+        console.log('[FaithOn] HTTP server closed.');
+        try {
+            if (db && db.pool) {
+                await db.pool.end();
+                console.log('[FaithOn] Database pool closed.');
+            }
+        } catch (e) {
+            console.error('[FaithOn] Error closing DB pool:', e);
+        }
+        process.exit(0);
+    });
+
+    // 4초 이내에 정상 종료되지 않을 경우 강제 종료 (시놀로지 타임아웃 방지)
+    setTimeout(() => {
+        console.error('[FaithOn] Forcefully shutting down after timeout.');
+        process.exit(1);
+    }, 4000).unref();
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
 

@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>어머니회 출석부 | FaithOn</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+    <meta name="theme-color" content="#be185d">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #be185d;
+            --primary-dark: #9d174d;
+            --primary-light: #fdf2f8;
+            --primary-glow: rgba(190, 24, 93, 0.2);
+            --gradient-primary: linear-gradient(135deg, #be185d 0%, #db2777 100%);
+            --bg-body: #faf5f7;
+            --surface: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border-color: #f1e4e8;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Top Header */
+        .app-header {
+            width: 100%;
+            background: #ffffff;
+            border-bottom: 1.5px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(190, 24, 93, 0.05);
+        }
+
+        .header-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0.85rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .brand-title-wrap {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 1.08rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand-sub {
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-header {
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-header:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: #fbcfe8;
+        }
+
+        .btn-header.admin-btn {
+            background: var(--gradient-primary);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 2px 6px rgba(190, 24, 93, 0.25);
+        }
+
+        /* Main Container */
+        .main-container {
+            width: 100%;
+            max-width: 720px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Jo Hero Card */
+        .jo-hero-card {
+            background: linear-gradient(135deg, #ffffff 0%, #fff5f8 100%);
+            border: 1.5px solid #fce7f3;
+            border-radius: 16px;
+            padding: 1.1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 14px rgba(190, 24, 93, 0.06);
+        }
+
+        .jo-hero-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .jo-badge-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: var(--gradient-primary);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 4px 10px rgba(190, 24, 93, 0.25);
+        }
+
+        .jo-hero-text h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #831843;
+            letter-spacing: -0.5px;
+            margin-bottom: 2px;
+        }
+
+        .jo-hero-text p {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .btn-stats-toggle {
+            background: #ffffff;
+            border: 1.5px solid #fbcfe8;
+            color: var(--primary);
+            padding: 0.5rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-stats-toggle:hover {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        /* Meeting Type Tabs */
+        .meeting-tabs {
+            display: flex;
+            background: #f1e8ec;
+            padding: 4px;
+            border-radius: 14px;
+            gap: 4px;
+        }
+
+        .meeting-tab-btn {
+            flex: 1;
+            padding: 0.75rem 0.5rem;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #831843;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .meeting-tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(190, 24, 93, 0.15);
+        }
+
+        /* Date Selector Pills */
+        .date-selector-container {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 0.85rem 1rem;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .date-selector-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .date-pills-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            scrollbar-width: thin;
+        }
+
+        .date-pills-scroll::-webkit-scrollbar {
+            height: 4px;
+        }
+        .date-pills-scroll::-webkit-scrollbar-thumb {
+            background: #fbcfe8;
+            border-radius: 4px;
+        }
+
+        .date-pill {
+            flex-shrink: 0;
+            padding: 0.6rem 0.95rem;
+            border-radius: 10px;
+            border: 1.5px solid var(--border-color);
+            background: #faf5f7;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-width: 86px;
+            transition: all 0.18s ease;
+        }
+
+        .date-pill .pill-date {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .date-pill .pill-title {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .date-pill.active {
+            background: var(--gradient-primary);
+            border-color: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(190, 24, 93, 0.22);
+        }
+
+        .date-pill.active .pill-date,
+        .date-pill.active .pill-title {
+            color: #ffffff;
+        }
+
+        .no-dates-alert {
+            text-align: center;
+            padding: 1.25rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: #fff5f8;
+            border-radius: 10px;
+            border: 1px dashed #fbcfe8;
+        }
+
+        /* Summary Dashboard Bar */
+        .summary-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .summary-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-group {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.65rem;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        .stat-pills {
+            display: flex;
+            gap: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .stat-pill-att {
+            background: #ecfdf5;
+            color: #047857;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .stat-pill-abs {
+            background: #fff1f2;
+            color: #be123c;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .progress-bar-wrap {
+            width: 100%;
+            height: 8px;
+            background: #f1e8ec;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .quick-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 4px;
+        }
+
+        .btn-quick {
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-quick:hover {
+            background: #faf5f7;
+            color: var(--primary);
+        }
+
+        /* Members List */
+        .member-list-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+        }
+
+        .member-list-header {
+            padding: 0.85rem 1.1rem;
+            background: #fdf2f8;
+            border-bottom: 1.5px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .member-list-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .member-items {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .member-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f8e7ee;
+            transition: background 0.15s ease;
+        }
+
+        .member-row:last-child {
+            border-bottom: none;
+        }
+
+        .member-row:hover {
+            background: #fffafa;
+        }
+
+        .member-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: #fce7f3;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .member-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .member-name-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .member-name {
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .duty-badge {
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+
+        .duty-badge.leader {
+            background: #fef08a;
+            color: #854d0e;
+        }
+
+        .duty-badge.manager {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .duty-badge.clerk {
+            background: #ccfbf1;
+            color: #0f766e;
+        }
+
+        .duty-badge.normal {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .member-phone {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .member-phone:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        /* Toggle Attendance Button */
+        .btn-att-toggle {
+            padding: 0.65rem 1.1rem;
+            border-radius: 10px;
+            font-size: 0.92rem;
+            font-weight: 800;
+            cursor: pointer;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 88px;
+            justify-content: center;
+            transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-att-toggle.checked {
+            background: var(--gradient-primary);
+            border-color: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 3px 8px rgba(190, 24, 93, 0.25);
+        }
+
+        .btn-att-toggle.checked:active {
+            transform: scale(0.96);
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(15, 23, 42, 0.92);
+            color: #ffffff;
+            padding: 0.75rem 1.4rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Modal Overlay & Card */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            z-index: 200;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 540px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            padding: 1.1rem 1.25rem;
+            border-bottom: 1.5px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .modal-body {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Loading Spinner */
+        .loading-wrap {
+            text-align: center;
+            padding: 2.5rem;
+            color: var(--primary);
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-area">
+                <img src="/images/church-logo.png" alt="창원교회" class="brand-logo">
+                <div class="brand-title-wrap">
+                    <div class="brand-title">
+                        <span>FaithOn</span>
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #db2777;">🌸 어머니회</span>
+                    </div>
+                    <span class="brand-sub">사랑과 은혜의 출석부</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <a href="/admin_mother.html" id="adminLinkBtn" class="btn-header admin-btn" style="display: none;">
+                    <i class="fa-solid fa-crown"></i> 관리자
+                </a>
+                <button type="button" class="btn-header" onclick="logout()">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+
+        <!-- Jo Hero Card -->
+        <div class="jo-hero-card">
+            <div class="jo-hero-left">
+                <div class="jo-badge-icon">
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+                <div class="jo-hero-text">
+                    <h2 id="joTitleDisplay">31조 출석부</h2>
+                    <p id="joUserRoleDisplay">조장 최미선 • 접속 중</p>
+                </div>
+            </div>
+            <button type="button" class="btn-stats-toggle" onclick="openStatsModal()">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>조 통계</span>
+            </button>
+        </div>
+
+        <!-- Meeting Type Tabs (오전모임 / 조모임 / 월례회) -->
+        <div class="meeting-tabs">
+            <button type="button" class="meeting-tab-btn active" id="tabMorning" onclick="switchMeetingType('morning')">
+                <i class="fa-solid fa-sun"></i> 오전모임
+            </button>
+            <button type="button" class="meeting-tab-btn" id="tabJo" onclick="switchMeetingType('jo')">
+                <i class="fa-solid fa-users"></i> 조모임
+            </button>
+            <button type="button" class="meeting-tab-btn" id="tabMonthly" onclick="switchMeetingType('monthly')">
+                <i class="fa-solid fa-calendar-check"></i> 월례회
+            </button>
+        </div>
+
+        <!-- Date Selector Pills Container -->
+        <div class="date-selector-container">
+            <div class="date-selector-header">
+                <span><i class="fa-regular fa-calendar"></i> 모임 진행 날짜 선택</span>
+                <span id="selectedDateTitle" style="color: var(--primary); font-weight: 800;">-</span>
+            </div>
+            <div class="date-pills-scroll" id="datePillsList">
+                <div class="loading-wrap" style="padding: 1rem;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> 날짜 조회 중...
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary KPI Card -->
+        <div class="summary-card">
+            <div class="summary-top">
+                <div class="stat-group">
+                    <span class="stat-value" id="rateDisplay">0%</span>
+                    <span class="stat-label">참석률</span>
+                </div>
+                <div class="stat-pills">
+                    <div class="stat-pill-att">
+                        <i class="fa-solid fa-check"></i> 참석 <span id="attendCntDisplay">0</span>명
+                    </div>
+                    <div class="stat-pill-abs">
+                        <i class="fa-solid fa-xmark"></i> 결석 <span id="absentCntDisplay">0</span>명
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+            </div>
+            <div class="quick-actions">
+                <button type="button" class="btn-quick" onclick="batchSetAttendance(true)">
+                    <i class="fa-solid fa-check-double" style="color: var(--success);"></i> 전체 출석
+                </button>
+                <button type="button" class="btn-quick" onclick="batchSetAttendance(false)">
+                    <i class="fa-solid fa-rotate-left" style="color: var(--danger);"></i> 전체 초기화
+                </button>
+            </div>
+        </div>
+
+        <!-- Members Attendance List Card -->
+        <div class="member-list-card">
+            <div class="member-list-header">
+                <div class="member-list-title">
+                    <i class="fa-solid fa-person-dress"></i>
+                    <span>조원 출석 체크</span>
+                    <span id="totalCntBadge" style="font-size: 0.8rem; background: var(--primary); color: #fff; padding: 1px 8px; border-radius: 10px;">총 0명</span>
+                </div>
+            </div>
+            <div class="member-items" id="memberItemsList">
+                <div class="loading-wrap">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <span>조원 명단을 불러오는 중...</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Jo Stats Modal -->
+    <div class="modal-overlay" id="statsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span id="statsModalTitle">31조 출석 통계</span>
+                </div>
+                <button type="button" class="modal-close" onclick="closeStatsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <h4 style="font-size: 0.92rem; color: var(--text-secondary); margin-bottom: 0.75rem;">최근 모임별 참석률 추이</h4>
+                    <canvas id="joStatsChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toastMsg">
+        <i class="fa-solid fa-circle-check" style="color: #34d399;"></i>
+        <span id="toastText">출석이 저장되었습니다.</span>
+    </div>
+
+    <script>
+        // User Auth Check
+        let currentUser = null;
+        try {
+            currentUser = JSON.parse(localStorage.getItem('faithon_user'));
+        } catch(e) {}
+
+        if (!currentUser) {
+            window.location.href = '/login.html';
+        }
+
+        // Setup user info
+        const userAreaCode = (currentUser.area_code || '11').replace(/[^0-9]/g, '');
+        const currentJoCode = `${userAreaCode}조`;
+        const isAdmin = (currentUser.role === 'admin' || currentUser.phone === 'rokmc775');
+
+        // UI init
+        document.getElementById('joTitleDisplay').textContent = `${currentJoCode} 출석부`;
+        document.getElementById('joUserRoleDisplay').textContent = `${currentUser.name || '성도'} (${currentUser.position || '임원'}) • 접속 중`;
+        if (isAdmin) {
+            document.getElementById('adminLinkBtn').style.display = 'inline-flex';
+        }
+
+        // App States
+        let currentMeetingType = 'morning'; // 'morning', 'jo', 'monthly'
+        let currentSchedules = [];
+        let activeDate = null;
+        let activeSchedule = null;
+        let currentMembers = [];
+
+        // DOM elements
+        const tabMorning = document.getElementById('tabMorning');
+        const tabJo = document.getElementById('tabJo');
+        const tabMonthly = document.getElementById('tabMonthly');
+        const datePillsList = document.getElementById('datePillsList');
+        const selectedDateTitle = document.getElementById('selectedDateTitle');
+        const memberItemsList = document.getElementById('memberItemsList');
+        const rateDisplay = document.getElementById('rateDisplay');
+        const attendCntDisplay = document.getElementById('attendCntDisplay');
+        const absentCntDisplay = document.getElementById('absentCntDisplay');
+        const totalCntBadge = document.getElementById('totalCntBadge');
+        const progressBarFill = document.getElementById('progressBarFill');
+        const toastMsg = document.getElementById('toastMsg');
+        const toastText = document.getElementById('toastText');
+
+        // Toast Helper
+        let toastTimeout = null;
+        function showToast(msg) {
+            toastText.textContent = msg;
+            toastMsg.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toastMsg.classList.remove('show');
+            }, 2000);
+        }
+
+        // Format Date to Korean (예: 2026-09-15 -> 9월 15일(화))
+        function formatKoreanDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1;
+            const day = d.getDate();
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            return `${m}월 ${day}일(${dayNames[d.getDay()]})`;
+        }
+
+        // 1. Switch Meeting Type
+        function switchMeetingType(type) {
+            currentMeetingType = type;
+            tabMorning.className = (type === 'morning') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
+            tabJo.className = (type === 'jo') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
+            tabMonthly.className = (type === 'monthly') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
+            
+            loadSchedules();
+        }
+
+        // 2. Load Schedules from Server
+        async function loadSchedules() {
+            datePillsList.innerHTML = `<div class="loading-wrap" style="padding: 1rem;"><i class="fa-solid fa-spinner fa-spin"></i> 날짜 조회 중...</div>`;
+            try {
+                const res = await fetch(`/api/mother/schedules?type=${currentMeetingType}`);
+                const data = await res.json();
+
+                if (data.success && data.schedules) {
+                    currentSchedules = data.schedules;
+                    renderDatePills();
+                } else {
+                    currentSchedules = [];
+                    renderDatePills();
+                }
+            } catch (err) {
+                console.error("loadSchedules error:", err);
+                datePillsList.innerHTML = `<div class="no-dates-alert">날짜 목록을 불러오지 못했습니다.</div>`;
+            }
+        }
+
+        // 3. Render Date Pills
+        function renderDatePills() {
+            if (currentSchedules.length === 0) {
+                datePillsList.innerHTML = `<div class="no-dates-alert"><i class="fa-solid fa-calendar-xmark"></i> 등록된 일정이 없습니다. 관리자에게 문의하세요.</div>`;
+                selectedDateTitle.textContent = '일정 없음';
+                activeDate = null;
+                activeSchedule = null;
+                renderEmptyMembers();
+                return;
+            }
+
+            // Default to first (most recent) date
+            if (!activeDate || !currentSchedules.find(s => s.meeting_date === activeDate)) {
+                activeDate = currentSchedules[0].meeting_date;
+            }
+            activeSchedule = currentSchedules.find(s => s.meeting_date === activeDate) || currentSchedules[0];
+
+            selectedDateTitle.textContent = `${formatKoreanDate(activeSchedule.meeting_date)} ${activeSchedule.title || ''}`;
+
+            datePillsList.innerHTML = currentSchedules.map(s => {
+                const isSelected = s.meeting_date === activeDate;
+                return `
+                    <button type="button" class="date-pill ${isSelected ? 'active' : ''}" onclick="selectDate('${s.meeting_date}')">
+                        <span class="pill-date">${formatKoreanDate(s.meeting_date)}</span>
+                        <span class="pill-title">${s.title || '정기모임'}</span>
+                    </button>
+                `;
+            }).join('');
+
+            loadAttendance();
+        }
+
+        // 4. Select Date
+        function selectDate(dateStr) {
+            activeDate = dateStr;
+            renderDatePills();
+        }
+
+        // 5. Load Members & Attendance
+        async function loadAttendance() {
+            if (!activeDate) return;
+
+            memberItemsList.innerHTML = `
+                <div class="loading-wrap">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <span>출석 현황을 불러오는 중...</span>
+                </div>
+            `;
+
+            try {
+                const res = await fetch(`/api/mother/attendance?meeting_type=${currentMeetingType}&meeting_date=${activeDate}&area_code=${userAreaCode}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    currentMembers = data.list || [];
+                    updateSummary(data.summary);
+                    renderMemberList();
+                } else {
+                    memberItemsList.innerHTML = `<div class="no-dates-alert">${data.error || '출석 명단을 불러오지 못했습니다.'}</div>`;
+                }
+            } catch (err) {
+                console.error("loadAttendance error:", err);
+                memberItemsList.innerHTML = `<div class="no-dates-alert">서버와 연결할 수 없습니다.</div>`;
+            }
+        }
+
+        // 6. Update Summary Bar
+        function updateSummary(summary) {
+            const total = summary?.total_cnt || currentMembers.length;
+            const attend = summary?.attend_cnt || currentMembers.filter(m => m.is_attended).length;
+            const absent = total - attend;
+            const rate = total > 0 ? Math.round((attend / total) * 1000) / 10 : 0;
+
+            rateDisplay.textContent = `${rate}%`;
+            attendCntDisplay.textContent = attend;
+            absentCntDisplay.textContent = absent;
+            totalCntBadge.textContent = `총 ${total}명`;
+            progressBarFill.style.width = `${rate}%`;
+        }
+
+        // 7. Render Member List
+        function renderMemberList() {
+            if (currentMembers.length === 0) {
+                memberItemsList.innerHTML = `<div class="no-dates-alert" style="margin: 1.5rem;">해당 조에 등록된 어머니회원이 없습니다.</div>`;
+                return;
+            }
+
+            memberItemsList.innerHTML = currentMembers.map(m => {
+                let dutyClass = 'normal';
+                if (m.duty === '조장') dutyClass = 'leader';
+                else if (m.duty === '조총무') dutyClass = 'manager';
+                else if (m.duty === '서기') dutyClass = 'clerk';
+
+                const isAttended = !!m.is_attended;
+
+                return `
+                    <div class="member-row">
+                        <div class="member-info">
+                            <div class="member-avatar">${m.name.charAt(0)}</div>
+                            <div class="member-details">
+                                <div class="member-name-wrap">
+                                    <span class="member-name">${m.name}</span>
+                                    <span class="duty-badge ${dutyClass}">${m.duty || '조원'}</span>
+                                </div>
+                                ${m.phone ? `<a href="tel:${m.phone}" class="member-phone"><i class="fa-solid fa-phone"></i> ${m.phone}</a>` : ''}
+                            </div>
+                        </div>
+                        <button type="button" class="btn-att-toggle ${isAttended ? 'checked' : ''}" onclick="toggleAttendance('${m.code_no}', this)">
+                            <i class="fa-solid ${isAttended ? 'fa-circle-check' : 'fa-circle'}"></i>
+                            <span>${isAttended ? '출석' : '미참석'}</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderEmptyMembers() {
+            memberItemsList.innerHTML = `<div class="no-dates-alert" style="margin: 1.5rem;">선택된 모임 일정이 없습니다.</div>`;
+            updateSummary({ total_cnt: 0, attend_cnt: 0, rate: 0 });
+        }
+
+        // 8. Toggle Attendance (Single Member)
+        async function toggleAttendance(memberCode, btn) {
+            if (!activeDate) return;
+
+            const member = currentMembers.find(m => m.code_no === memberCode);
+            if (!member) return;
+
+            const nextState = !member.is_attended;
+            
+            // Optimistic UI update
+            member.is_attended = nextState;
+            btn.className = `btn-att-toggle ${nextState ? 'checked' : ''}`;
+            btn.innerHTML = `<i class="fa-solid ${nextState ? 'fa-circle-check' : 'fa-circle'}"></i><span>${nextState ? '출석' : '미참석'}</span>`;
+            
+            updateSummary();
+
+            try {
+                const res = await fetch('/api/mother/attendance/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meeting_type: currentMeetingType,
+                        meeting_date: activeDate,
+                        member_code: memberCode,
+                        is_attended: nextState
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`${member.name} 성도님 출석 ${nextState ? '체크' : '해제'}`);
+                } else {
+                    // Revert on error
+                    member.is_attended = !nextState;
+                    renderMemberList();
+                    alert('출석 저장 실패: ' + (data.error || '오류'));
+                }
+            } catch (err) {
+                console.error("toggleAttendance error:", err);
+                member.is_attended = !nextState;
+                renderMemberList();
+                alert('서버 연결 실패');
+            }
+        }
+
+        // 9. Batch Set Attendance (전체 출석 or 전체 초기화)
+        async function batchSetAttendance(isAttended) {
+            if (!activeDate || currentMembers.length === 0) return;
+
+            if (!confirm(`${isAttended ? '전체 출석 처리' : '전체 출석 해제'}하시겠습니까?`)) {
+                return;
+            }
+
+            const items = currentMembers.map(m => {
+                m.is_attended = isAttended;
+                return { member_code: m.code_no, is_attended: isAttended };
+            });
+
+            renderMemberList();
+            updateSummary();
+
+            try {
+                const res = await fetch('/api/mother/attendance/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meeting_type: currentMeetingType,
+                        meeting_date: activeDate,
+                        items
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(isAttended ? '모든 조원이 출석 처리되었습니다.' : '출석이 초기화되었습니다.');
+                } else {
+                    alert('일괄 저장 실패: ' + (data.error || '오류'));
+                    loadAttendance();
+                }
+            } catch (err) {
+                console.error("batch error:", err);
+                alert('서버 연결 실패');
+                loadAttendance();
+            }
+        }
+
+        // 10. Jo Stats Chart Modal
+        let chartInstance = null;
+        async function openStatsModal() {
+            document.getElementById('statsModal').style.display = 'flex';
+            document.getElementById('statsModalTitle').textContent = `${currentJoCode} 출석 통계`;
+
+            try {
+                const res = await fetch(`/api/mother/stats?area_code=${userAreaCode}`);
+                const data = await res.json();
+
+                if (data.success && data.history) {
+                    renderStatsChart(data.history);
+                }
+            } catch (err) {
+                console.error("openStatsModal error:", err);
+            }
+        }
+
+        function closeStatsModal() {
+            document.getElementById('statsModal').style.display = 'none';
+        }
+
+        function renderStatsChart(history) {
+            const ctx = document.getElementById('joStatsChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const labels = history.map(h => {
+                const typeMap = { 'morning': '오전', 'jo': '조', 'monthly': '월례' };
+                const tName = typeMap[h.meeting_type] || h.meeting_type;
+                const d = h.meeting_date.substring(5); // MM-DD
+                return `${d} (${tName})`;
+            });
+
+            const rates = history.map(h => h.rate);
+            const attends = history.map(h => h.attend_cnt);
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: '참석률(%)',
+                            data: rates,
+                            borderColor: '#be185d',
+                            backgroundColor: '#be185d',
+                            borderWidth: 2.5,
+                            yAxisID: 'yRate',
+                            tension: 0.3
+                        },
+                        {
+                            type: 'bar',
+                            label: '참석자수(명)',
+                            data: attends,
+                            backgroundColor: 'rgba(244, 114, 182, 0.45)',
+                            borderColor: '#f472b6',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'yCount'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        yRate: {
+                            type: 'linear',
+                            position: 'left',
+                            min: 0,
+                            max: 100,
+                            ticks: { callback: v => v + '%' }
+                        },
+                        yCount: {
+                            type: 'linear',
+                            position: 'right',
+                            min: 0,
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('faithon_user');
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Close modal on click overlay
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('statsModal');
+            if (e.target === modal) closeStatsModal();
+        });
+
+        // Initialize on load
+        loadSchedules();
+    </script>
+</body>
+</html>
