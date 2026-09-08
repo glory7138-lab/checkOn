@@ -200,25 +200,76 @@
             align-items: flex-start;
             gap: 8px;
         }
+
+        /* Mode Selector Segmented Tabs */
+        .mode-selector-wrapper {
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 1.4rem;
+            display: flex;
+            gap: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 0.65rem 0.5rem;
+            border: none;
+            background: transparent;
+            border-radius: 9px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .mode-btn.active-area {
+            background: #ffffff;
+            color: #1428A0;
+            box-shadow: 0 2px 8px rgba(20, 40, 160, 0.12);
+        }
+        .mode-btn.active-mother {
+            background: #ffffff;
+            color: #be185d;
+            box-shadow: 0 2px 8px rgba(190, 24, 93, 0.15);
+        }
+        .theme-mother #submitBtn {
+            background: linear-gradient(135deg, #be185d 0%, #9d174d 100%) !important;
+            box-shadow: 0 4px 12px rgba(190, 24, 93, 0.3) !important;
+        }
     </style>
 </head>
 <body>
-    <div class="login-container">
+    <div class="login-container" id="loginCard">
         <img src="/images/logo-full.png" alt="FaithOn Logo" class="brand-img">
         <h1 class="login-title">FaithOn</h1>
-        <p class="login-subtitle">은혜의 자리로, 믿음 On!</p>
+        <p class="login-subtitle" id="loginSubtitle">은혜의 자리로, 믿음 On!</p>
+
+        <!-- 접속 모드 전환 탭 (구역 출석체크 vs 어머니회(조) 출석체크) -->
+        <div class="mode-selector-wrapper">
+            <button type="button" class="mode-btn active-area" id="modeAreaBtn" onclick="switchLoginMode('area')">
+                <i class="fa-solid fa-people-roof"></i> 구역 출석체크
+            </button>
+            <button type="button" class="mode-btn" id="modeMotherBtn" onclick="switchLoginMode('mother')">
+                <i class="fa-solid fa-person-dress"></i> 어머니회(조) 체크
+            </button>
+        </div>
         
         <form class="login-form" id="loginForm">
             <div class="form-group">
-                <label class="form-label" for="phoneInput">휴대폰 번호</label>
+                <label class="form-label" for="phoneInput" id="phoneLabel">휴대폰 번호 또는 관리자 아이디</label>
                 <div class="input-with-icon">
-                    <i class="fa-solid fa-mobile-screen-button icon-prefix"></i>
-                    <input type="tel" id="phoneInput" placeholder="010-0000-0000" autofocus required autocomplete="tel">
+                    <i class="fa-solid fa-mobile-screen-button icon-prefix" id="phoneIcon"></i>
+                    <input type="text" id="phoneInput" placeholder="010-0000-0000 또는 rokmc775" autofocus required autocomplete="tel">
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="passwordInput">비밀번호</label>
+                <label class="form-label" for="passwordInput" id="passwordLabel">비밀번호</label>
                 <div class="input-with-icon">
                     <i class="fa-solid fa-key icon-prefix"></i>
                     <input type="password" id="passwordInput" placeholder="비밀번호 또는 구원일 8자리 입력" required autocomplete="current-password">
@@ -301,11 +352,15 @@
 
     <script>
         const loginForm = document.getElementById('loginForm');
+        const loginCard = document.getElementById('loginCard');
         const phoneInput = document.getElementById('phoneInput');
         const passwordInput = document.getElementById('passwordInput');
         const saveCredentialsCheck = document.getElementById('saveCredentialsCheck');
         const errorMsg = document.getElementById('errorMsg');
         const submitBtn = document.getElementById('submitBtn');
+        const modeAreaBtn = document.getElementById('modeAreaBtn');
+        const modeMotherBtn = document.getElementById('modeMotherBtn');
+        const loginSubtitle = document.getElementById('loginSubtitle');
 
         const pwChangeModal = document.getElementById('pwChangeModal');
         const pwChangeForm = document.getElementById('pwChangeForm');
@@ -314,7 +369,30 @@
         const modalErrorMsg = document.getElementById('modalErrorMsg');
         const pwChangeBtn = document.getElementById('pwChangeBtn');
 
+        let currentLoginMode = localStorage.getItem('faithon_login_mode') || 'area';
         let pendingAdminUser = null;
+
+        function switchLoginMode(mode) {
+            currentLoginMode = mode;
+            localStorage.setItem('faithon_login_mode', mode);
+
+            if (mode === 'mother') {
+                modeAreaBtn.className = 'mode-btn';
+                modeMotherBtn.className = 'mode-btn active-mother';
+                loginCard.classList.add('theme-mother');
+                loginSubtitle.textContent = '어머니회(조) 사랑과 은혜 On!';
+                errorMsg.style.display = 'none';
+            } else {
+                modeAreaBtn.className = 'mode-btn active-area';
+                modeMotherBtn.className = 'mode-btn';
+                loginCard.classList.remove('theme-mother');
+                loginSubtitle.textContent = '은혜의 자리로, 믿음 On!';
+                errorMsg.style.display = 'none';
+            }
+        }
+
+        // 초기 모드 복원
+        switchLoginMode(currentLoginMode);
 
         // Auto-redirect if already logged in (세션 1년 유효 확인)
         try {
@@ -322,7 +400,11 @@
             const sessionExpires = localStorage.getItem('faithon_session_expires');
             const now = Date.now();
             if (savedUser && (!sessionExpires || now < parseInt(sessionExpires, 10))) {
-                window.location.href = '/attend.html';
+                if (savedUser.login_type === 'mother') {
+                    window.location.href = '/mother_attend.html';
+                } else {
+                    window.location.href = '/attend.html';
+                }
             }
         } catch(e) {}
 
@@ -367,7 +449,7 @@
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, password })
+                    body: JSON.stringify({ phone, password, login_type: currentLoginMode })
                 });
 
                 const data = await res.json();
@@ -397,7 +479,8 @@
                         newPwInput.focus();
                     } else if (data.user) {
                         localStorage.setItem('faithon_user', JSON.stringify(data.user));
-                        window.location.href = '/attend.html';
+                        const targetUrl = (data.user.login_type === 'mother') ? '/mother_attend.html' : '/attend.html';
+                        window.location.href = targetUrl;
                     }
                 } else {
                     errorMsg.textContent = data.error || '로그인에 실패했습니다.';
@@ -461,9 +544,12 @@
                 const data = await res.json();
 
                 if (data.success && data.user) {
-                    localStorage.setItem('faithon_user', JSON.stringify(data.user));
+                    // 원래 선택했던 login_type 복원
+                    const finalUser = { ...data.user, login_type: pendingAdminUser?.login_type || currentLoginMode };
+                    localStorage.setItem('faithon_user', JSON.stringify(finalUser));
                     alert('비밀번호가 성공적으로 변경되었습니다. 출석부로 이동합니다.');
-                    window.location.href = '/attend.html';
+                    const targetUrl = (finalUser.login_type === 'mother') ? '/mother_attend.html' : '/attend.html';
+                    window.location.href = targetUrl;
                 } else {
                     modalErrorMsg.textContent = data.error || '비밀번호 변경에 실패했습니다.';
                     modalErrorMsg.style.display = 'block';

@@ -179,6 +179,55 @@ async function initializeTables() {
             await conn.query(`ALTER TABLE faithon_special_newcomers ADD COLUMN location VARCHAR(100) NULL AFTER phone`);
         } catch (e) {}
 
+        // 9. 어머니회 모임 일정 마스터 테이블 (오전모임, 조모임, 월례회)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_mother_schedules (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                meeting_type VARCHAR(50) NOT NULL, -- 'morning'(오전모임), 'jo'(조모임), 'monthly'(월례회)
+                meeting_date DATE NOT NULL,
+                title VARCHAR(150) NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_mother_schedule (meeting_type, meeting_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 10. 어머니회 출석 기록 테이블 (구역 출석 및 대집회와 100% 완전 분리)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_mother_attendance (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                meeting_type VARCHAR(50) NOT NULL, -- 'morning', 'jo', 'monthly'
+                meeting_date DATE NOT NULL,
+                member_code VARCHAR(255) NOT NULL,
+                is_attended BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_mother_att (meeting_type, meeting_date, member_code)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 11. rokmc775 관리자 계정 등록 (WEB_ADMIN_PHONES 및 faithon_admin_passwords)
+        try {
+            await conn.query(`
+                INSERT IGNORE INTO WEB_ADMIN_PHONES (phone, name) VALUES ('rokmc775', '관리자(rokmc775)')
+            `);
+        } catch (e) {}
+
+        try {
+            const crypto = require('crypto');
+            const adminCheck = await conn.query(`SELECT * FROM faithon_admin_passwords WHERE phone = 'rokmc775' LIMIT 1`);
+            if (!adminCheck || adminCheck.length === 0) {
+                const salt = crypto.randomBytes(16).toString('hex');
+                const defaultHash = crypto.pbkdf2Sync('069100', salt, 1000, 64, 'sha512').toString('hex');
+                await conn.query(`
+                    INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+                    VALUES ('rokmc775', '관리자(rokmc775)', ?, ?, TRUE)
+                `, [defaultHash, salt]);
+            }
+        } catch (e) {
+            console.error("[FaithOn DB] Failed to seed rokmc775 admin password:", e.message);
+        }
+
         console.log("[FaithOn DB] Initialized custom tables successfully.");
     } catch (err) {
         console.error("[FaithOn DB] Error initializing tables:", err);
