@@ -777,7 +777,87 @@
                 </div>
             </div>
 
-            <!-- 3) 어머니회 출석부 바로가기 -->
+            <!-- 3) 출석부 상단 문구(슬로건) 설정 -->
+            <div class="card-box">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-pen-nib"></i>
+                        <span>출석부 상단 문구(슬로건) 설정</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="brandSubtitleForm" onsubmit="handleSaveBrandSubtitle(event)" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 260px; margin-bottom: 0;">
+                            <label class="form-label" for="brandSubtitleInput">출석부 서브 타이틀 문구</label>
+                            <input type="text" class="form-input" id="brandSubtitleInput" placeholder="예: 사랑과 은혜의 출석부" required>
+                        </div>
+                        <button type="submit" class="btn-primary-action" style="padding: 0.65rem 1.25rem;">
+                            <i class="fa-solid fa-check"></i> 문구 저장하기
+                        </button>
+                    </form>
+                    <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted);">
+                        * 어머니회 출석부 상단('어머니회' 타이틀 아래)에 표시되는 서브 문구입니다. (기본값: 사랑과 은혜의 출석부)
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4) 어머니회 관리자 권한 관리 -->
+            <div class="card-box">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>어머니회 관리자 권한 관리</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="addAdminForm" onsubmit="handleAddMotherAdmin(event)">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="newAdminName">관리자 성명</label>
+                                <input type="text" class="form-input" id="newAdminName" placeholder="예: 홍길동" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="newAdminPhone">휴대폰 번호 / 관리자 ID</label>
+                                <input type="text" class="form-input" id="newAdminPhone" placeholder="예: 01012345678" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="newAdminMemo">직책 / 메모 (선택)</label>
+                                <input type="text" class="form-input" id="newAdminMemo" placeholder="예: 어머니회 총무">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary-action">
+                            <i class="fa-solid fa-user-plus"></i> 관리자 권한 부여하기
+                        </button>
+                    </form>
+
+                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary); margin: 1.5rem 0 0.75rem 0;">
+                        현재 등록된 어머니회 관리자 목록
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>성명</th>
+                                    <th>아이디/전화번호</th>
+                                    <th>직책/메모</th>
+                                    <th>등록일시</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="motherAdminsTableBody">
+                                <tr>
+                                    <td colspan="5">관리자 목록을 불러오는 중...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted);">
+                        * 등록된 관리자는 어머니회 로그인 시 관리자 권한으로 접속되며 초기 비밀번호는 <code>069100</code>입니다. (첫 로그인 시 비밀번호 변경 필수)
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5) 어머니회 출석부 바로가기 -->
             <div class="card-box">
                 <div class="card-header">
                     <div class="card-title">
@@ -1163,6 +1243,8 @@
         function loadManageData() {
             loadAllSchedulesTable();
             loadAllLeadersTable();
+            loadMotherConfigAdmin();
+            loadMotherAdminsTable();
         }
 
         async function loadAllSchedulesTable() {
@@ -1276,6 +1358,126 @@
                 (l.POSITION && l.POSITION.includes(q))
             );
             renderLeadersTable(filtered);
+        }
+
+        // 3-1. Brand Subtitle Configuration
+        async function loadMotherConfigAdmin() {
+            try {
+                const res = await fetch('/api/mother/config');
+                const data = await res.json();
+                if (data.success && data.config) {
+                    const input = document.getElementById('brandSubtitleInput');
+                    if (input) input.value = data.config.brand_subtitle || '사랑과 은혜의 출석부';
+                }
+            } catch(e) {
+                console.error("loadMotherConfigAdmin error:", e);
+            }
+        }
+
+        async function handleSaveBrandSubtitle(e) {
+            e.preventDefault();
+            const brand_subtitle = document.getElementById('brandSubtitleInput').value.trim();
+            if (!brand_subtitle) {
+                alert('문구를 입력해주세요.');
+                return;
+            }
+            try {
+                const res = await fetch('/api/mother/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brand_subtitle })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('출석부 서브 타이틀 문구가 저장되었습니다.');
+                } else {
+                    alert('저장 실패: ' + (data.error || '오류'));
+                }
+            } catch(e) {
+                alert('서버 연결 실패');
+            }
+        }
+
+        // 3-2. Mother Admins Management
+        async function loadMotherAdminsTable() {
+            const tbody = document.getElementById('motherAdminsTableBody');
+            if (!tbody) return;
+            try {
+                const res = await fetch('/api/mother/admin/admins');
+                const data = await res.json();
+
+                if (data.success && data.admins) {
+                    tbody.innerHTML = data.admins.map(a => {
+                        const isMainAdmin = (a.phone === 'rokmc775');
+                        const actionBtn = isMainAdmin
+                            ? `<span class="badge-status checked" style="background:#e0f2fe; color:#0369a1; font-size:0.75rem;"><i class="fa-solid fa-shield"></i> 총괄관리자</span>`
+                            : `<button type="button" class="btn-header" style="color: var(--danger); border-color: #fecdd3; padding: 2px 8px; font-size: 0.75rem;" onclick="deleteMotherAdmin(${a.id}, '${a.name}')"><i class="fa-solid fa-trash"></i> 권한 회수</button>`;
+
+                        return `
+                            <tr>
+                                <td style="font-weight: 800; color: var(--primary);">${a.name}</td>
+                                <td style="font-weight: 700;">${a.phone}</td>
+                                <td>${a.memo || '-'}</td>
+                                <td style="color: var(--text-muted); font-size: 0.85rem;">${a.created_at || '-'}</td>
+                                <td>${actionBtn}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5">등록된 관리자가 없습니다.</td></tr>`;
+                }
+            } catch(e) {
+                tbody.innerHTML = `<tr><td colspan="5">관리자 목록 불러오기 실패</td></tr>`;
+            }
+        }
+
+        async function handleAddMotherAdmin(e) {
+            e.preventDefault();
+            const name = document.getElementById('newAdminName').value.trim();
+            const phone = document.getElementById('newAdminPhone').value.trim();
+            const memo = document.getElementById('newAdminMemo').value.trim();
+
+            if (!name || !phone) {
+                alert('이름과 휴대폰 번호(아이디)를 입력해주세요.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/mother/admin/admins', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, memo })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`${name} 님께 어머니회 관리자 권한을 부여했습니다.\n(초기 비밀번호: 069100)`);
+                    document.getElementById('newAdminName').value = '';
+                    document.getElementById('newAdminPhone').value = '';
+                    document.getElementById('newAdminMemo').value = '';
+                    loadMotherAdminsTable();
+                } else {
+                    alert('등록 실패: ' + (data.error || '오류'));
+                }
+            } catch(e) {
+                alert('서버 연결 실패');
+            }
+        }
+
+        async function deleteMotherAdmin(id, name) {
+            if (!confirm(`${name} 님의 어머니회 관리자 권한을 회수(삭제)하시겠습니까?`)) return;
+
+            try {
+                const res = await fetch(`/api/mother/admin/admins/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('관리자 권한이 성공적으로 회수되었습니다.');
+                    loadMotherAdminsTable();
+                } else {
+                    alert('삭제 실패: ' + (data.error || '오류'));
+                }
+            } catch(e) {
+                alert('서버 연결 실패');
+            }
         }
 
         function logout() {

@@ -206,7 +206,39 @@ async function initializeTables() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 
-        // 11. rokmc775 관리자 계정 등록 (WEB_ADMIN_PHONES 및 faithon_admin_passwords)
+        // 11. 어머니회 관리자 권한 테이블
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_mother_admins (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                phone VARCHAR(30) NOT NULL UNIQUE,
+                memo VARCHAR(100) DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 12. 어머니회 환경 설정 테이블 (출석부 타이틀 문구 등)
+        await conn.query(`
+            CREATE TABLE IF NOT EXISTS faithon_mother_config (
+                config_key VARCHAR(50) PRIMARY KEY,
+                config_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // 기본 문구 및 총괄관리자 초기 시딩
+        try {
+            await conn.query(`
+                INSERT IGNORE INTO faithon_mother_admins (name, phone, memo) 
+                VALUES ('관리자(rokmc775)', 'rokmc775', '시스템 총괄 관리자')
+            `);
+            await conn.query(`
+                INSERT IGNORE INTO faithon_mother_config (config_key, config_value) 
+                VALUES ('brand_subtitle', '사랑과 은혜의 출석부')
+            `);
+        } catch (e) {}
+
+        // 13. rokmc775 관리자 계정 등록 (WEB_ADMIN_PHONES 및 faithon_admin_passwords)
         try {
             await conn.query(`
                 INSERT IGNORE INTO WEB_ADMIN_PHONES (phone, name) VALUES ('rokmc775', '관리자(rokmc775)')

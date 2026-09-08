@@ -783,7 +783,7 @@
                         <span>FaithOn</span>
                         <span style="font-size: 0.85rem; font-weight: 800; color: #db2777;">🌸 어머니회</span>
                     </div>
-                    <span class="brand-sub">사랑과 은혜의 출석부</span>
+                    <span class="brand-sub" id="brandSubtitleText">사랑과 은혜의 출석부</span>
                 </div>
             </div>
 
@@ -1404,7 +1404,21 @@
             if (e.target === modal) closeStatsModal();
         });
 
+        async function loadMotherConfig() {
+            try {
+                const res = await fetch('/api/mother/config');
+                const data = await res.json();
+                if (data.success && data.config && data.config.brand_subtitle) {
+                    const el = document.getElementById('brandSubtitleText');
+                    if (el) el.textContent = data.config.brand_subtitle;
+                }
+            } catch(e) {
+                console.error("loadMotherConfig error:", e);
+            }
+        }
+
         // Initialize on load
+        loadMotherConfig();
         loadSchedules();
     </script>
 </body>

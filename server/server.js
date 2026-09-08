@@ -214,7 +214,18 @@ app.post('/api/auth/login', async (req, res) => {
         let user;
         let effectivePosition = '성도';
         let effectiveArea = '11';
-        let isAdmin = false;
+        // 0. 어머니회 관리자 테이블 사전 확인
+        let motherAdminRow = null;
+        try {
+            const mAdmins = await conn.query(`
+                SELECT * FROM faithon_mother_admins
+                WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                LIMIT 1
+            `, [cleanPhone]);
+            if (mAdmins && mAdmins.length > 0) {
+                motherAdminRow = mAdmins[0];
+            }
+        } catch(e) {}
 
         if (isSpecialAdminId) {
             isAdmin = true;
@@ -244,34 +255,51 @@ app.post('/api/auth/login', async (req, res) => {
             `, [activeYear, cleanPhone, activeYear]);
 
             if (!users || users.length === 0) {
-                return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
-            }
+                if (motherAdminRow) {
+                    isAdmin = true;
+                    effectivePosition = '어머니회 관리자';
+                    effectiveArea = '11';
+                    user = {
+                        CODE_NO: motherAdminRow.phone,
+                        NAME: motherAdminRow.name,
+                        PHONE: motherAdminRow.phone,
+                        AREA_CODE: '11',
+                        POSITION: '관리자',
+                        FELLOW_DEPT: '어머니회',
+                        PA_POSITION: '관리자'
+                    };
+                } else {
+                    return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
+                }
+            } else {
+                user = users[0];
+                effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
+                effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
 
-            user = users[0];
-            effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
-            effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
+                // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN, faithon_mother_admins 테이블 대조)
+                try {
+                    const phoneCheck = await conn.query(`
+                        SELECT * FROM WEB_ADMIN_PHONES 
+                        WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                        LIMIT 1
+                    `, [cleanPhone]);
+                    if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
 
-            // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
-            try {
-                const phoneCheck = await conn.query(`
-                    SELECT * FROM WEB_ADMIN_PHONES 
-                    WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
-                    LIMIT 1
-                `, [cleanPhone]);
-                if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
+                    const adminCheck = await conn.query(`
+                        SELECT * FROM CWTB_ADMIN 
+                        WHERE NAME = ?
+                        LIMIT 1
+                    `, [user.NAME]);
+                    if (adminCheck && adminCheck.length > 0) isAdmin = true;
 
-                const adminCheck = await conn.query(`
-                    SELECT * FROM CWTB_ADMIN 
-                    WHERE NAME = ?
-                    LIMIT 1
-                `, [user.NAME]);
-                if (adminCheck && adminCheck.length > 0) isAdmin = true;
-            } catch (e) {
-                console.error("Admin check query error:", e);
-            }
+                    if (motherAdminRow) isAdmin = true;
+                } catch (e) {
+                    console.error("Admin check query error:", e);
+                }
 
-            if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
-                isAdmin = true;
+                if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+                    isAdmin = true;
+                }
             }
         }
 
@@ -3465,6 +3493,9 @@ app.get('/api/mother/members', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화 (구역 출석과 동일 기준 적용)
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
         const cleanArea = rawArea.replace(/[^0-9]/g, '');
 
@@ -3482,7 +3513,7 @@ app.get('/api/mother/members', async (req, res) => {
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
               AND r.member_code IS NULL
-              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND (TRIM(u.AREA_CODE) = ? OR REPLACE(REPLACE(u.AREA_CODE, '구역', ''), ' ', '') = ?)
               AND u.FELLOW_DEPT IN ('어', '어머니회')
             ORDER BY
               CASE
@@ -3525,6 +3556,9 @@ app.get('/api/mother/attendance', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화 (구역 출석과 동일 기준 적용)
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const { meeting_type, meeting_date } = req.query;
         const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
         const cleanArea = rawArea.replace(/[^0-9]/g, '');
@@ -3544,7 +3578,7 @@ app.get('/api/mother/attendance', async (req, res) => {
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
               AND r.member_code IS NULL
-              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND (TRIM(u.AREA_CODE) = ? OR REPLACE(REPLACE(u.AREA_CODE, '구역', ''), ' ', '') = ?)
               AND u.FELLOW_DEPT IN ('어', '어머니회')
             ORDER BY
               CASE
@@ -3771,6 +3805,9 @@ app.get('/api/mother/admin/summary', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const { meeting_type, meeting_date } = req.query;
 
         if (!meeting_type || !meeting_date) {
@@ -3910,6 +3947,143 @@ app.get('/api/mother/admin/leaders', async (req, res) => {
         res.json({ success: true, leaders: rows });
     } catch (err) {
         console.error("GET /api/mother/admin/leaders error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 11. 어머니회 설정 조회 (출석부 브랜드 서브타이틀 등)
+app.get('/api/mother/config', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`SELECT config_key, config_value FROM faithon_mother_config`);
+        const config = {};
+        rows.forEach(r => {
+            config[r.config_key] = r.config_value;
+        });
+        if (!config.brand_subtitle) {
+            config.brand_subtitle = '사랑과 은혜의 출석부';
+        }
+        res.json({ success: true, config });
+    } catch (err) {
+        console.error("GET /api/mother/config error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 12. 어머니회 설정 저장 (관리자용)
+app.post('/api/mother/config', async (req, res) => {
+    const { brand_subtitle } = req.body;
+    if (brand_subtitle === undefined) {
+        return res.status(400).json({ success: false, error: '설정값이 필요합니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_mother_config (config_key, config_value)
+            VALUES ('brand_subtitle', ?)
+            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+        `, [String(brand_subtitle).trim()]);
+        res.json({ success: true, brand_subtitle: String(brand_subtitle).trim() });
+    } catch (err) {
+        console.error("POST /api/mother/config error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 13. 어머니회 관리자 목록 조회
+app.get('/api/mother/admin/admins', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`
+            SELECT id, name, phone, memo, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as created_at
+            FROM faithon_mother_admins
+            ORDER BY id ASC
+        `);
+        res.json({ success: true, admins: rows });
+    } catch (err) {
+        console.error("GET /api/mother/admin/admins error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 14. 어머니회 관리자 등록
+app.post('/api/mother/admin/admins', async (req, res) => {
+    const { name, phone, memo } = req.body;
+    if (!name || !phone) {
+        return res.status(400).json({ success: false, error: '이름과 전화번호(아이디)를 입력해주세요.' });
+    }
+    const cleanPhone = String(phone).trim();
+    const cleanName = String(name).trim();
+    const cleanMemo = memo ? String(memo).trim() : null;
+
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+
+        // 1) faithon_mother_admins 등록
+        await conn.query(`
+            INSERT INTO faithon_mother_admins (name, phone, memo)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE name = VALUES(name), memo = VALUES(memo)
+        `, [cleanName, cleanPhone, cleanMemo]);
+
+        // 2) faithon_admin_passwords 초기 비밀번호(069100) 시딩
+        const existingPw = await conn.query(`SELECT * FROM faithon_admin_passwords WHERE phone = ? LIMIT 1`, [cleanPhone]);
+        if (!existingPw || existingPw.length === 0) {
+            const salt = crypto.randomBytes(16).toString('hex');
+            const defaultHash = hashPassword('069100', salt);
+            await conn.query(`
+                INSERT INTO faithon_admin_passwords (phone, name, password_hash, salt, must_change_password)
+                VALUES (?, ?, ?, ?, TRUE)
+            `, [cleanPhone, cleanName, defaultHash, salt]);
+        }
+
+        // 3) WEB_ADMIN_PHONES에도 등록
+        try {
+            await conn.query(`INSERT IGNORE INTO WEB_ADMIN_PHONES (phone, name) VALUES (?, ?)`, [cleanPhone, cleanName]);
+        } catch (e) {}
+
+        res.json({ success: true, message: '어머니회 관리자가 성공적으로 등록되었습니다.' });
+    } catch (err) {
+        console.error("POST /api/mother/admin/admins error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 15. 어머니회 관리자 삭제
+app.delete('/api/mother/admin/admins/:id', async (req, res) => {
+    const adminId = parseInt(req.params.id, 10);
+    if (!adminId) {
+        return res.status(400).json({ success: false, error: '유효한 관리자 ID가 아닙니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const target = await conn.query(`SELECT * FROM faithon_mother_admins WHERE id = ? LIMIT 1`, [adminId]);
+        if (!target || target.length === 0) {
+            return res.status(404).json({ success: false, error: '존재하지 않는 관리자입니다.' });
+        }
+        if (target[0].phone === 'rokmc775') {
+            return res.status(403).json({ success: false, error: '시스템 총괄 관리자(rokmc775)는 삭제할 수 없습니다.' });
+        }
+
+        await conn.query(`DELETE FROM faithon_mother_admins WHERE id = ?`, [adminId]);
+        res.json({ success: true, message: '관리자가 삭제되었습니다.' });
+    } catch (err) {
+        console.error("DELETE /api/mother/admin/admins/:id error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();
