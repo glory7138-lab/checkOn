@@ -66,6 +66,11 @@ async function getActiveYear(conn) {
     return '2026';
 }
 
+// Helper: 한국 표준시(KST) 기준 오늘 날짜 (YYYY-MM-DD)
+function getTodayKST() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+}
+
 // Helper: 주소록(CWTB_USER)의 IS_HIDDEN 상태값과 예비명단(faithon_reserve) 양방향 동기화
 // - 주소록에서 IS_HIDDEN = '예비명단' 또는 'R'로 변경된 성도는 자동으로 faithon_reserve에 등록
 // - 주소록에서 IS_HIDDEN = 'N'(또는 정상)으로 복원된 성도는 faithon_reserve에서 자동 제외
@@ -244,34 +249,56 @@ app.post('/api/auth/login', async (req, res) => {
             `, [activeYear, cleanPhone, activeYear]);
 
             if (!users || users.length === 0) {
-                return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
-            }
-
-            user = users[0];
-            effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
-            effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
-
-            // 2. 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
-            try {
-                const phoneCheck = await conn.query(`
+                // 출석부 관리자 테이블(WEB_ADMIN_PHONES)에 등록된 관리자인지 확인
+                const phoneAdminCheck = await conn.query(`
                     SELECT * FROM WEB_ADMIN_PHONES 
                     WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
                     LIMIT 1
                 `, [cleanPhone]);
-                if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
 
-                const adminCheck = await conn.query(`
-                    SELECT * FROM CWTB_ADMIN 
-                    WHERE NAME = ?
-                    LIMIT 1
-                `, [user.NAME]);
-                if (adminCheck && adminCheck.length > 0) isAdmin = true;
-            } catch (e) {
-                console.error("Admin check query error:", e);
-            }
+                if (phoneAdminCheck && phoneAdminCheck.length > 0) {
+                    isAdmin = true;
+                    effectivePosition = '관리자';
+                    effectiveArea = '11';
+                    user = {
+                        CODE_NO: cleanPhone,
+                        NAME: phoneAdminCheck[0].name || '관리자',
+                        PHONE: cleanPhone,
+                        AREA_CODE: '11',
+                        POSITION: '관리자',
+                        FELLOW_DEPT: '관리자',
+                        PA_POSITION: '관리자'
+                    };
+                } else {
+                    return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
+                }
+            } else {
+                user = users[0];
+                effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
+                effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
 
-            if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
-                isAdmin = true;
+                // 2. 출석부 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
+                try {
+                    const phoneCheck = await conn.query(`
+                        SELECT * FROM WEB_ADMIN_PHONES 
+                        WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                        LIMIT 1
+                    `, [cleanPhone]);
+                    if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
+
+                    const adminCheck = await conn.query(`
+                        SELECT * FROM CWTB_ADMIN 
+                        WHERE NAME = ?
+                        LIMIT 1
+                    `, [user.NAME]);
+                    if (adminCheck && adminCheck.length > 0) isAdmin = true;
+                } catch (e) {
+                    console.error("Admin check query error:", e);
+                }
+
+                if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+                    isAdmin = true;
+                }
             }
         }
 
@@ -3465,6 +3492,9 @@ app.get('/api/mother/members', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화 (구역 출석과 동일 기준 적용)
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
         const cleanArea = rawArea.replace(/[^0-9]/g, '');
 
@@ -3482,7 +3512,7 @@ app.get('/api/mother/members', async (req, res) => {
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
               AND r.member_code IS NULL
-              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND (TRIM(u.AREA_CODE) = ? OR REPLACE(REPLACE(u.AREA_CODE, '구역', ''), ' ', '') = ?)
               AND u.FELLOW_DEPT IN ('어', '어머니회')
             ORDER BY
               CASE
@@ -3525,6 +3555,9 @@ app.get('/api/mother/attendance', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화 (구역 출석과 동일 기준 적용)
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const { meeting_type, meeting_date } = req.query;
         const rawArea = String(req.query.area_code || req.query.jo_code || '').trim();
         const cleanArea = rawArea.replace(/[^0-9]/g, '');
@@ -3544,7 +3577,7 @@ app.get('/api/mother/attendance', async (req, res) => {
               AND u.DEL_YN = 'N'
               AND u.IS_HIDDEN = 'N'
               AND r.member_code IS NULL
-              AND (u.AREA_CODE = ? OR REPLACE(u.AREA_CODE, '구역', '') = ?)
+              AND (TRIM(u.AREA_CODE) = ? OR REPLACE(REPLACE(u.AREA_CODE, '구역', ''), ' ', '') = ?)
               AND u.FELLOW_DEPT IN ('어', '어머니회')
             ORDER BY
               CASE
@@ -3614,6 +3647,17 @@ app.post('/api/mother/attendance/toggle', async (req, res) => {
     if (!meeting_type || !meeting_date || !member_code) {
         return res.status(400).json({ success: false, error: '필수 파라미터가 누락되었습니다.' });
     }
+
+    // 도래하지 않은 미래 날짜 출석체크 방지 (한국시간 KST 기준)
+    const todayKST = getTodayKST();
+
+    if (meeting_date > todayKST) {
+        return res.status(400).json({
+            success: false,
+            error: `모임 당일(${meeting_date})부터 출석체크가 가능합니다. 도래하지 않은 미래 일정은 체크할 수 없습니다.`
+        });
+    }
+
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -3637,6 +3681,17 @@ app.post('/api/mother/attendance/batch', async (req, res) => {
     if (!meeting_type || !meeting_date || !Array.isArray(items)) {
         return res.status(400).json({ success: false, error: '유효한 데이터 배열이 필요합니다.' });
     }
+
+    // 도래하지 않은 미래 날짜 출석체크 방지 (한국시간 KST 기준)
+    const todayKST = getTodayKST();
+
+    if (meeting_date > todayKST) {
+        return res.status(400).json({
+            success: false,
+            error: `모임 당일(${meeting_date})부터 출석체크가 가능합니다. 도래하지 않은 미래 일정은 체크할 수 없습니다.`
+        });
+    }
+
     let conn;
     try {
         conn = await db.pool.getConnection();
@@ -3743,6 +3798,9 @@ app.get('/api/mother/admin/summary', async (req, res) => {
     try {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
+        // 주소록 예비명단 상태(IS_HIDDEN)와 faithon_reserve 양방향 자동 동기화
+        await syncReserveWithAddressBook(conn, activeYear);
+
         const { meeting_type, meeting_date } = req.query;
 
         if (!meeting_type || !meeting_date) {
@@ -3793,17 +3851,18 @@ app.get('/api/mother/admin/summary', async (req, res) => {
             };
         });
 
-        // 4) 조별 임원(조장, 조총무, 서기) 목록
+        // 4) 조별 임원(조장, 조총무, 서기) 목록 및 연락처 조인
         const paRows = await conn.query(`
-            SELECT AREA_CODE, POSITION, NAME
-            FROM CWTB_PA
-            WHERE YEAR = ? AND POSITION IN ('조장', '조총무', '서기')
-        `, [activeYear]);
+            SELECT pa.AREA_CODE, pa.POSITION, pa.NAME, u.PHONE
+            FROM CWTB_PA pa
+            LEFT JOIN CWTB_USER u ON pa.NAME = u.NAME AND u.YEAR = ? AND u.DEL_YN = 'N'
+            WHERE pa.YEAR = ? AND pa.POSITION IN ('조장', '조총무', '서기')
+        `, [activeYear, activeYear]);
         const paMap = {};
         paRows.forEach(r => {
             const a = (r.AREA_CODE || '').replace(/[^0-9]/g, '');
             if (!paMap[a]) paMap[a] = {};
-            paMap[a][r.POSITION.trim()] = r.NAME;
+            paMap[a][r.POSITION.trim()] = { name: r.NAME, phone: r.PHONE || '' };
         });
 
         let total_all = 0;
@@ -3824,13 +3883,19 @@ app.get('/api/mother/admin/summary', async (req, res) => {
             if (is_checked) checked_jos++;
 
             const leaders = paMap[cleanArea] || {};
+            const leaderInfo = leaders['조장'] || {};
+            const managerInfo = leaders['조총무'] || {};
+            const clerkInfo = leaders['서기'] || {};
 
             return {
                 area_code: cleanArea,
                 jo_code: `${cleanArea}조`,
-                leader_name: leaders['조장'] || '-',
-                manager_name: leaders['조총무'] || '-',
-                clerk_name: leaders['서기'] || '-',
+                leader_name: leaderInfo.name || '-',
+                leader_phone: leaderInfo.phone || '',
+                manager_name: managerInfo.name || '-',
+                manager_phone: managerInfo.phone || '',
+                clerk_name: clerkInfo.name || '-',
+                clerk_phone: clerkInfo.phone || '',
                 total_cnt,
                 attend_cnt,
                 absent_cnt: total_cnt - attend_cnt,
@@ -3882,6 +3947,51 @@ app.get('/api/mother/admin/leaders', async (req, res) => {
         res.json({ success: true, leaders: rows });
     } catch (err) {
         console.error("GET /api/mother/admin/leaders error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 11. 어머니회 설정 조회 (출석부 브랜드 서브타이틀 등)
+app.get('/api/mother/config', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        const rows = await conn.query(`SELECT config_key, config_value FROM faithon_mother_config`);
+        const config = {};
+        rows.forEach(r => {
+            config[r.config_key] = r.config_value;
+        });
+        if (!config.brand_subtitle) {
+            config.brand_subtitle = '사랑과 은혜의 출석부';
+        }
+        res.json({ success: true, config });
+    } catch (err) {
+        console.error("GET /api/mother/config error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// 12. 어머니회 설정 저장 (관리자용)
+app.post('/api/mother/config', async (req, res) => {
+    const { brand_subtitle } = req.body;
+    if (brand_subtitle === undefined) {
+        return res.status(400).json({ success: false, error: '설정값이 필요합니다.' });
+    }
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        await conn.query(`
+            INSERT INTO faithon_mother_config (config_key, config_value)
+            VALUES ('brand_subtitle', ?)
+            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+        `, [String(brand_subtitle).trim()]);
+        res.json({ success: true, brand_subtitle: String(brand_subtitle).trim() });
+    } catch (err) {
+        console.error("POST /api/mother/config error:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (conn) conn.release();

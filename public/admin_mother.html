@@ -226,6 +226,74 @@
             border-color: var(--primary);
         }
 
+        /* Matrix Filter Tabs & Kakao Urge */
+        .matrix-filter-wrapper {
+            display: inline-flex;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 3px;
+            border-radius: 10px;
+            gap: 3px;
+        }
+
+        .matrix-tab-btn {
+            padding: 0.4rem 0.85rem;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .matrix-tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+        }
+
+        .matrix-tab-btn.pending {
+            color: #dc2626;
+        }
+        .matrix-tab-btn.pending.active {
+            background: #ffffff;
+            color: #dc2626;
+        }
+
+        .matrix-tab-btn.completed {
+            color: #16a34a;
+        }
+        .matrix-tab-btn.completed.active {
+            background: #ffffff;
+            color: #16a34a;
+        }
+
+        .btn-kakao-urge {
+            background: #fee500;
+            color: #371d1e;
+            border: 1px solid #fada0a;
+            border-radius: 6px;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: all 0.15s ease;
+        }
+
+        .btn-kakao-urge:hover {
+            background: #fdd800;
+            transform: translateY(-1px);
+        }
+
         .filter-select {
             padding: 0.5rem 0.9rem;
             border-radius: 8px;
@@ -652,10 +720,22 @@
 
             <!-- Matrix Table -->
             <div class="card-box">
-                <div class="card-header">
+                <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
                     <div class="card-title">
                         <i class="fa-solid fa-table"></i>
                         <span id="matrixTableTitle">조별 출석 현황표</span>
+                    </div>
+                    <!-- Filter Tabs: 전체보기 / 미체크 조만 / 완료 조만 -->
+                    <div class="matrix-filter-wrapper">
+                        <button type="button" class="matrix-tab-btn active" id="filterTabAll" onclick="setMatrixFilter('all')">
+                            전체보기 (<span id="matCntAll">0</span>)
+                        </button>
+                        <button type="button" class="matrix-tab-btn pending" id="filterTabPending" onclick="setMatrixFilter('pending')">
+                            <i class="fa-solid fa-clock"></i> 미체크 조만 (<span id="matCntPending">0</span>)
+                        </button>
+                        <button type="button" class="matrix-tab-btn completed" id="filterTabCompleted" onclick="setMatrixFilter('completed')">
+                            <i class="fa-solid fa-check"></i> 완료 조만 (<span id="matCntCompleted">0</span>)
+                        </button>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -671,7 +751,7 @@
                                 <th>결석</th>
                                 <th>참석률</th>
                                 <th>체크상태</th>
-                                <th>상세보기</th>
+                                <th>독려 / 관리</th>
                             </tr>
                         </thead>
                         <tbody id="matrixTableBody">
@@ -716,7 +796,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="newMeetingTitle">모임 명칭/메모 (선택)</label>
-                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 2차 오전모임">
+                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 모임">
                             </div>
                         </div>
                         <button type="submit" class="btn-primary-action">
@@ -777,26 +857,43 @@
                 </div>
             </div>
 
-            <!-- 3) 기타 시스템 바로가기 -->
+            <!-- 3) 출석부 상단 문구(슬로건) 설정 -->
+            <div class="card-box">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-pen-nib"></i>
+                        <span>출석부 상단 문구(슬로건) 설정</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="brandSubtitleForm" onsubmit="handleSaveBrandSubtitle(event)" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 260px; margin-bottom: 0;">
+                            <label class="form-label" for="brandSubtitleInput">출석부 서브 타이틀 문구</label>
+                            <input type="text" class="form-input" id="brandSubtitleInput" placeholder="예: 사랑과 은혜의 출석부" required>
+                        </div>
+                        <button type="submit" class="btn-primary-action" style="padding: 0.65rem 1.25rem;">
+                            <i class="fa-solid fa-check"></i> 문구 저장하기
+                        </button>
+                    </form>
+                    <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted);">
+                        * 어머니회 출석부 상단('어머니회' 타이틀 아래)에 표시되는 서브 문구입니다. (기본값: 사랑과 은혜의 출석부)
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- 5) 어머니회 출석부 바로가기 -->
             <div class="card-box">
                 <div class="card-header">
                     <div class="card-title">
                         <i class="fa-solid fa-link"></i>
-                        <span>다른 관리자 및 출석 화면 바로가기</span>
+                        <span>어머니회 출석부 바로가기</span>
                     </div>
                 </div>
                 <div class="card-body" style="display: flex; flex-wrap: wrap; gap: 10px;">
                     <a href="/mother_attend.html" class="btn-header">
                         <i class="fa-solid fa-person-dress" style="color: var(--primary);"></i> 어머니회 출석부
-                    </a>
-                    <a href="/index.html" class="btn-header">
-                        <i class="fa-solid fa-chart-pie" style="color: #2563eb;"></i> 구역 출석 통계(대시보드)
-                    </a>
-                    <a href="/attend.html" class="btn-header">
-                        <i class="fa-solid fa-users" style="color: #2563eb;"></i> 구역 출석부
-                    </a>
-                    <a href="/admin_gathering.html" class="btn-header">
-                        <i class="fa-solid fa-bullhorn" style="color: #ea580c;"></i> 대집회 관리
                     </a>
                 </div>
             </div>
@@ -835,6 +932,7 @@
             alert('관리자 권한이 필요합니다. 관리자 계정으로 로그인해주세요.');
             window.location.href = '/login.html';
         }
+        localStorage.setItem('faithon_login_mode', 'mother');
 
         document.getElementById('adminUserBadge').textContent = `${currentUser.name || '관리자'}`;
 
@@ -967,6 +1065,15 @@
         let matrixSchedules = [];
         let currentMatrixList = [];
 
+        function formatKoreanDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1;
+            const day = d.getDate();
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            return `${m}월 ${day}일(${dayNames[d.getDay()]})`;
+        }
+
         async function loadMatrixSchedules() {
             const mType = document.getElementById('matrixMeetingTypeSelect').value;
             try {
@@ -981,7 +1088,7 @@
                     data.schedules.forEach(s => {
                         const opt = document.createElement('option');
                         opt.value = s.meeting_date;
-                        opt.textContent = `${s.meeting_date} (${s.title || '정기모임'})`;
+                        opt.textContent = `${formatKoreanDate(s.meeting_date)} (${s.meeting_date})`;
                         select.appendChild(opt);
                     });
                     loadMatrixData();
@@ -1024,6 +1131,14 @@
                     document.getElementById('matAttendMembers').textContent = `${ov.attend_all || 0}명`;
                     document.getElementById('matOverallRate').textContent = `${ov.overall_rate || 0}%`;
 
+                    // 필터 뱃지 숫자 갱신
+                    const totalCnt = currentMatrixList.length;
+                    const pendingCnt = currentMatrixList.filter(r => !r.is_checked).length;
+                    const completedCnt = currentMatrixList.filter(r => r.is_checked).length;
+                    document.getElementById('matCntAll').textContent = totalCnt;
+                    document.getElementById('matCntPending').textContent = pendingCnt;
+                    document.getElementById('matCntCompleted').textContent = completedCnt;
+
                     renderMatrixTable();
                 } else {
                     tbody.innerHTML = `<tr><td colspan="10">${data.error || '조회 실패'}</td></tr>`;
@@ -1034,37 +1149,109 @@
             }
         }
 
+        let currentMatrixFilter = 'all'; // 'all' | 'pending' | 'completed'
+
+        function setMatrixFilter(filter) {
+            currentMatrixFilter = filter;
+            document.querySelectorAll('.matrix-tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (filter === 'all') document.getElementById('filterTabAll').classList.add('active');
+            else if (filter === 'pending') document.getElementById('filterTabPending').classList.add('active');
+            else if (filter === 'completed') document.getElementById('filterTabCompleted').classList.add('active');
+            renderMatrixTable();
+        }
+
         function renderMatrixTable() {
             const tbody = document.getElementById('matrixTableBody');
-            if (currentMatrixList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="padding: 1.5rem;">집계된 조가 없습니다.</td></tr>`;
+            let list = currentMatrixList;
+            if (currentMatrixFilter === 'pending') {
+                list = list.filter(r => !r.is_checked);
+            } else if (currentMatrixFilter === 'completed') {
+                list = list.filter(r => r.is_checked);
+            }
+
+            if (list.length === 0) {
+                const emptyMsg = currentMatrixFilter === 'pending'
+                    ? '🎉 모든 조의 출석체크가 완료되었습니다!'
+                    : (currentMatrixFilter === 'completed' ? '체크 완료된 조가 아직 없습니다.' : '집계된 조가 없습니다.');
+                tbody.innerHTML = `<tr><td colspan="10" style="padding: 1.5rem; color: var(--text-muted); font-weight: 700;">${emptyMsg}</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = currentMatrixList.map(r => {
+            const mType = document.getElementById('matrixMeetingTypeSelect').value;
+            const mDate = document.getElementById('matrixDateSelect').value;
+
+            tbody.innerHTML = list.map(r => {
                 const statusBadge = r.is_checked
                     ? `<span class="badge-status checked"><i class="fa-solid fa-check"></i> 완료</span>`
                     : `<span class="badge-status unchecked"><i class="fa-solid fa-clock"></i> 미체크</span>`;
 
+                // 조장 우선, 없으면 조총무, 없으면 서기
+                const urgeTargetName = r.leader_name || r.manager_name || r.clerk_name || '임원';
+                const urgeTargetDuty = r.leader_name ? '조장' : (r.manager_name ? '조총무' : '서기');
+                const urgeTargetPhone = r.leader_phone || r.manager_phone || r.clerk_phone || '';
+
+                const kakaoBtn = !r.is_checked
+                    ? `<button type="button" class="btn-kakao-urge" onclick="sendMotherKakaoUrge('${r.jo_code}', '${urgeTargetName}', '${urgeTargetDuty}', '${mType}', '${mDate}')" title="카톡 독려 (${urgeTargetName})">
+                           <i class="fa-solid fa-comment"></i> 독려
+                       </button>`
+                    : '';
+
                 return `
                     <tr>
                         <td style="font-weight: 800; color: var(--primary-dark);">${r.jo_code}</td>
-                        <td>${r.leader_name}</td>
-                        <td>${r.manager_name}</td>
-                        <td>${r.clerk_name}</td>
+                        <td>${r.leader_name || '-'}</td>
+                        <td>${r.manager_name || '-'}</td>
+                        <td>${r.clerk_name || '-'}</td>
                         <td>${r.total_cnt}명</td>
                         <td style="color: var(--primary); font-weight: 800;">${r.attend_cnt}명</td>
                         <td style="color: var(--text-muted);">${r.absent_cnt}명</td>
                         <td style="font-weight: 800;">${r.rate}%</td>
                         <td>${statusBadge}</td>
                         <td>
-                            <button type="button" class="btn-table-action" onclick="openJoDetail('${r.area_code}', '${r.jo_code}')">
-                                <i class="fa-solid fa-magnifying-glass"></i> 상세
-                            </button>
+                            <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: center;">
+                                ${kakaoBtn}
+                                <button type="button" class="btn-table-action" onclick="openJoDetail('${r.area_code}', '${r.jo_code}')">
+                                    <i class="fa-solid fa-magnifying-glass"></i> 상세
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        // 어머니회 미체크 조 카카오톡 독려 전송
+        async function sendMotherKakaoUrge(joCode, leaderName, duty, meetingType, meetingDate) {
+            const typeMap = { 'morning': '오전모임', 'jo': '조모임', 'monthly': '월례회' };
+            const typeKo = typeMap[meetingType] || '모임';
+            const dateKo = formatKoreanDate(meetingDate) || meetingDate;
+
+            const urgeMsg = `[FaithOn 어머니회 출석체크 독려]\n${joCode} ${duty} ${leaderName}님,\n${dateKo} 어머니회(${typeKo}) 출석체크 확인 및 완료 부탁드립니다.\n\n👉 어머니회 출석체크 바로가기: ${window.location.origin}/mother_attend.html`;
+
+            // 1. Web Share API (모바일 카카오톡 등 즉시 호출)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `[FaithOn] ${joCode} 어머니회 출석체크 독려`,
+                        text: urgeMsg
+                    });
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.log("Web Share API skipped, using clipboard fallback:", e);
+                    } else {
+                        return; // 취소한 경우
+                    }
+                }
+            }
+
+            // 2. Fallback: 클립보드 복사
+            try {
+                await navigator.clipboard.writeText(urgeMsg);
+                alert(`카카오톡 독려 문구가 클립보드에 복사되었습니다!\n\n카카오톡 대화방에 [붙여넣기]하여 ${leaderName}님께 전송해주세요.`);
+            } catch (err) {
+                prompt("아래 독려 문구를 복사하여 카카오톡으로 전송하세요:", urgeMsg);
+            }
         }
 
         // Export Matrix to Excel
@@ -1163,6 +1350,7 @@
         function loadManageData() {
             loadAllSchedulesTable();
             loadAllLeadersTable();
+            loadMotherConfigAdmin();
         }
 
         async function loadAllSchedulesTable() {
@@ -1176,7 +1364,7 @@
                     tbody.innerHTML = data.schedules.map(s => `
                         <tr>
                             <td style="font-weight: 800; color: var(--primary);">${typeMap[s.meeting_type] || s.meeting_type}</td>
-                            <td style="font-weight: 700;">${s.meeting_date}</td>
+                            <td style="font-weight: 700;">${formatKoreanDate(s.meeting_date)} <span style="font-size: 0.8rem; color: var(--text-muted);">(${s.meeting_date})</span></td>
                             <td>${s.title || '-'}</td>
                             <td>
                                 <button type="button" class="btn-header" style="color: var(--danger); border-color: #fecdd3; padding: 2px 8px; font-size: 0.75rem;" onclick="deleteSchedule(${s.id})">
@@ -1278,8 +1466,47 @@
             renderLeadersTable(filtered);
         }
 
+        // 3-1. Brand Subtitle Configuration
+        async function loadMotherConfigAdmin() {
+            try {
+                const res = await fetch('/api/mother/config');
+                const data = await res.json();
+                if (data.success && data.config) {
+                    const input = document.getElementById('brandSubtitleInput');
+                    if (input) input.value = data.config.brand_subtitle || '사랑과 은혜의 출석부';
+                }
+            } catch(e) {
+                console.error("loadMotherConfigAdmin error:", e);
+            }
+        }
+
+        async function handleSaveBrandSubtitle(e) {
+            e.preventDefault();
+            const brand_subtitle = document.getElementById('brandSubtitleInput').value.trim();
+            if (!brand_subtitle) {
+                alert('문구를 입력해주세요.');
+                return;
+            }
+            try {
+                const res = await fetch('/api/mother/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brand_subtitle })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('출석부 서브 타이틀 문구가 저장되었습니다.');
+                } else {
+                    alert('저장 실패: ' + (data.error || '오류'));
+                }
+            } catch(e) {
+                alert('서버 연결 실패');
+            }
+        }
+
         function logout() {
             if (confirm('관리자 로그아웃 하시겠습니까?')) {
+                localStorage.setItem('faithon_login_mode', 'mother');
                 localStorage.removeItem('faithon_user');
                 window.location.href = '/login.html';
             }

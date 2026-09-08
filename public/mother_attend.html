@@ -281,7 +281,7 @@
         .date-pill {
             flex-shrink: 0;
             padding: 0.6rem 0.95rem;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1.5px solid var(--border-color);
             background: #faf5f7;
             color: var(--text-secondary);
@@ -289,21 +289,41 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
-            min-width: 86px;
+            gap: 4px;
+            min-width: 96px;
             transition: all 0.18s ease;
         }
 
         .date-pill .pill-date {
-            font-size: 0.9rem;
+            font-size: 0.92rem;
             font-weight: 800;
             color: var(--text-primary);
+            white-space: nowrap;
         }
 
-        .date-pill .pill-title {
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--text-muted);
+        .date-pill .pill-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .date-pill .pill-badge.past {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .date-pill .pill-badge.today {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .date-pill .pill-badge.future {
+            background: #fee2e2;
+            color: #b91c1c;
         }
 
         .date-pill.active {
@@ -313,9 +333,54 @@
             box-shadow: 0 4px 10px rgba(190, 24, 93, 0.22);
         }
 
-        .date-pill.active .pill-date,
-        .date-pill.active .pill-title {
+        .date-pill.active .pill-date {
             color: #ffffff;
+        }
+
+        .date-pill.active .pill-badge {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+        }
+
+        /* Future Meeting Lock Alert Banner */
+        .future-lock-banner {
+            background: #fff1f2;
+            border: 1.5px solid #fecdd3;
+            border-radius: 14px;
+            padding: 0.9rem 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #9f1239;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 2px 8px rgba(225, 29, 72, 0.05);
+        }
+
+        .future-lock-banner .banner-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #ffe4e6;
+            color: #e11d48;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .future-lock-banner .banner-text h4 {
+            font-size: 0.92rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+            color: #881337;
+        }
+
+        .future-lock-banner .banner-text p {
+            font-size: 0.8rem;
+            color: #9f1239;
+            margin: 0;
+            line-height: 1.35;
         }
 
         .no-dates-alert {
@@ -581,6 +646,26 @@
             transform: scale(0.96);
         }
 
+        .btn-att-toggle:disabled,
+        .btn-att-toggle.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #94a3b8;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+
+        .btn-quick:disabled,
+        .btn-quick.disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: #f1f5f9 !important;
+            color: #94a3b8 !important;
+            border-color: #e2e8f0 !important;
+        }
+
         /* Toast Notification */
         .toast {
             position: fixed;
@@ -698,7 +783,7 @@
                         <span>FaithOn</span>
                         <span style="font-size: 0.85rem; font-weight: 800; color: #db2777;">🌸 어머니회</span>
                     </div>
-                    <span class="brand-sub">사랑과 은혜의 출석부</span>
+                    <span class="brand-sub" id="brandSubtitleText">사랑과 은혜의 출석부</span>
                 </div>
             </div>
 
@@ -779,14 +864,17 @@
                 <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
             </div>
             <div class="quick-actions">
-                <button type="button" class="btn-quick" onclick="batchSetAttendance(true)">
+                <button type="button" class="btn-quick" id="btnAllAttend" onclick="batchSetAttendance(true)">
                     <i class="fa-solid fa-check-double" style="color: var(--success);"></i> 전체 출석
                 </button>
-                <button type="button" class="btn-quick" onclick="batchSetAttendance(false)">
+                <button type="button" class="btn-quick" id="btnAllReset" onclick="batchSetAttendance(false)">
                     <i class="fa-solid fa-rotate-left" style="color: var(--danger);"></i> 전체 초기화
                 </button>
             </div>
         </div>
+
+        <!-- Future Lock Notice Banner (Visible only for future dates) -->
+        <div id="futureLockNotice" class="future-lock-banner" style="display: none;"></div>
 
         <!-- Members Attendance List Card -->
         <div class="member-list-card">
@@ -842,6 +930,7 @@
         if (!currentUser) {
             window.location.href = '/login.html';
         }
+        localStorage.setItem('faithon_login_mode', 'mother');
 
         // Setup user info
         const userAreaCode = (currentUser.area_code || '11').replace(/[^0-9]/g, '');
@@ -888,6 +977,17 @@
             }, 2000);
         }
 
+        // KST Today Date String (YYYY-MM-DD)
+        function getTodayKST() {
+            try {
+                return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+            } catch(e) {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                return new Date(utc + (9 * 3600000)).toISOString().substring(0, 10);
+            }
+        }
+
         // Format Date to Korean (예: 2026-09-15 -> 9월 15일(화))
         function formatKoreanDate(dateStr) {
             if (!dateStr) return '';
@@ -904,7 +1004,7 @@
             tabMorning.className = (type === 'morning') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
             tabJo.className = (type === 'jo') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
             tabMonthly.className = (type === 'monthly') ? 'meeting-tab-btn active' : 'meeting-tab-btn';
-            
+            activeDate = null;
             loadSchedules();
         }
 
@@ -939,20 +1039,43 @@
                 return;
             }
 
-            // Default to first (most recent) date
+            const todayKST = getTodayKST();
+
+            // 기본 활성화 날짜 결정:
+            // 새 모임이 등록되더라도 당일이 도래하기 전까지는 지난 모임의 출석체크가 가능하도록
+            // 이미 도래한 모임(meeting_date <= todayKST) 중 가장 최신 모임을 기본 선택!
             if (!activeDate || !currentSchedules.find(s => s.meeting_date === activeDate)) {
-                activeDate = currentSchedules[0].meeting_date;
+                const pastOrToday = currentSchedules.filter(s => s.meeting_date <= todayKST);
+                if (pastOrToday.length > 0) {
+                    activeDate = pastOrToday[0].meeting_date;
+                } else {
+                    activeDate = currentSchedules[0].meeting_date;
+                }
             }
             activeSchedule = currentSchedules.find(s => s.meeting_date === activeDate) || currentSchedules[0];
 
-            selectedDateTitle.textContent = `${formatKoreanDate(activeSchedule.meeting_date)} ${activeSchedule.title || ''}`;
+            const typeNames = { 'morning': '오전모임', 'jo': '조모임', 'monthly': '월례회' };
+            const typeLabel = typeNames[currentMeetingType] || '모임';
+            selectedDateTitle.textContent = `${typeLabel} • ${formatKoreanDate(activeSchedule.meeting_date)}`;
 
             datePillsList.innerHTML = currentSchedules.map(s => {
                 const isSelected = s.meeting_date === activeDate;
+                const isFuture = s.meeting_date > todayKST;
+                const isToday = s.meeting_date === todayKST;
+
+                let badgeHtml = '';
+                if (isFuture) {
+                    badgeHtml = `<span class="pill-badge future"><i class="fa-solid fa-lock"></i> 예정</span>`;
+                } else if (isToday) {
+                    badgeHtml = `<span class="pill-badge today">오늘</span>`;
+                } else {
+                    badgeHtml = `<span class="pill-badge past">지난 모임</span>`;
+                }
+
                 return `
                     <button type="button" class="date-pill ${isSelected ? 'active' : ''}" onclick="selectDate('${s.meeting_date}')">
                         <span class="pill-date">${formatKoreanDate(s.meeting_date)}</span>
-                        <span class="pill-title">${s.title || '정기모임'}</span>
+                        ${badgeHtml}
                     </button>
                 `;
             }).join('');
@@ -1010,6 +1133,41 @@
 
         // 7. Render Member List
         function renderMemberList() {
+            const todayKST = getTodayKST();
+            const isFuture = activeDate && (activeDate > todayKST);
+
+            // 미래 일정 잠금 알림 배너 제어
+            const noticeEl = document.getElementById('futureLockNotice');
+            if (noticeEl) {
+                if (isFuture) {
+                    noticeEl.style.display = 'flex';
+                    noticeEl.innerHTML = `
+                        <div class="banner-icon"><i class="fa-solid fa-lock"></i></div>
+                        <div class="banner-text">
+                            <h4>출석체크 대기 중인 모임입니다</h4>
+                            <p>이 모임은 아직 도래하지 않은 미래 일정입니다. 모임 당일인 <strong>${formatKoreanDate(activeDate)}</strong>부터 출석체크가 가능합니다.</p>
+                        </div>
+                    `;
+                } else {
+                    noticeEl.style.display = 'none';
+                    noticeEl.innerHTML = '';
+                }
+            }
+
+            // 일괄 출석/초기화 버튼 비활성화 상태 제어
+            const btnAllAttend = document.getElementById('btnAllAttend');
+            const btnAllReset = document.getElementById('btnAllReset');
+            if (btnAllAttend) {
+                btnAllAttend.disabled = isFuture;
+                if (isFuture) btnAllAttend.classList.add('disabled');
+                else btnAllAttend.classList.remove('disabled');
+            }
+            if (btnAllReset) {
+                btnAllReset.disabled = isFuture;
+                if (isFuture) btnAllReset.classList.add('disabled');
+                else btnAllReset.classList.remove('disabled');
+            }
+
             if (currentMembers.length === 0) {
                 memberItemsList.innerHTML = `<div class="no-dates-alert" style="margin: 1.5rem;">해당 조에 등록된 어머니회원이 없습니다.</div>`;
                 return;
@@ -1021,7 +1179,7 @@
                 else if (m.duty === '조총무') dutyClass = 'manager';
                 else if (m.duty === '서기') dutyClass = 'clerk';
 
-                const isAttended = !!m.is_attended;
+                const isAttended = !isFuture && !!m.is_attended;
 
                 return `
                     <div class="member-row">
@@ -1035,9 +1193,12 @@
                                 ${m.phone ? `<a href="tel:${m.phone}" class="member-phone"><i class="fa-solid fa-phone"></i> ${m.phone}</a>` : ''}
                             </div>
                         </div>
-                        <button type="button" class="btn-att-toggle ${isAttended ? 'checked' : ''}" onclick="toggleAttendance('${m.code_no}', this)">
-                            <i class="fa-solid ${isAttended ? 'fa-circle-check' : 'fa-circle'}"></i>
-                            <span>${isAttended ? '출석' : '미참석'}</span>
+                        <button type="button" 
+                                class="btn-att-toggle ${isAttended ? 'checked' : ''} ${isFuture ? 'disabled' : ''}" 
+                                ${isFuture ? 'disabled' : ''} 
+                                onclick="toggleAttendance('${m.code_no}', this)">
+                            <i class="fa-solid ${isFuture ? 'fa-lock' : (isAttended ? 'fa-circle-check' : 'fa-circle')}"></i>
+                            <span>${isFuture ? '체크 대기' : (isAttended ? '출석' : '미참석')}</span>
                         </button>
                     </div>
                 `;
@@ -1052,6 +1213,12 @@
         // 8. Toggle Attendance (Single Member)
         async function toggleAttendance(memberCode, btn) {
             if (!activeDate) return;
+
+            const todayKST = getTodayKST();
+            if (activeDate > todayKST) {
+                alert(`모임 당일(${formatKoreanDate(activeDate)})부터 출석체크가 가능합니다.\n도래하지 않은 미래 일정은 미리 체크할 수 없습니다.`);
+                return;
+            }
 
             const member = currentMembers.find(m => m.code_no === memberCode);
             if (!member) return;
@@ -1097,6 +1264,12 @@
         // 9. Batch Set Attendance (전체 출석 or 전체 초기화)
         async function batchSetAttendance(isAttended) {
             if (!activeDate || currentMembers.length === 0) return;
+
+            const todayKST = getTodayKST();
+            if (activeDate > todayKST) {
+                alert(`모임 당일(${formatKoreanDate(activeDate)})부터 출석체크가 가능합니다.\n도래하지 않은 미래 일정은 미리 체크할 수 없습니다.`);
+                return;
+            }
 
             if (!confirm(`${isAttended ? '전체 출석 처리' : '전체 출석 해제'}하시겠습니까?`)) {
                 return;
@@ -1221,6 +1394,7 @@
 
         function logout() {
             if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.setItem('faithon_login_mode', 'mother');
                 localStorage.removeItem('faithon_user');
                 window.location.href = '/login.html';
             }
@@ -1232,7 +1406,21 @@
             if (e.target === modal) closeStatsModal();
         });
 
+        async function loadMotherConfig() {
+            try {
+                const res = await fetch('/api/mother/config');
+                const data = await res.json();
+                if (data.success && data.config && data.config.brand_subtitle) {
+                    const el = document.getElementById('brandSubtitleText');
+                    if (el) el.textContent = data.config.brand_subtitle;
+                }
+            } catch(e) {
+                console.error("loadMotherConfig error:", e);
+            }
+        }
+
         // Initialize on load
+        loadMotherConfig();
         loadSchedules();
     </script>
 </body>

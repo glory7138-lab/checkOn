@@ -1286,6 +1286,7 @@
         if (!currentUser) {
             window.location.href = '/login.html';
         }
+        localStorage.setItem('faithon_login_mode', 'area');
 
         // State Variables
         // 현재 요일 기준으로 가장 최근에 있었던 집회(주일 vs 수요)를 기본 탭으로 자동 선정
@@ -2671,6 +2672,7 @@
 
         function logout() {
             if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.setItem('faithon_login_mode', 'area');
                 localStorage.removeItem('faithon_user');
                 window.location.href = '/login.html';
             }
