@@ -1107,20 +1107,21 @@
                     <form id="addScheduleForm" onsubmit="handleAddSchedule(event)">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label class="form-label" for="newMeetingType">모임 종류</label>
+                                <label class="form-label" for="newMeetingType">모임 종류 <span style="color: var(--danger);">*</span></label>
                                 <select class="form-select" id="newMeetingType" required>
+                                    <option value="" disabled selected>모임 종류를 선택하세요</option>
                                     <option value="morning">오전모임</option>
                                     <option value="jo">조모임</option>
                                     <option value="monthly">월례회</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label" for="newMeetingDate">모임 날짜</label>
+                                <label class="form-label" for="newMeetingDate">모임 날짜 <span style="color: var(--danger);">*</span></label>
                                 <input type="date" class="form-input" id="newMeetingDate" required>
                             </div>
                             <div class="form-group">
-                                <label class="form-label" for="newMeetingTitle">모임 명칭/메모 (선택)</label>
-                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 모임">
+                                <label class="form-label" for="newMeetingTitle">모임 명칭/메모 <span style="color: var(--danger);">*</span></label>
+                                <input type="text" class="form-input" id="newMeetingTitle" placeholder="예: 9월 1차 모임" required>
                             </div>
                         </div>
                         <button type="submit" class="btn-primary-action">
@@ -1720,6 +1721,25 @@
             const meeting_date = document.getElementById('newMeetingDate').value;
             const title = document.getElementById('newMeetingTitle').value.trim();
 
+            if (!meeting_type) {
+                alert('모임 종류를 선택해주세요.');
+                document.getElementById('newMeetingType').focus();
+                return;
+            }
+            if (!meeting_date) {
+                alert('모임 날짜를 지정해주세요.');
+                document.getElementById('newMeetingDate').focus();
+                return;
+            }
+            if (!title) {
+                alert('모임 명칭/메모 내용을 입력해주세요.');
+                document.getElementById('newMeetingTitle').focus();
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
             try {
                 const res = await fetch('/api/mother/schedules', {
                     method: 'POST',
@@ -1729,13 +1749,18 @@
                 const data = await res.json();
                 if (data.success) {
                     alert('모임 일정이 성공적으로 등록되었습니다.');
-                    document.getElementById('newMeetingTitle').value = '';
+                    document.getElementById('addScheduleForm').reset();
                     loadAllSchedulesTable();
+                    if (typeof loadMatrixSchedules === 'function') {
+                        loadMatrixSchedules();
+                    }
                 } else {
                     alert('등록 실패: ' + (data.error || '오류'));
                 }
             } catch (err) {
                 alert('서버 연결 실패');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
             }
         }
 
@@ -1852,11 +1877,6 @@
             const modal = document.getElementById('joDetailModal');
             if (e.target === modal) closeJoModal();
         });
-
-        // Set default date picker to today
-        try {
-            document.getElementById('newMeetingDate').value = new Date().toISOString().split('T')[0];
-        } catch(e) {}
 
         // Init
         switchAdminTab('stats');
