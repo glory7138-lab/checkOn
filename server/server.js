@@ -515,6 +515,8 @@ app.post('/api/auth/login', async (req, res) => {
                         scope_type: 'all',
                         scope_code: null,
                         login_type: mode,
+                        can_access_mother: resolved.can_access_mother,
+                        is_mother_leader: resolved.isMotherLeader,
                         active_year: activeYear
                     }
                 });
@@ -552,6 +554,8 @@ app.post('/api/auth/login', async (req, res) => {
                 scope_type,
                 scope_code,
                 login_type: mode,
+                can_access_mother: resolved.can_access_mother,
+                is_mother_leader: resolved.isMotherLeader,
                 active_year: activeYear
             }
         });

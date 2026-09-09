@@ -788,10 +788,13 @@
             </div>
 
             <div class="header-actions">
+                <button type="button" id="btnSwitchToArea" onclick="switchToAreaAttend()" class="btn-header" style="display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; border: 1.5px solid #93c5fd; color: #1428A0; font-weight: 800; font-size: 0.8rem; border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 4px rgba(20, 40, 160, 0.12);" title="구역 출석부로 전환">
+                    <i class="fa-solid fa-people-roof" style="color: #1428A0;"></i> <span>구역 출석부</span>
+                </button>
                 <a href="/admin_mother.html" id="adminLinkBtn" class="btn-header admin-btn" style="display: none;">
                     <i class="fa-solid fa-crown"></i> 관리자
                 </a>
-                <button type="button" class="btn-header" onclick="logout()">
+                <button type="button" class="btn-header" onclick="logout()" title="로그아웃">
                     <i class="fa-solid fa-arrow-right-from-bracket"></i>
                 </button>
             </div>
@@ -1390,6 +1393,18 @@
                     }
                 }
             });
+        }
+
+        function switchToAreaAttend() {
+            try {
+                const u = JSON.parse(localStorage.getItem('faithon_user') || '{}');
+                u.login_type = 'area';
+                localStorage.setItem('faithon_user', JSON.stringify(u));
+                localStorage.setItem('faithon_login_mode', 'area');
+                window.location.href = '/attend.html';
+            } catch(e) {
+                window.location.href = '/attend.html';
+            }
         }
 
         function logout() {

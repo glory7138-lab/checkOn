@@ -945,6 +945,9 @@
                 <span style="font-weight: 800; color: var(--accent-color); font-size: 1.2rem; letter-spacing: -0.5px;">FaithOn</span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <button type="button" id="mobSwitchToMotherBtn" onclick="switchToMotherAttend()" style="display: none; align-items: center; gap: 5px; background: #fdf2f8; border: 1.5px solid #f472b6; color: #db2777; border-radius: 20px; padding: 4px 10px; font-size: 0.78rem; font-weight: 800; cursor: pointer; box-shadow: 0 1px 4px rgba(219, 39, 119, 0.15);" title="어머니회(조) 출석부로 전환">
+                    <i class="fa-solid fa-person-dress"></i> <span>어머니회</span>
+                </button>
                 <span id="mobileUserDisplay" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-color); background: var(--accent-light); padding: 3px 8px; border-radius: 6px;">31구역</span>
                 <button onclick="logout()" style="color: var(--danger-color); font-size: 0.9rem; padding: 4px;" title="로그아웃">
                     <i class="fa-solid fa-right-from-bracket"></i>
@@ -975,6 +978,10 @@
                 <a href="/attend.html" class="nav-item active" id="navAttend">
                     <i class="fa-solid fa-clipboard-user"></i>
                     <span>출석체크</span>
+                </a>
+                <a href="javascript:void(0)" onclick="switchToMotherAttend()" class="nav-item" id="sidebarSwitchToMother" style="display: none; color: #db2777; font-weight: 700;">
+                    <i class="fa-solid fa-person-dress" style="color: #db2777;"></i>
+                    <span>어머니회(조) 출석부</span>
                 </a>
                 <a href="/admin_gathering.html" class="nav-item" id="navAdminGathering" style="display: none;">
                     <i class="fa-solid fa-calendar-star"></i>
@@ -1599,6 +1606,13 @@
             if (navAdminGathering) navAdminGathering.style.display = isAdmin ? 'flex' : 'none';
             if (mobNavReserve) mobNavReserve.style.display = isAdmin ? 'flex' : 'none';
             if (mobNavAdminUsers) mobNavAdminUsers.style.display = isAdmin ? 'flex' : 'none';
+
+            // 어머니회 출석부 전환 버튼 노출 제어 (자매 임원 및 관리자만 노출, 구역장/부구역장은 숨김)
+            const canSwitchToMother = !!(currentUser.can_access_mother || currentUser.role === 'admin' || currentUser.is_mother_leader || (currentUser.position && (currentUser.position.includes('조장') || currentUser.position.includes('총무') || currentUser.position.includes('서기'))));
+            const mobSwitchBtn = document.getElementById('mobSwitchToMotherBtn');
+            const sidebarSwitchBtn = document.getElementById('sidebarSwitchToMother');
+            if (mobSwitchBtn) mobSwitchBtn.style.display = canSwitchToMother ? 'inline-flex' : 'none';
+            if (sidebarSwitchBtn) sidebarSwitchBtn.style.display = canSwitchToMother ? 'flex' : 'none';
 
             // Render Mobile Quick Top Menu dynamically
             const quickNav = document.getElementById('mobileQuickNav');
@@ -2667,6 +2681,18 @@
                 }
             } else {
                 window.location.href = '/newcomer.html';
+            }
+        }
+
+        function switchToMotherAttend() {
+            try {
+                const u = JSON.parse(localStorage.getItem('faithon_user') || '{}');
+                u.login_type = 'mother';
+                localStorage.setItem('faithon_user', JSON.stringify(u));
+                localStorage.setItem('faithon_login_mode', 'mother');
+                window.location.href = '/mother_attend.html';
+            } catch(e) {
+                window.location.href = '/mother_attend.html';
             }
         }
 
