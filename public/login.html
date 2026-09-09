@@ -371,6 +371,8 @@
 
         let currentLoginMode = localStorage.getItem('faithon_login_mode') || 'area';
         let pendingAdminUser = null;
+        let modeCheckDebounceTimer = null;
+        let lastCheckedPhone = '';
 
         function switchLoginMode(mode) {
             currentLoginMode = mode;
@@ -388,6 +390,38 @@
                 loginCard.classList.remove('theme-mother');
                 loginSubtitle.textContent = '은혜의 자리로, 믿음 On!';
                 errorMsg.style.display = 'none';
+            }
+        }
+
+        // 구역장, 부구역장은 어머니회(조)체크 탭 숨김 처리 / 어머니회 임원 및 관리자는 두 개 탭 모두 노출
+        async function checkRoleAndModes(rawIdentifier) {
+            const identifier = String(rawIdentifier || '').trim();
+            if (identifier === lastCheckedPhone) return;
+            lastCheckedPhone = identifier;
+
+            // 미입력 상태이거나 번호가 너무 짧은 경우(단, rokmc775는 제외) 기본 둘 다 노출
+            if (!identifier || (identifier.length < 3 && identifier.toLowerCase() !== 'rokmc775')) {
+                modeMotherBtn.style.display = 'flex';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/auth/inspect-modes?identifier=${encodeURIComponent(identifier)}`);
+                const data = await res.json();
+                if (data && data.success) {
+                    if (data.can_access_mother === false) {
+                        // 구역장, 부구역장은 어머니회(조)체크 탭 숨김
+                        modeMotherBtn.style.display = 'none';
+                        if (currentLoginMode === 'mother') {
+                            switchLoginMode('area');
+                        }
+                    } else {
+                        // 어머니회 임원, 관리자 등은 어머니회 탭 노출
+                        modeMotherBtn.style.display = 'flex';
+                    }
+                }
+            } catch (e) {
+                console.warn('inspect-modes check error:', e);
             }
         }
 
@@ -417,11 +451,37 @@
                     phoneInput.value = savedCreds.phone || '';
                     passwordInput.value = savedCreds.password || '';
                     saveCredentialsCheck.checked = true;
+                    // 저장된 번호 기준으로 탭 가시성 즉시 확인
+                    checkRoleAndModes(savedCreds.phone);
                 } else {
                     localStorage.removeItem('faithon_saved_creds');
                 }
             }
         } catch(e) {}
+
+        // 현재 입력창에 값이 이미 채워져 있는 경우(브라우저 자체 자동완성 등)도 확인
+        if (phoneInput.value) {
+            checkRoleAndModes(phoneInput.value);
+        }
+        setTimeout(() => {
+            if (phoneInput.value) {
+                checkRoleAndModes(phoneInput.value);
+            }
+        }, 300);
+
+        // 입력창 변경 시 실시간 디바운스 권한 모드 검사
+        phoneInput.addEventListener('input', () => {
+            clearTimeout(modeCheckDebounceTimer);
+            modeCheckDebounceTimer = setTimeout(() => {
+                checkRoleAndModes(phoneInput.value);
+            }, 200);
+        });
+        phoneInput.addEventListener('change', () => {
+            checkRoleAndModes(phoneInput.value);
+        });
+        phoneInput.addEventListener('blur', () => {
+            checkRoleAndModes(phoneInput.value);
+        });
 
         function togglePasswordVisibility(inputId, btn) {
             const input = document.getElementById(inputId);
