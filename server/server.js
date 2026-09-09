@@ -24,6 +24,38 @@ function getKSTTodayStr() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+// Helper: 일자('YYYY-MM-DD')가 수요일(wednesday) 또는 일요일(sunday)인지 판별
+function getServiceTypeForDate(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return null;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const dateObj = new Date(y, m, d);
+    const day = dateObj.getDay(); // 0: 일요일, 3: 수요일
+    if (day === 3) return 'wednesday';
+    if (day === 0) return 'sunday';
+    return null;
+}
+
+// Helper: 대집회 종료일(end_date) 이후 도래하는 첫 번째 수요일('YYYY-MM-DD') 계산
+function getNextWednesdayAfterEndDate(endDateVal) {
+    const endDateStr = formatDateYMD(endDateVal);
+    if (!endDateStr || !endDateStr.includes('-')) return null;
+    const [ey, em, ed] = endDateStr.split('-').map(Number);
+    for (let i = 1; i <= 7; i++) {
+        const nextDay = new Date(ey, em - 1, ed + i);
+        if (nextDay.getDay() === 3) { // 3: Wednesday
+            const ny = nextDay.getFullYear();
+            const nm = String(nextDay.getMonth() + 1).padStart(2, '0');
+            const nd = String(nextDay.getDate()).padStart(2, '0');
+            return `${ny}-${nm}-${nd}`;
+        }
+    }
+    return null;
+}
+
 // CORS 설정 (외부 모듈 의존성 없이 네이티브 처리)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -1796,6 +1828,32 @@ app.post('/api/attendance/toggle', async (req, res) => {
             ON DUPLICATE KEY UPDATE is_attended = ?
         `, [member_code, date, type, !!is_attended, !!is_attended]);
 
+        // 활성 대집회 중 해당 date가 포함된 경우 대집회 출석부(faithon_special_attendance)에도 자동 동기화
+        try {
+            const spRows = await conn.query(`SELECT id, selected_dates FROM faithon_special_gatherings WHERE is_active = TRUE LIMIT 1`);
+            if (spRows && spRows.length > 0) {
+                const sp = spRows[0];
+                let dates = [];
+                try { dates = JSON.parse(sp.selected_dates || '[]'); } catch (e) {}
+                if (dates.includes(date)) {
+                    if (is_attended) {
+                        await conn.query(`
+                            INSERT INTO faithon_special_attendance (gathering_id, service_date, member_code, member_type, is_attended)
+                            VALUES (?, ?, ?, 'REGULAR', TRUE)
+                            ON DUPLICATE KEY UPDATE is_attended = TRUE
+                        `, [sp.id, date, member_code]);
+                    } else {
+                        await conn.query(`
+                            DELETE FROM faithon_special_attendance 
+                            WHERE gathering_id = ? AND DATE_FORMAT(service_date, '%Y-%m-%d') = ? AND member_code = ?
+                        `, [sp.id, date, member_code]);
+                    }
+                }
+            }
+        } catch (syncErr) {
+            console.warn("[FaithOn] Sync to special gathering attendance failed:", syncErr.message);
+        }
+
         res.json({ success: true, message: '출석 상태가 실시간 저장되었습니다.' });
     } catch (err) {
         console.error("Error toggling attendance:", err);
@@ -1819,6 +1877,34 @@ app.post('/api/attendance', async (req, res) => {
                 VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE is_attended = ?
             `, [m.member_code, date, type, !!m.is_attended, !!m.is_attended]);
+        }
+
+        // 활성 대집회 중 해당 date가 포함된 경우 대집회 출석부에도 동기화
+        try {
+            const spRows = await conn.query(`SELECT id, selected_dates FROM faithon_special_gatherings WHERE is_active = TRUE LIMIT 1`);
+            if (spRows && spRows.length > 0) {
+                const sp = spRows[0];
+                let dates = [];
+                try { dates = JSON.parse(sp.selected_dates || '[]'); } catch (e) {}
+                if (dates.includes(date)) {
+                    for (const m of members) {
+                        if (m.is_attended) {
+                            await conn.query(`
+                                INSERT INTO faithon_special_attendance (gathering_id, service_date, member_code, member_type, is_attended)
+                                VALUES (?, ?, ?, 'REGULAR', TRUE)
+                                ON DUPLICATE KEY UPDATE is_attended = TRUE
+                            `, [sp.id, date, m.member_code]);
+                        } else {
+                            await conn.query(`
+                                DELETE FROM faithon_special_attendance 
+                                WHERE gathering_id = ? AND DATE_FORMAT(service_date, '%Y-%m-%d') = ? AND member_code = ?
+                            `, [sp.id, date, m.member_code]);
+                        }
+                    }
+                }
+            }
+        } catch (syncErr) {
+            console.warn("[FaithOn] Batch sync to special gathering attendance failed:", syncErr.message);
         }
 
         await conn.commit();
@@ -2552,45 +2638,79 @@ function formatDateYMD(val) {
     return String(val).substring(0, 10);
 }
 
+// Helper: 대집회 자동 활성화/만료 생명주기 관리 함수
+// 1. 만료 체크: 종료일(end_date) 이후 도래하는 첫 번째 수요일 0시가 지나면 is_active = FALSE 처리
+// 2. 도래 체크: 등록된 대집회 중 오늘 날짜(KST)가 시작일 이상 ~ 만료일 미만인 경우, 숨김(is_active = FALSE)이었더라도 자동으로 is_active = TRUE 활성화!
+async function resolveCurrentActiveGathering(conn) {
+    const todayKST = getKSTTodayStr();
+    const allGatherings = await conn.query(`
+        SELECT * FROM faithon_special_gatherings 
+        ORDER BY start_date DESC, id DESC
+    `);
+    
+    let currentActive = null;
+
+    for (const g of allGatherings) {
+        const startStr = formatDateYMD(g.start_date);
+        const nextWedStr = getNextWednesdayAfterEndDate(g.end_date);
+
+        // 만료 여부: 종료 후 첫 수요일 도래 여부
+        const isPastExpired = nextWedStr && (todayKST >= nextWedStr);
+        // 활성 기간 여부: 시작일 도래 및 만료 이전
+        const isCurrentlyActiveWindow = (startStr && todayKST >= startStr) && (!nextWedStr || todayKST < nextWedStr);
+
+        if (isPastExpired) {
+            if (g.is_active) {
+                await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE WHERE id = ?`, [g.id]);
+                g.is_active = 0;
+            }
+        } else if (isCurrentlyActiveWindow) {
+            // 해당 기간이 도래한 대집회: 숨김(is_active = FALSE) 처리되어 있었더라도 자동으로 활성화!
+            if (!currentActive) {
+                currentActive = g;
+                if (!g.is_active) {
+                    await conn.query(`UPDATE faithon_special_gatherings SET is_active = TRUE WHERE id = ?`, [g.id]);
+                    g.is_active = 1;
+                    console.log(`[FaithOn] Special gathering ${g.id} ('${g.title}') automatically activated on date arrival (${todayKST}).`);
+                }
+            } else if (g.is_active) {
+                await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE WHERE id = ?`, [g.id]);
+                g.is_active = 0;
+            }
+        } else if (currentActive && g.is_active) {
+            // 다른 활성 대집회가 이미 선정된 경우 중복 활성화 정리
+            await conn.query(`UPDATE faithon_special_gatherings SET is_active = FALSE WHERE id = ?`, [g.id]);
+            g.is_active = 0;
+        }
+    }
+
+    // 만약 기간 도래 조건에 해당하지 않으나 관리자가 수동 활성화해둔 미래 대집회가 있다면 예외적 허용
+    if (!currentActive) {
+        const manualActive = allGatherings.find(g => !!g.is_active);
+        if (manualActive) {
+            const nextWed = getNextWednesdayAfterEndDate(manualActive.end_date);
+            if (!nextWed || todayKST < nextWed) {
+                currentActive = manualActive;
+            }
+        }
+    }
+
+    return currentActive;
+}
+
 // 1. 현재 활성화된 대집회 정보 조회 (구역 출석체크 화면 연동)
-// - 관리자가 is_active = TRUE 로 설정한 집회 중
-// - 종료일(end_date) + 14일까지만 구역 탭에 노출 및 수정 가능하며, 14일 경과 시 자동으로 숨김 처리
+// - 시작일 도래 시 자동 활성화 & 종료 후 수요일 도래 시 자동 숨김 처리
 app.get('/api/special-gatherings/active', async (req, res) => {
     let conn;
     try {
         conn = await db.pool.getConnection();
-        const rows = await conn.query(`
-            SELECT * FROM faithon_special_gatherings 
-            WHERE is_active = TRUE 
-            ORDER BY id DESC LIMIT 1
-        `);
-        if (rows && rows.length > 0) {
-            const gathering = rows[0];
+        const gathering = await resolveCurrentActiveGathering(conn);
+        if (gathering) {
             let selectedDates = [];
             try {
                 selectedDates = JSON.parse(gathering.selected_dates || '[]');
             } catch (e) {
                 selectedDates = [];
-            }
-
-            const startDateStr = formatDateYMD(gathering.start_date);
-            const endDateStr = formatDateYMD(gathering.end_date);
-
-            // 종료일 기준 + 14일 만료 체크
-            // (종료일이 2026-09-13이면 2026-09-27까지 수정 가능, 28일부터 자동 비노출)
-            let isExpired = false;
-            if (endDateStr) {
-                const [ey, em, ed] = endDateStr.split('-').map(Number);
-                const expireDate = new Date(ey, em - 1, ed + 14, 23, 59, 59);
-                const now = new Date();
-                if (now > expireDate) {
-                    isExpired = true;
-                }
-            }
-
-            if (isExpired) {
-                res.json({ success: true, active: false, gathering: null, expired: true });
-                return;
             }
 
             res.json({
@@ -2600,8 +2720,8 @@ app.get('/api/special-gatherings/active', async (req, res) => {
                     id: gathering.id,
                     title: gathering.title,
                     instructor: gathering.instructor || '',
-                    start_date: startDateStr,
-                    end_date: endDateStr,
+                    start_date: formatDateYMD(gathering.start_date),
+                    end_date: formatDateYMD(gathering.end_date),
                     selected_dates: selectedDates,
                     is_active: !!gathering.is_active,
                     created_at: gathering.created_at
@@ -2674,6 +2794,9 @@ app.post('/api/special-gatherings', async (req, res) => {
         `, [title, instructor || '', start_date, end_date, datesJson, is_active ? 1 : 0]);
 
         await conn.commit();
+        if (is_active) {
+            autoSyncActiveGatheringsRegularAttendance();
+        }
         res.json({ success: true, message: '대집회가 성공적으로 등록되었습니다.', id: result.insertId });
     } catch (err) {
         if (conn) await conn.rollback();
@@ -2741,6 +2864,9 @@ app.put('/api/special-gatherings/:id', async (req, res) => {
         }
 
         await conn.commit();
+        if (is_active) {
+            autoSyncActiveGatheringsRegularAttendance();
+        }
         res.json({ success: true, message: '대집회 정보가 수정되었습니다.' });
     } catch (err) {
         if (conn) await conn.rollback();
@@ -3008,14 +3134,13 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
         }
 
         const gathering = gRows[0];
-        // 종료일(end_date) + 14일까지 출석 체크 및 수정 가능 (14일 초과 시 마감)
+        // 대집회 7일간의 집회가 끝난 후 도래하는 수요일 0시 이후 자동 마감
         if (gathering.end_date) {
-            const now = new Date();
-            const endDateObj = new Date(gathering.end_date);
-            const expireDate = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate() + 14, 23, 59, 59);
-            if (now > expireDate) {
+            const nextWed = getNextWednesdayAfterEndDate(gathering.end_date);
+            const todayKST = getKSTTodayStr();
+            if (nextWed && todayKST >= nextWed) {
                 await conn.rollback();
-                return res.status(400).json({ success: false, error: '해당 대집회의 출석 체크 기간(종료일+14일)이 마감되었습니다.' });
+                return res.status(400).json({ success: false, error: `해당 대집회의 출석 체크 및 수정 기간(${nextWed} 수요일 이전까지)이 마감되었습니다.` });
             }
         }
 
@@ -3038,6 +3163,31 @@ app.post('/api/special-gatherings/:id/attendance', async (req, res) => {
                     DELETE FROM faithon_special_attendance 
                     WHERE gathering_id = ? AND DATE_FORMAT(service_date, '%Y-%m-%d') = ? AND member_code = ?
                 `, [id, date, memberCode]);
+            }
+        }
+
+        // 대집회 기간 중 수요일/주일인 경우: 기존 구역 성도 및 정규 새참자 정규 출석부(faithon_attendance) 자동 동기화
+        const regularServiceType = getServiceTypeForDate(date);
+        if (regularServiceType) {
+            for (const item of attendanceList) {
+                const memberCode = String(item.member_code || '').trim();
+                // 대집회 전용 새참자(SNC_)는 기존 구역 명단에 없으므로 제외
+                if (!memberCode || memberCode.startsWith('SNC_')) continue;
+
+                const isAttended = item.is_attended ? 1 : 0;
+                if (isAttended === 1) {
+                    await conn.query(`
+                        INSERT INTO faithon_attendance (member_code, service_date, service_type, is_attended)
+                        VALUES (?, ?, ?, TRUE)
+                        ON DUPLICATE KEY UPDATE is_attended = TRUE
+                    `, [memberCode, date, regularServiceType]);
+                } else {
+                    await conn.query(`
+                        INSERT INTO faithon_attendance (member_code, service_date, service_type, is_attended)
+                        VALUES (?, ?, ?, FALSE)
+                        ON DUPLICATE KEY UPDATE is_attended = FALSE
+                    `, [memberCode, date, regularServiceType]);
+                }
             }
         }
 
@@ -4111,8 +4261,47 @@ app.post('/api/mother/config', async (req, res) => {
     }
 });
 
+// 활성 대집회 기간 내 수요일/주일 출석 데이터 정규 출석부 자동 소급 동기화 함수
+async function autoSyncActiveGatheringsRegularAttendance() {
+    let conn;
+    try {
+        conn = await db.pool.getConnection();
+        // 1. 대집회 자동 활성화/만료 생명주기 판별 (시작일 도래 시 자동 활성화, 종료 후 수요일 도래 시 자동 만료)
+        const activeGathering = await resolveCurrentActiveGathering(conn);
+        if (!activeGathering) return;
+
+        // 2. 현재 활성 대집회 수요일/주일 정규 출석부(faithon_attendance) 초고속 일괄 소급 동기화
+        let dates = [];
+        try { dates = JSON.parse(activeGathering.selected_dates || '[]'); } catch (e) {}
+        for (const d of dates) {
+            const sType = getServiceTypeForDate(d);
+            if (!sType) continue;
+
+            const syncRes = await conn.query(`
+                INSERT INTO faithon_attendance (member_code, service_date, service_type, is_attended)
+                SELECT member_code, DATE(service_date), ?, is_attended
+                FROM faithon_special_attendance
+                WHERE gathering_id = ? 
+                  AND DATE_FORMAT(service_date, '%Y-%m-%d') = ? 
+                  AND member_code NOT LIKE 'SNC_%'
+                ON DUPLICATE KEY UPDATE is_attended = VALUES(is_attended)
+            `, [sType, activeGathering.id, d]);
+
+            if (syncRes && syncRes.affectedRows > 0) {
+                console.log(`[FaithOn] Synced ${syncRes.affectedRows} records for ${d} (${sType}) from gathering ${activeGathering.id} to faithon_attendance.`);
+            }
+        }
+    } catch (err) {
+        console.error("[FaithOn] autoSyncActiveGatheringsRegularAttendance error:", err);
+    } finally {
+        if (conn) conn.release();
+    }
+}
+
 const server = app.listen(PORT, () => {
     console.log(`[FaithOn] Server running at http://localhost:${PORT}`);
+    // 서버 기동 시 활성 대집회 수요일/주일 출석 자동 소급 동기화 실행
+    autoSyncActiveGatheringsRegularAttendance();
 });
 
 // Docker 컨테이너 종료(SIGTERM / SIGINT) 시 Graceful Shutdown 처리

@@ -1044,6 +1044,9 @@
                         <span style="display: flex; align-items: center; gap: 4px;">
                             <i class="fa-regular fa-calendar-check"></i> <span id="dateContainerTitle">출석 일자</span>
                         </span>
+                        <span id="specialSyncNotice" style="display: none; font-size: 0.72rem; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 9999px; font-weight: 700; align-items: center; gap: 4px; border: 1px solid #bae6fd;">
+                            <i class="fa-solid fa-arrows-rotate"></i> <span id="specialSyncNoticeText">수요말씀 자동동기화</span>
+                        </span>
                     </div>
                     <div class="date-buttons-scroll" id="recentDatesContainer">
                         <!-- JS Will Render Date Buttons -->
@@ -1488,6 +1491,31 @@
                 `;
                 recentDatesContainer.appendChild(btn);
             });
+
+            // 대집회 선택 일자가 수요일/주일인 경우 자동동기화 안내 배지 갱신
+            const noticeEl = document.getElementById('specialSyncNotice');
+            const noticeText = document.getElementById('specialSyncNoticeText');
+            if (noticeEl && noticeText) {
+                if (currentSessionType === 'special' && currentSelectedDate) {
+                    const parts = currentSelectedDate.split('-');
+                    if (parts.length === 3) {
+                        const dayOfWeek = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)).getDay();
+                        if (dayOfWeek === 3) {
+                            noticeText.textContent = '수요말씀 자동동기화';
+                            noticeEl.style.display = 'inline-flex';
+                        } else if (dayOfWeek === 0) {
+                            noticeText.textContent = '주일말씀 자동동기화';
+                            noticeEl.style.display = 'inline-flex';
+                        } else {
+                            noticeEl.style.display = 'none';
+                        }
+                    } else {
+                        noticeEl.style.display = 'none';
+                    }
+                } else {
+                    noticeEl.style.display = 'none';
+                }
+            }
 
             updateContextDisplays();
         }
