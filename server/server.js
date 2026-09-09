@@ -193,6 +193,206 @@ function hashPassword(password, salt) {
 // 인증(Auth) API Routes
 // ==========================================
 
+// Helper: 성도 번호/아이디로 사용자 식별 및 접근 가능한 모드('area', 'mother') 판별
+async function resolveUserRoleAndModes(conn, activeYear, identifier) {
+    if (!identifier) {
+        return {
+            isAdmin: false,
+            isLeader: false,
+            isAreaHead: false,
+            isMotherLeader: false,
+            allowed_modes: ['area', 'mother'],
+            can_access_mother: true
+        };
+    }
+
+    const isSpecialAdminId = (typeof identifier === 'string' && identifier.trim().toLowerCase() === 'rokmc775');
+    let cleanPhone = isSpecialAdminId ? 'rokmc775' : String(identifier).replace(/[^0-9]/g, '');
+
+    if (!cleanPhone && !isSpecialAdminId) {
+        return {
+            isAdmin: false,
+            isLeader: false,
+            isAreaHead: false,
+            isMotherLeader: false,
+            allowed_modes: ['area', 'mother'],
+            can_access_mother: true
+        };
+    }
+
+    if (isSpecialAdminId) {
+        return {
+            isAdmin: true,
+            isLeader: true,
+            isAreaHead: false,
+            isMotherLeader: true,
+            allowed_modes: ['area', 'mother'],
+            can_access_mother: true,
+            effectivePosition: '관리자',
+            effectiveArea: '11',
+            user: {
+                CODE_NO: 'rokmc775',
+                NAME: '관리자(rokmc775)',
+                PHONE: 'rokmc775',
+                AREA_CODE: '11',
+                POSITION: '관리자',
+                FELLOW_DEPT: '관리자',
+                PA_POSITION: '관리자'
+            }
+        };
+    }
+
+    // CWTB_USER + CWTB_PA 매칭 (개행문자 \r 트림)
+    const users = await conn.query(`
+        SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT, u.SERVICE_DEPT, u.BNS,
+               u.SAL_Y, u.SAL_M, u.SAL_D, u.SALVATION_DATE,
+               pa.POSITION as PA_POSITION, pa.AREA_CODE as PA_AREA_CODE
+        FROM CWTB_USER u
+        LEFT JOIN CWTB_PA pa ON TRIM(REPLACE(REPLACE(pa.NAME, '\\r', ''), '\\n', '')) = TRIM(u.NAME) AND pa.YEAR = ?
+        WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
+          AND u.YEAR = ?
+          AND u.DEL_YN = 'N'
+        LIMIT 1
+    `, [activeYear, cleanPhone, activeYear]);
+
+    let user = null;
+    let isAdmin = false;
+    let effectivePosition = '성도';
+    let effectiveArea = '11';
+
+    if (!users || users.length === 0) {
+        // 출석부 관리자 테이블(WEB_ADMIN_PHONES) 확인
+        const phoneAdminCheck = await conn.query(`
+            SELECT * FROM WEB_ADMIN_PHONES 
+            WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+            LIMIT 1
+        `, [cleanPhone]);
+
+        if (phoneAdminCheck && phoneAdminCheck.length > 0) {
+            isAdmin = true;
+            effectivePosition = '관리자';
+            user = {
+                CODE_NO: cleanPhone,
+                NAME: phoneAdminCheck[0].name || '관리자',
+                PHONE: cleanPhone,
+                AREA_CODE: '11',
+                POSITION: '관리자',
+                FELLOW_DEPT: '관리자',
+                PA_POSITION: '관리자'
+            };
+        } else {
+            return {
+                isAdmin: false,
+                isLeader: false,
+                isAreaHead: false,
+                isMotherLeader: false,
+                allowed_modes: ['area'],
+                can_access_mother: false,
+                notFound: true
+            };
+        }
+    } else {
+        user = users[0];
+        effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
+        effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
+
+        // 관리자 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN, 직책)
+        try {
+            const phoneCheck = await conn.query(`
+                SELECT * FROM WEB_ADMIN_PHONES 
+                WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
+                LIMIT 1
+            `, [cleanPhone]);
+            if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
+
+            const adminCheck = await conn.query(`
+                SELECT * FROM CWTB_ADMIN 
+                WHERE NAME = ?
+                LIMIT 1
+            `, [user.NAME]);
+            if (adminCheck && adminCheck.length > 0) isAdmin = true;
+        } catch (e) {
+            console.error("Admin check query error:", e);
+        }
+
+        if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
+            isAdmin = true;
+        }
+    }
+
+    const hasPaRole = !!(user.PA_POSITION && user.PA_POSITION.trim() && user.PA_POSITION.trim() !== '-');
+    const isSister = (String(user.BNS || '').toUpperCase() === 'S' || String(user.FELLOW_DEPT || '').includes('어'));
+    const isAreaHead = (effectivePosition.includes('구역장') || effectivePosition.includes('부구역장') || effectivePosition.includes('지역장')) && !effectivePosition.includes('어머니');
+    
+    // 어머니회 임원: 자매이면서 구역 임원(PA)인 경우 (구역장/부구역장 제외) or 명칭에 조장/조총무/서기 등
+    const isMotherLeader = (!isAreaHead && isSister && hasPaRole) || effectivePosition.includes('조장') || effectivePosition.includes('조총무') || (effectivePosition.includes('서기') && isSister);
+
+    const isLeader = (
+        hasPaRole ||
+        isAreaHead ||
+        isMotherLeader ||
+        effectivePosition.includes('임원')
+    );
+
+    // 1) 관리자: 형제/자매 불문 두 탭 모두 노출 및 로그인 가능
+    if (isAdmin) {
+        return {
+            isAdmin: true,
+            isLeader: true,
+            isAreaHead: false,
+            isMotherLeader: true,
+            allowed_modes: ['area', 'mother'],
+            can_access_mother: true,
+            effectivePosition,
+            effectiveArea,
+            user
+        };
+    }
+
+    // 2) 구역장, 부구역장: '어머니회(조)체크' 탭 숨김, 오직 구역 출석체크만 허용
+    if (isAreaHead) {
+        return {
+            isAdmin: false,
+            isLeader: true,
+            isAreaHead: true,
+            isMotherLeader: false,
+            allowed_modes: ['area'],
+            can_access_mother: false,
+            effectivePosition,
+            effectiveArea,
+            user
+        };
+    }
+
+    // 3) 어머니회 임원(자매 구역 임원: 조장, 총무, 서기 등): 구역 출석체크 + 어머니회 출석체크 두 탭 모두 노출 및 둘 다 로그인 가능
+    if (isMotherLeader) {
+        return {
+            isAdmin: false,
+            isLeader: true,
+            isAreaHead: false,
+            isMotherLeader: true,
+            allowed_modes: ['area', 'mother'],
+            can_access_mother: true,
+            effectivePosition,
+            effectiveArea,
+            user
+        };
+    }
+
+    // 4) 기타 성도
+    return {
+        isAdmin: false,
+        isLeader: false,
+        isAreaHead: false,
+        isMotherLeader: false,
+        allowed_modes: ['area'],
+        can_access_mother: false,
+        effectivePosition,
+        effectiveArea,
+        user
+    };
+}
+
 // 로그인 (구역임원: 폰번호 + 구원일 8자리 / 관리자: 폰번호/ID + 비밀번호(초기: 069100, 즉시변경 필수))
 app.post('/api/auth/login', async (req, res) => {
     const { phone, password, login_type } = req.body;
@@ -216,137 +416,30 @@ app.post('/api/auth/login', async (req, res) => {
         conn = await db.pool.getConnection();
         const activeYear = await getActiveYear(conn);
 
-        let user;
-        let effectivePosition = '성도';
-        let effectiveArea = '11';
-        let isAdmin = false;
+        // 통합 역할 및 권한 판정
+        const resolved = await resolveUserRoleAndModes(conn, activeYear, cleanPhone);
 
-        if (isSpecialAdminId) {
-            isAdmin = true;
-            effectivePosition = '관리자';
-            effectiveArea = '11';
-            user = {
-                CODE_NO: 'rokmc775',
-                NAME: '관리자(rokmc775)',
-                PHONE: 'rokmc775',
-                AREA_CODE: '11',
-                POSITION: '관리자',
-                FELLOW_DEPT: '관리자',
-                PA_POSITION: '관리자'
-            };
-        } else {
-            // 1. CWTB_USER에서 최신 활성 연도 성도 번호 매칭 (DEL_YN = 'N')
-            const users = await conn.query(`
-                SELECT u.CODE_NO, u.NAME, u.PHONE, u.AREA_CODE, u.POSITION, u.FELLOW_DEPT, u.SERVICE_DEPT,
-                       u.SAL_Y, u.SAL_M, u.SAL_D, u.SALVATION_DATE,
-                       pa.POSITION as PA_POSITION, pa.AREA_CODE as PA_AREA_CODE
-                FROM CWTB_USER u
-                LEFT JOIN CWTB_PA pa ON u.NAME = pa.NAME AND pa.YEAR = ?
-                WHERE REPLACE(REPLACE(u.PHONE, '-', ''), ' ', '') = ?
-                  AND u.YEAR = ?
-                  AND u.DEL_YN = 'N'
-                LIMIT 1
-            `, [activeYear, cleanPhone, activeYear]);
-
-            if (!users || users.length === 0) {
-                // 출석부 관리자 테이블(WEB_ADMIN_PHONES)에 등록된 관리자인지 확인
-                const phoneAdminCheck = await conn.query(`
-                    SELECT * FROM WEB_ADMIN_PHONES 
-                    WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
-                    LIMIT 1
-                `, [cleanPhone]);
-
-                if (phoneAdminCheck && phoneAdminCheck.length > 0) {
-                    isAdmin = true;
-                    effectivePosition = '관리자';
-                    effectiveArea = '11';
-                    user = {
-                        CODE_NO: cleanPhone,
-                        NAME: phoneAdminCheck[0].name || '관리자',
-                        PHONE: cleanPhone,
-                        AREA_CODE: '11',
-                        POSITION: '관리자',
-                        FELLOW_DEPT: '관리자',
-                        PA_POSITION: '관리자'
-                    };
-                } else {
-                    return res.status(401).json({ success: false, error: '접속 권한이 없는 사용자입니다.' });
-                }
-            } else {
-                user = users[0];
-                effectivePosition = (user.PA_POSITION || user.POSITION || '성도').trim();
-                effectiveArea = (user.PA_AREA_CODE ? user.PA_AREA_CODE.replace(/[^0-9]/g, '') : (user.AREA_CODE ? user.AREA_CODE.trim() : '11'));
-
-                // 2. 출석부 관리자 권한 확인 (WEB_ADMIN_PHONES, CWTB_ADMIN 테이블 대조)
-                try {
-                    const phoneCheck = await conn.query(`
-                        SELECT * FROM WEB_ADMIN_PHONES 
-                        WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ?
-                        LIMIT 1
-                    `, [cleanPhone]);
-                    if (phoneCheck && phoneCheck.length > 0) isAdmin = true;
-
-                    const adminCheck = await conn.query(`
-                        SELECT * FROM CWTB_ADMIN 
-                        WHERE NAME = ?
-                        LIMIT 1
-                    `, [user.NAME]);
-                    if (adminCheck && adminCheck.length > 0) isAdmin = true;
-                } catch (e) {
-                    console.error("Admin check query error:", e);
-                }
-
-                if (effectivePosition.includes('관리자') || effectivePosition.includes('봉사부장') || effectivePosition.includes('사목사') || effectivePosition.includes('목사') || effectivePosition.includes('전도사')) {
-                    isAdmin = true;
-                }
-            }
-        }
-
-        const hasPaRole = !!(user.PA_POSITION && user.PA_POSITION.trim() && user.PA_POSITION.trim() !== '-');
-        const isLeader = (
-            hasPaRole ||
-            effectivePosition.includes('구역장') || 
-            effectivePosition.includes('부구역장') || 
-            effectivePosition.includes('조장') || 
-            effectivePosition.includes('조총무') || 
-            effectivePosition.includes('서기') ||
-            effectivePosition.includes('임원') ||
-            effectivePosition.includes('지역장')
-        );
-
-        if (!isAdmin && !isLeader) {
+        if (!resolved.isAdmin && !resolved.isLeader) {
             return res.status(403).json({
                 success: false,
                 error: '접속 권한이 없는 사용자입니다. (구역 임원 및 관리자만 접속 가능)'
             });
         }
 
-        // 로그인 모드별(구역 vs 어머니회) 권한 엄격 분기
-        const isMotherLeader = (
-            effectivePosition.includes('조장') || 
-            effectivePosition.includes('조총무') || 
-            effectivePosition.includes('서기')
-        );
+        const user = resolved.user;
+        const isAdmin = resolved.isAdmin;
+        const isLeader = resolved.isLeader;
+        const effectivePosition = resolved.effectivePosition;
+        const effectiveArea = resolved.effectiveArea;
 
-        const isAreaLeader = (
-            effectivePosition.includes('구역장') || 
-            effectivePosition.includes('부구역장') || 
-            effectivePosition.includes('지역장')
-        );
-
+        // 로그인 모드별 권한 검증:
+        // - 어머니회 모드: 관리자 또는 어머니회 임원만 허용 (구역장/부구역장 차단)
+        // - 구역 모드: 관리자, 구역장, 부구역장, 그리고 어머니회 임원(조장, 총무, 서기) 모두 정상 허용!
         if (mode === 'mother') {
-            if (!isAdmin && !isMotherLeader) {
+            if (!isAdmin && !resolved.isMotherLeader) {
                 return res.status(403).json({
                     success: false,
-                    error: '어머니회 출석체크는 각 조의 조장, 조총무, 서기 및 관리자만 접속 가능합니다.'
-                });
-            }
-        } else {
-            // mode === 'area'
-            if (!isAdmin && !isAreaLeader && isMotherLeader) {
-                return res.status(403).json({
-                    success: false,
-                    error: '어머니회 임원(조장/총무/서기)은 상단의 [어머니회(조) 출석체크] 탭으로 로그인해주세요.'
+                    error: '어머니회 출석체크는 각 조의 어머니회 임원(조장, 총무, 서기) 및 관리자만 접속 가능합니다.'
                 });
             }
         }
@@ -398,6 +491,8 @@ app.post('/api/auth/login', async (req, res) => {
                         scope_type: 'all',
                         scope_code: null,
                         login_type: mode,
+                        can_access_mother: resolved.can_access_mother,
+                        is_mother_leader: resolved.isMotherLeader,
                         active_year: activeYear
                     }
                 });
@@ -435,6 +530,8 @@ app.post('/api/auth/login', async (req, res) => {
                 scope_type,
                 scope_code,
                 login_type: mode,
+                can_access_mother: resolved.can_access_mother,
+                is_mother_leader: resolved.isMotherLeader,
                 active_year: activeYear
             }
         });
@@ -3939,10 +4036,26 @@ app.get('/api/mother/admin/leaders', async (req, res) => {
         const rows = await conn.query(`
             SELECT pa.AREA_CODE, pa.POSITION, pa.NAME, u.PHONE
             FROM CWTB_PA pa
-            LEFT JOIN CWTB_USER u ON pa.NAME = u.NAME AND u.YEAR = ? AND u.DEL_YN = 'N'
-            WHERE pa.YEAR = ? AND pa.POSITION IN ('조장', '조총무', '서기')
+            LEFT JOIN CWTB_USER u 
+              ON TRIM(REPLACE(REPLACE(pa.NAME, '\\r', ''), '\\n', '')) = TRIM(u.NAME) 
+             AND u.YEAR = ? 
+             AND u.DEL_YN = 'N'
+            WHERE pa.YEAR = ? 
+              AND (
+                pa.POSITION IN ('조장', '조총무', '서기')
+                OR (
+                  pa.POSITION NOT LIKE '%구역장%'
+                  AND pa.POSITION NOT LIKE '%지역장%'
+                  AND (u.BNS = 'S' OR u.FELLOW_DEPT IN ('어', '어머니회'))
+                )
+              )
             ORDER BY CAST(REGEXP_REPLACE(pa.AREA_CODE, '[^0-9]', '') AS UNSIGNED) ASC,
-                     CASE WHEN pa.POSITION = '조장' THEN 1 WHEN pa.POSITION = '조총무' THEN 2 WHEN pa.POSITION = '서기' THEN 3 ELSE 4 END ASC
+                     CASE 
+                       WHEN pa.POSITION = '조장' THEN 1 
+                       WHEN pa.POSITION IN ('조총무', '총무') THEN 2 
+                       WHEN pa.POSITION = '서기' THEN 3 
+                       ELSE 4 
+                     END ASC
         `, [activeYear, activeYear]);
         res.json({ success: true, leaders: rows });
     } catch (err) {
