@@ -103,6 +103,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-shrink: 0;
         }
 
         .btn-header {
@@ -119,6 +120,8 @@
             gap: 5px;
             transition: all 0.2s ease;
             text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .btn-header:hover {
@@ -788,8 +791,8 @@
             </div>
 
             <div class="header-actions">
-                <button type="button" id="btnSwitchToArea" onclick="switchToAreaAttend()" class="btn-header" style="display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; border: 1.5px solid #93c5fd; color: #1428A0; font-weight: 800; font-size: 0.8rem; border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 4px rgba(20, 40, 160, 0.12);" title="구역 출석부로 전환">
-                    <i class="fa-solid fa-people-roof" style="color: #1428A0;"></i> <span>구역 출석부</span>
+                <button type="button" id="btnSwitchToArea" onclick="switchToAreaAttend()" class="btn-header" style="display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; border: 1.5px solid #93c5fd; color: #1428A0; font-weight: 800; font-size: 0.78rem; border-radius: 20px; padding: 4px 9px; cursor: pointer; box-shadow: 0 1px 4px rgba(20, 40, 160, 0.12); white-space: nowrap; flex-shrink: 0;" title="구역 출석부로 전환">
+                    <i class="fa-solid fa-people-roof" style="color: #1428A0;"></i> <span>구역출석</span>
                 </button>
                 <a href="/admin_mother.html" id="adminLinkBtn" class="btn-header admin-btn" style="display: none;">
                     <i class="fa-solid fa-crown"></i> 관리자
