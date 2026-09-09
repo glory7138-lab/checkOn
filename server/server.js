@@ -393,30 +393,6 @@ async function resolveUserRoleAndModes(conn, activeYear, identifier) {
     };
 }
 
-// 0. 로그인 탭 가시성 확인 API (입력 번호/ID에 따라 어머니회 탭 노출 여부 반환)
-app.get('/api/auth/inspect-modes', async (req, res) => {
-    const identifier = req.query.identifier || '';
-    let conn;
-    try {
-        conn = await db.pool.getConnection();
-        const activeYear = await getActiveYear(conn);
-        const resolved = await resolveUserRoleAndModes(conn, activeYear, identifier);
-        res.json({
-            success: true,
-            allowed_modes: resolved.allowed_modes,
-            can_access_mother: resolved.can_access_mother,
-            is_admin: resolved.isAdmin,
-            is_area_head: resolved.isAreaHead,
-            is_mother_leader: resolved.isMotherLeader
-        });
-    } catch (err) {
-        console.error("GET /api/auth/inspect-modes error:", err);
-        res.status(500).json({ success: false, error: err.message, can_access_mother: true, allowed_modes: ['area', 'mother'] });
-    } finally {
-        if (conn) conn.release();
-    }
-});
-
 // 로그인 (구역임원: 폰번호 + 구원일 8자리 / 관리자: 폰번호/ID + 비밀번호(초기: 069100, 즉시변경 필수))
 app.post('/api/auth/login', async (req, res) => {
     const { phone, password, login_type } = req.body;
